@@ -50,36 +50,23 @@ namespace DeadCellsMultiplayerMod.Ghost
                 playReleaseSfx(null, null, Ref<bool>.Null, null, null);
             }
 
-            var fxId = ReadFxId(cinf);
-            if(fxId == null)
-                return;
-
-            var lib = Assets.Class.fxWeapon;
-            var groups = lib?.groups;
-            if(groups == null || !groups.exists(fxId))
-            {
-                return;
-            }
-            var group = groups.get(fxId) as LibGroup;
-            if(group == null || group.frames == null || group.frames.length == 0)
-            {
-                return;
-            }
-
             var fx = source?._level?.fx ?? owner?._level?.fx;
             if(fx == null) return;
 
             var castSpeed = get_curSkill()?.getCastSpeed() ?? 1.0;
             try
             {
-                if(source?.spr != null)
+                HSprite? animSpr = null;
+                if(source != null)
                 {
-                    lastFx = fx.playWeaponAnimFromObject(source.spr, cinf, castSpeed, null, null, null, null, null);
+                    try { animSpr = fx.playWeaponAnim(source, cinf, castSpeed, null, null, null); } catch { }
                 }
-                else
+                if(animSpr == null && source?.spr != null)
                 {
-                    lastFx = fx.playWeaponAnim(owner, cinf, castSpeed, null, null, null);
+                    try { animSpr = fx.playWeaponAnimFromObject(source.spr, cinf, castSpeed, null, null, null, null, null); } catch { }
                 }
+                if(animSpr != null)
+                    lastFx = animSpr;
             }
             catch
             {

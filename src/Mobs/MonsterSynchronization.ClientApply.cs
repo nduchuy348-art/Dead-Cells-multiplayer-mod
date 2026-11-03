@@ -3,6 +3,7 @@ using System.Diagnostics;
 using dc;
 using dc.en;
 using dc.libs.heaps.slib._AnimManager;
+using DeadCellsMultiplayerMod.Ghost;
 using DeadCellsMultiplayerMod.Mobs.Bosses;
 using ModCore.Utilities;
 
@@ -48,8 +49,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             var jumpLikeMotion =
                 hasGravity &&
                 (IsJumpLikeAnimPayload(target.AnimPayload) ||
-                 (networkAttackActive &&
-                  double.IsFinite(target.Dy) &&
+                 (double.IsFinite(target.Dy) &&
                   System.Math.Abs(target.Dy) > ClientJumpVelocityEpsilon));
             var preserveLocalMotion = HasLocalQueuedOrChargingSkill(self) || networkAttackActive;
 
@@ -111,75 +111,46 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     hasGravity &&
                     (forceVerticalPositionSnap || recoverGroundedMobFromBelowFloor);
 
+                var verticalMismatchLarge = System.Math.Abs(deltaY) >= ClientGroundedMaxVerticalMismatchPx;
                 var syncY = !hasGravity ||
                             jumpLikeMotion ||
                             IsClientVerticalSyncEnabled() ||
-                            safeGroundedLanding;
+                            safeGroundedLanding ||
+                            verticalMismatchLarge;
                 var hardSnapY = (!hasGravity && hardSnapX) || safeGroundedLanding;
 
                 double lerpedX;
-                if (hasGravity && forcePositionSnap)
+                if (forcePositionSnap || hardSnapX)
                 {
-                    // Teleports are discontinuous in X. Y uses the safe landing path below.
                     lerpedX = predictedX;
-                }
-                else if (hasGravity)
-                {
-                    var desiredStep = 0.0;
-                    var absDeltaXForGate = System.Math.Abs(deltaX);
-                    var canCorrectHorizontally =
-                        System.Math.Abs(deltaY) <= ClientGroundedMaxVerticalMismatchPx ||
-                        jumpLikeMotion ||
-                        // Escape hatch: a grounded mob whose vertical mismatch normally blocks
-                        // horizontal correction would otherwise FREEZE in X forever when it lands
-                        // on a differently-elevated spot (high-BC blink onto another platform).
-                        // Once the horizontal error is large, allow X convergence regardless of
-                        // the vertical gap — the safe-landing/vertical paths handle Y separately.
-                        absDeltaXForGate >= ClientGroundedMaxDirectCorrectionDistancePx;
-
-                    if (canCorrectHorizontally)
-                    {
-                        var absDeltaX = System.Math.Abs(deltaX);
-                        if (absDeltaX <= ClientGroundedMaxDirectCorrectionDistancePx)
-                        {
-                            var groundedAlphaCeiling = System.Math.Max(0.35, interpolationAlpha);
-                            var distanceAlpha = System.Math.Min(
-                                0.35 + absDeltaX / (PixelsPerCase * 8.0),
-                                groundedAlphaCeiling);
-                            var maxStep = System.Math.Clamp(
-                                ClientGroundedBaseCorrectionPxPerFrame + System.Math.Abs(velocityXPx) * 0.35,
-                                ClientGroundedBaseCorrectionPxPerFrame,
-                                jumpLikeMotion || preserveLocalMotion
-                                    ? ClientGroundedLargeDriftCorrectionPxPerFrame
-                                    : ClientGroundedMaxCorrectionPxPerFrame);
-                            desiredStep = absDeltaX < 0.20
-                                ? 0.0
-                                : System.Math.Clamp(deltaX * distanceAlpha, -maxStep, maxStep);
-                        }
-                        else
-                        {
-                            var maxStep = absDeltaX >= ClientGroundedEmergencyDriftDistancePx
-                                ? ClientGroundedEmergencyDriftCorrectionPxPerFrame
-                                : ClientGroundedLargeDriftCorrectionPxPerFrame;
-                            desiredStep = System.Math.Clamp(deltaX, -maxStep, maxStep);
-                        }
-                    }
-
-                    lerpedX = currentX + desiredStep;
                 }
                 else
                 {
-                    lerpedX = hardSnapX
-                        ? predictedX
-                        : currentX + deltaX * interpolationAlpha;
+                    lerpedX = CombatSyncHelpers.SmoothStepPosition(
+                        currentX,
+                        predictedX,
+                        interpolationAlpha,
+                        snapThreshold: ClientAuthoritativeHardSnapDistancePx,
+                        closeThreshold: 0.20);
                 }
 
-                var lerpedY = currentY;
-                if (syncY)
+                double lerpedY;
+                if (safeGroundedLanding)
                 {
-                    lerpedY = safeGroundedLanding
-                        ? predictedY - ClientGroundedSafeLandingLiftPx
-                        : (hardSnapY ? predictedY : currentY + deltaY * interpolationAlpha);
+                    lerpedY = predictedY - ClientGroundedSafeLandingLiftPx;
+                }
+                else if (forcePositionSnap || forceVerticalPositionSnap || hardSnapY)
+                {
+                    lerpedY = predictedY;
+                }
+                else
+                {
+                    lerpedY = CombatSyncHelpers.SmoothStepPosition(
+                        currentY,
+                        predictedY,
+                        interpolationAlpha,
+                        snapThreshold: ClientAuthoritativeHardSnapDistancePx,
+                        closeThreshold: 0.20);
                 }
 
                 try

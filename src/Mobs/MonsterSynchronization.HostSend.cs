@@ -428,7 +428,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             priority switch
             {
                 HostMobSyncPriority.Active => MobStatePositionEpsilon,
-                HostMobSyncPriority.MidRange => HostMobStateMidPositionEpsilon,
+                HostMobSyncPriority.MidRange => MobStatePositionEpsilon,
                 _ => HostMobStateDormantPositionEpsilon
             };
 

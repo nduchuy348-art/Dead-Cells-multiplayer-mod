@@ -417,6 +417,7 @@ namespace DeadCellsMultiplayerMod
         public static double[] rTargetX = new double[NetNode.MaxClientSlots];
         public static double[] rTargetY = new double[NetNode.MaxClientSlots];
         public static bool[] rHasTarget = new bool[NetNode.MaxClientSlots];
+        private static readonly long[] s_clientLastRunSmokeTicks = new long[NetNode.MaxClientSlots];
 
         internal static bool TryGetClientIndex(int localId, int remoteId, out int index)
         {
@@ -1738,26 +1739,51 @@ namespace DeadCellsMultiplayerMod
                 return;
             }
 
-            if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsLandingTransition(prevAnim, anim))
+            try
             {
-                try
+                var fx = client._level?.fx ?? me?._level?.fx;
+                if (fx != null && client.spr != null)
                 {
-                    var fx = client._level?.fx ?? me?._level?.fx;
-                    if (fx != null && client.spr != null)
+                    var lx = client.spr.x;
+                    var ly = client.spr.y;
+                    var cx = client.cx != 0 ? client.cx : (int)Math.Floor(lx / 24.0);
+                    var cy = client.cy != 0 ? client.cy : (int)Math.Floor(ly / 24.0);
+                    var dir = client.dir != 0 ? client.dir : 1;
+
+                    if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsLandingTransition(prevAnim, anim))
                     {
-                        var lx = client.spr.x;
-                        var ly = client.spr.y;
                         fx.dust(lx, ly, 12.0, 6, 0);
                         fx.landSmoke(lx, ly, null);
-                        if (anim.IndexOf("land", StringComparison.OrdinalIgnoreCase) >= 0)
+                        if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsHardLanding(anim) ||
+                            DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsHardLanding(prevAnim))
                         {
+                            fx.breakGroundLight(cx, cy, 1, 1);
                             fx.landHeavy(lx, ly, null, null);
                         }
                     }
+                    else if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsJumpTransition(prevAnim, anim))
+                    {
+                        fx.jumpFrom(lx, ly, dir, 0);
+                        fx.dust(lx, ly, 8.0, 4, 0);
+                    }
+                    else if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsRollTransition(prevAnim, anim))
+                    {
+                        fx.dodgeStart(lx, ly, dir, 0);
+                        fx.dust(lx, ly, 10.0, 5, 0);
+                    }
+                    else if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsWallTransition(prevAnim, anim))
+                    {
+                        fx.grabJump(lx, ly, dir);
+                        try { fx.wallGrabPush(client, null); } catch { }
+                    }
+                    else if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsDiveTransition(prevAnim, anim))
+                    {
+                        try { fx.fastFall(client); } catch { }
+                    }
                 }
-                catch
-                {
-                }
+            }
+            catch
+            {
             }
 
             if (anim.IndexOf("hold", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -1812,6 +1838,27 @@ namespace DeadCellsMultiplayerMod
                     client.setPosPixel(newX, newY);
                     rLastX[i] = newX;
                     rLastY[i] = newY;
+
+                    if (Math.Abs(newX - currentX) > 0.5)
+                    {
+                        var now = Stopwatch.GetTimestamp();
+                        if (now - s_clientLastRunSmokeTicks[i] >= (long)(Stopwatch.Frequency * 0.22))
+                        {
+                            var group = client.spr?.groupName?.ToString();
+                            if (!string.IsNullOrEmpty(group) &&
+                                (group.StartsWith("run", StringComparison.OrdinalIgnoreCase) ||
+                                 group.StartsWith("walk", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                try
+                                {
+                                    var fx = client._level?.fx ?? me?._level?.fx;
+                                    fx?.runSmoke(newX, newY, client.dir != 0 ? client.dir : 1, 0);
+                                    s_clientLastRunSmokeTicks[i] = now;
+                                }
+                                catch { }
+                            }
+                        }
+                    }
                 }
             }
         }

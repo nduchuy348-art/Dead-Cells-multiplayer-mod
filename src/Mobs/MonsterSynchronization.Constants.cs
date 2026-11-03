@@ -64,8 +64,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         private const double ClientAuthoritativeHardSnapDistancePx = 24.0 * 10.0;
         /// <summary>Clamp host velocity prediction so reduced-rate packets cannot overshoot through walls on clients.</summary>
         private const double ClientMaxPredictionFrames = 4.0;
-        /// <summary>Ground mobs use only a short local-time prediction window so corrections feel responsive without skipping collision.</summary>
-        private const double ClientGroundedMaxPredictionFrames = 1.5;
+        /// <summary>Ground mobs use a local-time prediction window so corrections feel responsive without skipping collision.</summary>
+        private const double ClientGroundedMaxPredictionFrames = 2.5;
         /// <summary>Ground mobs are corrected in small X steps. Direct large setPos snaps cut through solid tiles and corners.</summary>
         private const double ClientGroundedBaseCorrectionPxPerFrame = 2.25;
         private const double ClientGroundedMaxCorrectionPxPerFrame = 4.50;

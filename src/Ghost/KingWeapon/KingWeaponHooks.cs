@@ -3,8 +3,10 @@ using dc.en;
 using dc.en.loot;
 using dc.hl.types;
 using dc.hxd.res;
+using dc.libs.heaps.slib;
 using dc.tool;
 using dc.tool.atk;
+using dc.tool.skill;
 using dc.tool.weap;
 using Hashlink.Virtuals;
 using HaxeProxy.Runtime;
@@ -107,11 +109,18 @@ internal static class KingWeaponHooks
         Hook_BaseShield.onShieldCounterSuccessful += Hook_BaseShield_onShieldCounterSuccessful;
         Hook_BaseShield.counterGrenade += Hook_BaseShield_counterGrenade;
         Hook_BaseShield.counterBullet += Hook_BaseShield_counterBullet;
+        Hook_BaseShield.triggerParryFeedbacks += Hook_BaseShield_triggerParryFeedbacks;
 
         Hook_Ammo.startMagnet += Hook_Ammo_startMagnet;
         Hook_Ammo.postUpdate += Hook_Ammo_postUpdate;
         Hook_Ammo.retrieve += Hook_Ammo_retrieve;
         Hook_Ammo.pickUp += Hook_Ammo_pickUp;
+
+        Hook_OldSkill.playSfx += Hook_OldSkill_playSfx;
+        Hook_OldSkill.playChargeSfx += Hook_OldSkill_playChargeSfx;
+        Hook_OldSkill.playReleaseSfx += Hook_OldSkill_playReleaseSfx;
+        Hook_OldSkill.playHitSfx += Hook_OldSkill_playHitSfx;
+        Hook_OldSkill.playCustomSfx += Hook_OldSkill_playCustomSfx;
     }
 
     private static InventItem Hook_Inventory_add(Hook_Inventory.orig_add orig, Inventory self, InventItem i)
@@ -430,10 +439,23 @@ internal static class KingWeaponHooks
     {
         if(KingWeaponSupport.IsKingWeapon(self))
         {
-            KingWeaponSupport.PatchCurrentSkill(self);
-            KingWeaponSupport.WithKingContext(self, () => orig(self, attackSpeed));
-            KingWeaponSupport.PatchCurrentSkill(self);
-            KingWeaponSupport.SyncSource(self);
+            var spatialVol = CalculateSpatializedVolume(self, 1.0);
+            var prevDisable = self.disableSounds;
+            if(!spatialVol.HasValue)
+            {
+                self.disableSounds = true;
+            }
+            try
+            {
+                KingWeaponSupport.PatchCurrentSkill(self);
+                KingWeaponSupport.WithKingContext(self, () => orig(self, attackSpeed));
+                KingWeaponSupport.PatchCurrentSkill(self);
+                KingWeaponSupport.SyncSource(self);
+            }
+            finally
+            {
+                self.disableSounds = prevDisable;
+            }
             return;
         }
 
@@ -545,29 +567,6 @@ internal static class KingWeaponHooks
     {
         if(KingWeaponSupport.IsKingWeapon(self))
         {
-            if(KingWeaponSupport.TryGetSource(self, out var source) && source?.spr != null)
-            {
-                try
-                {
-                    var fx = source._level?.fx ?? self.owner?._level?.fx;
-                    if(fx != null && a != null)
-                    {
-                        var castSpeed = self.get_curSkill()?.getCastSpeed() ?? 1.0;
-                        var animSpr = fx.playWeaponAnimFromObject(source.spr, a, castSpeed, null, null, null, null, null);
-                        if(animSpr == null)
-                        {
-                            try { animSpr = fx.playWeaponAnim(source, a, castSpeed, null, null, null); } catch { }
-                        }
-                        if(animSpr != null)
-                            self.lastFx = animSpr;
-                    }
-                }
-                catch(Exception ex)
-                {
-                    LogKingWeaponHookEx(ex, "Weapon.dynOnAttackAnim.RemoteFx");
-                }
-            }
-
             var prevDisable = self.disableSounds;
             self.disableSounds = true;
             try
@@ -582,10 +581,6 @@ internal static class KingWeaponHooks
                 self.disableSounds = prevDisable;
             }
 
-            if(!self.disableSounds && !self.customSoundManagement)
-            {
-                try { self.playReleaseSfx(null, null, Ref<bool>.Null, null, null); } catch { }
-            }
             return;
         }
 
@@ -598,8 +593,16 @@ internal static class KingWeaponHooks
         if(hero == null)
             return originalVolume;
 
-        if(!KingWeaponSupport.TryGetSource(self, out var source) || source == null)
-            return originalVolume;
+        KingSkin? source = null;
+        if(!KingWeaponSupport.TryGetSource(self, out source) || source == null)
+        {
+            source = (object)self.owner as KingSkin;
+        }
+
+        if(source == null)
+        {
+            return KingWeaponSupport.IsKingWeapon(self) ? null : originalVolume;
+        }
 
         double heroX = hero.cx + hero.xr;
         double heroY = hero.cy + hero.yr;
@@ -617,25 +620,38 @@ internal static class KingWeaponHooks
     {
         if(KingWeaponSupport.IsKingWeapon(self))
         {
-            if(KingWeaponSupport.TryGetSource(self, out var source) && source?.spr != null)
+            if(KingWeaponSupport.TryGetSource(self, out var source))
             {
                 try
                 {
                     var fx = source._level?.fx ?? self.owner?._level?.fx;
-                    if(fx != null && cinf != null && (self.lastFx == null || self.lastFx.destroyed))
+                    if(fx != null && cinf != null)
                     {
                         var castSpeed = self.get_curSkill()?.getCastSpeed() ?? 1.0;
-                        var animSpr = fx.playWeaponAnimFromObject(source.spr, cinf, castSpeed, null, null, null, null, null);
-                        if(animSpr == null)
+                        HSprite? animSpr = null;
+                        try
                         {
-                            try { animSpr = fx.playWeaponAnim(source, cinf, castSpeed, null, null, null); } catch { }
+                            animSpr = fx.playWeaponAnim(source, cinf, castSpeed, null, null, null);
                         }
+                        catch { }
+
+                        if(animSpr == null && source.spr != null)
+                        {
+                            try
+                            {
+                                animSpr = fx.playWeaponAnimFromObject(source.spr, cinf, castSpeed, null, null, null, null, null);
+                            }
+                            catch { }
+                        }
+
                         if(animSpr != null)
                             self.lastFx = animSpr;
                     }
-                    if(!self.disableSounds && !self.customSoundManagement)
+
+                    var spatialVol = CalculateSpatializedVolume(self, 1.0);
+                    if(spatialVol.HasValue && !self.disableSounds && !self.customSoundManagement)
                     {
-                        try { self.playReleaseSfx(null, null, Ref<bool>.Null, null, null); } catch { }
+                        try { self.playReleaseSfx(spatialVol.Value, null, Ref<bool>.Null, null, null); } catch { }
                     }
                 }
                 catch(Exception ex)
@@ -945,6 +961,25 @@ internal static class KingWeaponHooks
 
     private static void Hook_BaseShield_onShieldChargeStart(Hook_BaseShield.orig_onShieldChargeStart orig, BaseShield self)
     {
+        if(KingWeaponSupport.IsKingWeapon(self))
+        {
+            var spatialVol = CalculateSpatializedVolume(self, 1.0);
+            var prevDisable = self.disableSounds;
+            if(!spatialVol.HasValue)
+            {
+                self.disableSounds = true;
+            }
+            try
+            {
+                RunBaseShieldHookVoid(self, () => orig(self));
+            }
+            finally
+            {
+                self.disableSounds = prevDisable;
+            }
+            return;
+        }
+
         RunBaseShieldHookVoid(self, () => orig(self));
     }
 
@@ -986,17 +1021,30 @@ internal static class KingWeaponHooks
 
         if(KingWeaponSupport.IsKingWeapon(self))
         {
-            KingWeaponSupport.WithKingContext(self, () =>
+            var spatialVol = CalculateSpatializedVolume(self, 1.0);
+            var prevDisable = self.disableSounds;
+            if(!spatialVol.HasValue)
             {
-                try
+                self.disableSounds = true;
+            }
+            try
+            {
+                KingWeaponSupport.WithKingContext(self, () =>
                 {
-                    orig(self, ratio);
-                }
-                catch(Exception ex)
-                {
-                    LogKingWeaponHookEx(ex, "BaseShield.onShieldHolding");
-                }
-            });
+                    try
+                    {
+                        orig(self, ratio);
+                    }
+                    catch(Exception ex)
+                    {
+                        LogKingWeaponHookEx(ex, "BaseShield.onShieldHolding");
+                    }
+                });
+            }
+            finally
+            {
+                self.disableSounds = prevDisable;
+            }
             return;
         }
 
@@ -1012,6 +1060,11 @@ internal static class KingWeaponHooks
     private static void Hook_BaseShield_onShieldCounterSuccessful(Hook_BaseShield.orig_onShieldCounterSuccessful orig, BaseShield self, AttackData sourceAtk, bool fullParry)
     {
         RunBaseShieldHookVoid(self, () => orig(self, sourceAtk, fullParry));
+    }
+
+    private static void Hook_BaseShield_triggerParryFeedbacks(Hook_BaseShield.orig_triggerParryFeedbacks orig, BaseShield self)
+    {
+        RunBaseShieldHookVoid(self, () => orig(self));
     }
 
     private static void Hook_BaseShield_counterGrenade(Hook_BaseShield.orig_counterGrenade orig, BaseShield self, Grenade repelled)
@@ -1031,17 +1084,30 @@ internal static class KingWeaponHooks
 
         if(KingWeaponSupport.IsKingWeapon(self))
         {
-            KingWeaponSupport.WithKingContext(self, () =>
+            var spatialVol = CalculateSpatializedVolume(self, 1.0);
+            var prevDisable = self.disableSounds;
+            if(!spatialVol.HasValue)
             {
-                try
+                self.disableSounds = true;
+            }
+            try
+            {
+                KingWeaponSupport.WithKingContext(self, () =>
                 {
-                    origCall();
-                }
-                catch(Exception ex)
-                {
-                    LogKingWeaponHookEx(ex, "BaseShield");
-                }
-            });
+                    try
+                    {
+                        origCall();
+                    }
+                    catch(Exception ex)
+                    {
+                        LogKingWeaponHookEx(ex, "BaseShield");
+                    }
+                });
+            }
+            finally
+            {
+                self.disableSounds = prevDisable;
+            }
             return;
         }
 
@@ -1507,5 +1573,202 @@ internal static class KingWeaponHooks
             try { ammo.vanish(); } catch { }
             try { ammo.destroy(); } catch { }
         }
+    }
+
+    private static bool TryGetOldSkillRemoteSource(OldSkill self, out KingSkin? source)
+    {
+        source = null;
+        if(self == null) return false;
+
+        try
+        {
+            if(self is WeaponSkill ws && ws.weapon != null)
+            {
+                if(KingWeaponSupport.TryGetSource(ws.weapon, out var s) && s != null)
+                {
+                    source = s;
+                    return true;
+                }
+                if((object)ws.weapon.owner is KingSkin ks)
+                {
+                    source = ks;
+                    return true;
+                }
+                if(KingWeaponSupport.IsKingWeapon(ws.weapon))
+                {
+                    return true;
+                }
+            }
+
+            if(self.owner is KingSkin ownerKs)
+            {
+                source = ownerKs;
+                return true;
+            }
+        }
+        catch { }
+
+        return false;
+    }
+
+    private static double? CalculateSpatializedVolumeForOldSkill(OldSkill self, double? originalVolume)
+    {
+        if(!TryGetOldSkillRemoteSource(self, out var source))
+            return originalVolume;
+
+        if(source == null)
+            return null; // Remote skill with unresolved source -> mute
+
+        var hero = ModEntry.me;
+        if(hero == null)
+            return originalVolume;
+
+        double heroX = hero.cx + hero.xr;
+        double heroY = hero.cy + hero.yr;
+        double srcX = source.cx + source.xr;
+        double srcY = source.cy + source.yr;
+
+        return CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, srcX, srcY, originalVolume);
+    }
+
+    private static void Hook_OldSkill_playSfx(
+        Hook_OldSkill.orig_playSfx orig,
+        OldSkill self,
+        Sound sfx,
+        HlFunc<bool> holdCond,
+        bool loop,
+        double fadeOutTime,
+        double volume,
+        double? pitch)
+    {
+        if(KingWeaponSupport.IsInKingContext)
+        {
+            orig(self, sfx, holdCond, loop, fadeOutTime, volume, pitch);
+            return;
+        }
+
+        if(TryGetOldSkillRemoteSource(self, out _))
+        {
+            var spatialVol = CalculateSpatializedVolumeForOldSkill(self, volume);
+            if(!spatialVol.HasValue)
+                return;
+
+            try { orig(self, sfx, holdCond, loop, fadeOutTime, spatialVol.Value, pitch); } catch { }
+            return;
+        }
+
+        orig(self, sfx, holdCond, loop, fadeOutTime, volume, pitch);
+    }
+
+    private static void Hook_OldSkill_playChargeSfx(
+        Hook_OldSkill.orig_playChargeSfx orig,
+        OldSkill self,
+        double? volume,
+        HlFunc<bool> holdCond,
+        Ref<bool> loop,
+        Ref<double> fadeOutTime,
+        double? pitch)
+    {
+        if(KingWeaponSupport.IsInKingContext)
+        {
+            orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+            return;
+        }
+
+        if(TryGetOldSkillRemoteSource(self, out _))
+        {
+            var spatialVol = CalculateSpatializedVolumeForOldSkill(self, volume);
+            if(!spatialVol.HasValue)
+                return;
+
+            try { orig(self, spatialVol.Value, holdCond, loop, fadeOutTime, pitch); } catch { }
+            return;
+        }
+
+        orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+    }
+
+    private static void Hook_OldSkill_playReleaseSfx(
+        Hook_OldSkill.orig_playReleaseSfx orig,
+        OldSkill self,
+        double? volume,
+        HlFunc<bool> holdCond,
+        Ref<bool> loop,
+        Ref<double> fadeOutTime,
+        double? pitch)
+    {
+        if(KingWeaponSupport.IsInKingContext)
+        {
+            orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+            return;
+        }
+
+        if(TryGetOldSkillRemoteSource(self, out _))
+        {
+            var spatialVol = CalculateSpatializedVolumeForOldSkill(self, volume);
+            if(!spatialVol.HasValue)
+                return;
+
+            try { orig(self, spatialVol.Value, holdCond, loop, fadeOutTime, pitch); } catch { }
+            return;
+        }
+
+        orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+    }
+
+    private static void Hook_OldSkill_playHitSfx(
+        Hook_OldSkill.orig_playHitSfx orig,
+        OldSkill self,
+        double? volume,
+        HlFunc<bool> holdCond,
+        Ref<bool> loop,
+        Ref<double> fadeOutTime,
+        double? pitch)
+    {
+        if(KingWeaponSupport.IsInKingContext)
+        {
+            orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+            return;
+        }
+
+        if(TryGetOldSkillRemoteSource(self, out _))
+        {
+            var spatialVol = CalculateSpatializedVolumeForOldSkill(self, volume);
+            if(!spatialVol.HasValue)
+                return;
+
+            try { orig(self, spatialVol.Value, holdCond, loop, fadeOutTime, pitch); } catch { }
+            return;
+        }
+
+        orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+    }
+
+    private static void Hook_OldSkill_playCustomSfx(
+        Hook_OldSkill.orig_playCustomSfx orig,
+        OldSkill self,
+        double? volume,
+        HlFunc<bool> holdCond,
+        Ref<bool> loop,
+        Ref<double> fadeOutTime,
+        double? pitch)
+    {
+        if(KingWeaponSupport.IsInKingContext)
+        {
+            orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+            return;
+        }
+
+        if(TryGetOldSkillRemoteSource(self, out _))
+        {
+            var spatialVol = CalculateSpatializedVolumeForOldSkill(self, volume);
+            if(!spatialVol.HasValue)
+                return;
+
+            try { orig(self, spatialVol.Value, holdCond, loop, fadeOutTime, pitch); } catch { }
+            return;
+        }
+
+        orig(self, volume, holdCond, loop, fadeOutTime, pitch);
     }
 }

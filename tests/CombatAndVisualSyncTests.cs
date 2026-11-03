@@ -165,4 +165,113 @@ public sealed class CombatAndVisualSyncTests
         // NaN coordinates
         Assert.Null(CombatSyncHelpers.CalculateSpatializedVolume(double.NaN, 0, 0, 0, 1.0));
     }
+
+    [Fact]
+    public void ShieldRaiseSpatialization_MutesDistantShieldRaiseAndScalesNearby()
+    {
+        // 50 cases away (remote player far away): completely muted (null)
+        var distantShield = CombatSyncHelpers.CalculateSpatializedVolume(0, 0, 50, 0, 1.0, CombatSyncHelpers.DefaultMaxSoundDistanceCases);
+        Assert.Null(distantShield);
+
+        // 30 cases away (beyond max distance of 26 cases): completely muted (null)
+        var beyondMax = CombatSyncHelpers.CalculateSpatializedVolume(100, 200, 100, 230, 1.0, CombatSyncHelpers.DefaultMaxSoundDistanceCases);
+        Assert.Null(beyondMax);
+
+        // Right next to each other (co-located): full volume
+        var adjacentShield = CombatSyncHelpers.CalculateSpatializedVolume(10, 10, 10, 10, 1.0, CombatSyncHelpers.DefaultMaxSoundDistanceCases);
+        Assert.NotNull(adjacentShield);
+        Assert.Equal(1.0, adjacentShield.Value, 2);
+
+        // Intermediate distance (e.g. 13 cases): attenuated smoothly
+        var midShield = CombatSyncHelpers.CalculateSpatializedVolume(0, 0, 13, 0, 1.0, CombatSyncHelpers.DefaultMaxSoundDistanceCases);
+        Assert.NotNull(midShield);
+        Assert.Equal(0.25, midShield.Value, 2);
+    }
+
+    [Fact]
+    public void MobSmoothStepPosition_SmoothsWithMobInterpolationAlpha()
+    {
+        const double MobAlpha = 0.72;
+        const double MobSnapDistance = 24.0 * 10.0; // 240 px
+        const double MobCloseThreshold = 0.20;
+
+        // Normal walk step (delta = 4 px): smooths by 72%
+        var step = CombatSyncHelpers.SmoothStepPosition(100.0, 104.0, MobAlpha, MobSnapDistance, MobCloseThreshold);
+        Assert.Equal(102.88, step, 2);
+
+        // Sub-pixel jitter (< 0.20 px): snaps to target to eliminate jitter
+        var micro = CombatSyncHelpers.SmoothStepPosition(100.0, 100.15, MobAlpha, MobSnapDistance, MobCloseThreshold);
+        Assert.Equal(100.15, micro, 2);
+
+        // Teleport / Warp (> 240 px): snaps directly to target
+        var warp = CombatSyncHelpers.SmoothStepPosition(100.0, 400.0, MobAlpha, MobSnapDistance, MobCloseThreshold);
+        Assert.Equal(400.0, warp, 2);
+
+        // Lag acceleration when delta > 32 px: dynamic factor increases
+        var lagStep = CombatSyncHelpers.SmoothStepPosition(100.0, 160.0, MobAlpha, MobSnapDistance, MobCloseThreshold);
+        // delta = 60 > 32 -> factor = min(0.90, 0.72 + (60 - 32)/100) = 0.90 -> 100 + 60 * 0.90 = 154.0
+        Assert.Equal(154.0, lagStep, 2);
+    }
+
+    [Theory]
+    [InlineData("land", false)]
+    [InlineData("jumpLand", false)]
+    [InlineData("hardLand", true)]
+    [InlineData("heavyLand", true)]
+    [InlineData("dive", true)]
+    [InlineData("downAtk", true)]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    public void IsHardLanding_DistinguishesSoftAndHardLandings(string? anim, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsHardLanding(anim));
+    }
+
+    [Theory]
+    [InlineData("idle", "jump", true)]
+    [InlineData("run", "jump", true)]
+    [InlineData("run", "leap", true)]
+    [InlineData("fall", "jump", false)] // Already airborne
+    [InlineData("jump", "jump", false)] // Already airborne
+    [InlineData(null, "jump", true)]
+    [InlineData("idle", "run", false)]
+    [InlineData("run", null, false)]
+    public void IsJumpTransition_DetectsNewJumpFromGround(string? prev, string? next, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsJumpTransition(prev, next));
+    }
+
+    [Theory]
+    [InlineData("idle", "roll", true)]
+    [InlineData("run", "dodge", true)]
+    [InlineData("roll", "roll", false)] // Already rolling
+    [InlineData("dodge", "dodge", false)] // Already dodging
+    [InlineData("idle", "run", false)]
+    [InlineData(null, "roll", true)]
+    [InlineData("run", null, false)]
+    public void IsRollTransition_DetectsRollOrDodgeStart(string? prev, string? next, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsRollTransition(prev, next));
+    }
+
+    [Theory]
+    [InlineData("jump", "wallClimb", true)]
+    [InlineData("fall", "wallGrab", true)]
+    [InlineData("wallClimb", "wallClimb", false)] // Already on wall
+    [InlineData("run", "idle", false)]
+    public void IsWallTransition_DetectsWallInteraction(string? prev, string? next, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsWallTransition(prev, next));
+    }
+
+    [Theory]
+    [InlineData("jump", "dive", true)]
+    [InlineData("fall", "downAtk", true)]
+    [InlineData("fall", "fastFall", true)]
+    [InlineData("dive", "dive", false)] // Already diving
+    [InlineData("run", "jump", false)]
+    public void IsDiveTransition_DetectsDiveAttackStart(string? prev, string? next, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsDiveTransition(prev, next));
+    }
 }

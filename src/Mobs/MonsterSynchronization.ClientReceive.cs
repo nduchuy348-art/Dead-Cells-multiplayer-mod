@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using dc;
 using dc.en;
 using dc.hl.types;
@@ -668,7 +668,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             return animPayload.IndexOf("jump", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    animPayload.IndexOf("leap", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    animPayload.IndexOf("pounce", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   animPayload.IndexOf("hop", StringComparison.OrdinalIgnoreCase) >= 0;
+                   animPayload.IndexOf("hop", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   animPayload.IndexOf("fall", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   animPayload.IndexOf("drop", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static void ApplyAuthoritativeAffectState(int mobSyncId, Mob mob, string? wirePayload)

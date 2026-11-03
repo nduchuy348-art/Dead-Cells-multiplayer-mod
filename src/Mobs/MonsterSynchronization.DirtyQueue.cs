@@ -601,8 +601,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             return priority switch
             {
                 HostMobSyncPriority.Active => 1.0,
-                HostMobSyncPriority.MidRange => 3.0,
-                HostMobSyncPriority.Dormant => 10.0,
+                HostMobSyncPriority.MidRange => 1.0,
+                HostMobSyncPriority.Dormant => 4.0,
                 _ => 1.0
             };
         }

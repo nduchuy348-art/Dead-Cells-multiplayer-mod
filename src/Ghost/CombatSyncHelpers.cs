@@ -101,6 +101,76 @@ public static class CombatSyncHelpers
         return false;
     }
 
+    public static bool IsHardLanding(string? anim)
+    {
+        if (string.IsNullOrWhiteSpace(anim)) return false;
+        var a = anim.Trim();
+        return a.IndexOf("hardLand", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               a.IndexOf("heavyLand", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               a.IndexOf("dive", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               a.IndexOf("downAtk", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    public static bool IsJumpTransition(string? previousAnim, string? newAnim)
+    {
+        if (string.IsNullOrWhiteSpace(newAnim)) return false;
+        var next = newAnim.Trim();
+        if (IsAirborneAnim(previousAnim)) return false;
+
+        return next.StartsWith("jump", StringComparison.OrdinalIgnoreCase) ||
+               next.StartsWith("leap", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsRollTransition(string? previousAnim, string? newAnim)
+    {
+        if (string.IsNullOrWhiteSpace(newAnim)) return false;
+        var next = newAnim.Trim();
+        if (!string.IsNullOrWhiteSpace(previousAnim))
+        {
+            var prev = previousAnim.Trim();
+            if (prev.IndexOf("roll", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                prev.IndexOf("dodge", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+        }
+
+        return next.IndexOf("roll", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               next.IndexOf("dodge", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    public static bool IsWallTransition(string? previousAnim, string? newAnim)
+    {
+        if (string.IsNullOrWhiteSpace(newAnim)) return false;
+        var next = newAnim.Trim();
+        if (!string.IsNullOrWhiteSpace(previousAnim))
+        {
+            var prev = previousAnim.Trim();
+            if (prev.IndexOf("wall", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                prev.IndexOf("climb", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+        }
+
+        return next.IndexOf("wall", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               next.IndexOf("climb", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    public static bool IsDiveTransition(string? previousAnim, string? newAnim)
+    {
+        if (string.IsNullOrWhiteSpace(newAnim)) return false;
+        var next = newAnim.Trim();
+        if (!string.IsNullOrWhiteSpace(previousAnim))
+        {
+            var prev = previousAnim.Trim();
+            if (prev.IndexOf("dive", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                prev.IndexOf("downAtk", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                prev.IndexOf("fastFall", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+        }
+
+        return next.IndexOf("dive", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               next.IndexOf("downAtk", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               next.IndexOf("fastFall", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     public static double SmoothStepPosition(
         double current,
         double target,
