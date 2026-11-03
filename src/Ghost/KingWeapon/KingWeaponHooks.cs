@@ -10,6 +10,7 @@ using dc.tool.skill;
 using dc.tool.weap;
 using Hashlink.Virtuals;
 using HaxeProxy.Runtime;
+using ModCore.Utilities;
 
 namespace DeadCellsMultiplayerMod.Ghost;
 
@@ -627,11 +628,32 @@ internal static class KingWeaponHooks
                     var fx = source._level?.fx ?? self.owner?._level?.fx;
                     if(fx != null && cinf != null)
                     {
+                        string? fxId = null;
+                        try { fxId = cinf.fxId?.ToString(); } catch { }
+
+                        string? animId = null;
+                        try { animId = cinf.animId?.ToString(); } catch { }
+
+                        int? innerColor = null;
+                        int? outerColor = null;
+                        try
+                        {
+                            if(cinf.fxProps != null)
+                            {
+                                innerColor = cinf.fxProps.fxInnerColor;
+                                outerColor = cinf.fxProps.fxOuterColor;
+                            }
+                        }
+                        catch { }
+
+                        var (resolvedFxId, resInner, resOuter) = CombatSyncHelpers.ResolveWeaponSlashFx(fxId, animId, innerColor, outerColor);
+                        var customIdHs = !string.IsNullOrEmpty(resolvedFxId) ? resolvedFxId.AsHaxeString() : null;
+
                         var castSpeed = self.get_curSkill()?.getCastSpeed() ?? 1.0;
                         HSprite? animSpr = null;
                         try
                         {
-                            animSpr = fx.playWeaponAnim(source, cinf, castSpeed, null, null, null);
+                            animSpr = fx.playWeaponAnim(source, cinf, castSpeed, customIdHs, resInner, resOuter);
                         }
                         catch { }
 
@@ -639,7 +661,7 @@ internal static class KingWeaponHooks
                         {
                             try
                             {
-                                animSpr = fx.playWeaponAnimFromObject(source.spr, cinf, castSpeed, null, null, null, null, null);
+                                animSpr = fx.playWeaponAnimFromObject(source.spr, cinf, castSpeed, null, null, customIdHs, resInner, resOuter);
                             }
                             catch { }
                         }

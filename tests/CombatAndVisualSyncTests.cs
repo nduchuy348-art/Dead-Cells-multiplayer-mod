@@ -274,4 +274,45 @@ public sealed class CombatAndVisualSyncTests
     {
         Assert.Equal(expected, CombatSyncHelpers.IsDiveTransition(prev, next));
     }
+
+    [Fact]
+    public void ResolveWeaponSlashFx_MapsStartSwordStrikesToCrescentWaveTrails()
+    {
+        // Starter Sword Strike 1: fxAtkBackstabberA / atkBackStabberA -> fxSaberA with white/orange gradient
+        var s1 = CombatSyncHelpers.ResolveWeaponSlashFx("fxAtkBackstabberA", "atkBackStabberA", 7901874, 7901874);
+        Assert.Equal("fxSaberA", s1.resolvedFxId);
+        Assert.Equal(16777215, s1.innerColor);
+        Assert.Equal(16758355, s1.outerColor);
+
+        // Starter Sword Strike 2: fxAtkBackstabberB / atkBackStabberB -> fxSaberB with white/orange gradient
+        var s2 = CombatSyncHelpers.ResolveWeaponSlashFx("fxAtkBackstabberB", "atkBackStabberB", 7901874, 7901874);
+        Assert.Equal("fxSaberB", s2.resolvedFxId);
+        Assert.Equal(16777215, s2.innerColor);
+        Assert.Equal(16758355, s2.outerColor);
+
+        // Deduce from animId when fxId is null or empty
+        var s1AnimOnly = CombatSyncHelpers.ResolveWeaponSlashFx(null, "atkBackStabberA");
+        Assert.Equal("fxSaberA", s1AnimOnly.resolvedFxId);
+
+        var s2AnimOnly = CombatSyncHelpers.ResolveWeaponSlashFx("", "atkBackStabberB");
+        Assert.Equal("fxSaberB", s2AnimOnly.resolvedFxId);
+    }
+
+    [Fact]
+    public void ResolveWeaponSlashFx_PreservesOtherWeaponsUnchanged()
+    {
+        // BroadSword
+        var broad = CombatSyncHelpers.ResolveWeaponSlashFx("fxAtkBroadSwordA", "atkBroadSwordA", 7762137, 7762137);
+        Assert.Equal("fxAtkBroadSwordA", broad.resolvedFxId);
+
+        // BaseballBat
+        var bat = CombatSyncHelpers.ResolveWeaponSlashFx("baseballBatAtkA", "AtkBaseballBatA", 100, 200);
+        Assert.Equal("baseballBatAtkA", bat.resolvedFxId);
+        Assert.Equal(100, bat.innerColor);
+        Assert.Equal(200, bat.outerColor);
+
+        // Null safe
+        var empty = CombatSyncHelpers.ResolveWeaponSlashFx(null, null);
+        Assert.Null(empty.resolvedFxId);
+    }
 }

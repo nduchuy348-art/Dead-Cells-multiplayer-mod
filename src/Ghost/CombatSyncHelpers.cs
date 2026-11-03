@@ -260,4 +260,64 @@ public static class CombatSyncHelpers
         if (a.IndexOf("hit", StringComparison.OrdinalIgnoreCase) >= 0) return true;
         return false;
     }
+
+    /// <summary>
+    /// Resolves the weapon slash effect (group name and HiLo gradient colors) for remote weapons.
+    /// StartSword (the starter sword) in data.cdb configures atkBackStabber animations with fxAtkBackstabberA/B
+    /// and dull grey colors (7901874), which lack crescent slash wave trails. This method maps starter sword
+    /// strikes to canonical crescent wave VFX (fxSaberA / fxSaberB) with vibrant crescent slash gradient colors
+    /// matching other working swords in Dead Cells.
+    /// </summary>
+    public static (string? resolvedFxId, int? innerColor, int? outerColor) ResolveWeaponSlashFx(
+        string? fxId,
+        string? animId,
+        int? innerColor = null,
+        int? outerColor = null)
+    {
+        string? rawFx = fxId?.Trim();
+        string? rawAnim = animId?.Trim();
+
+        const int DefaultSlashInnerColor = 16777215; // 0xFFFFFF (pure white blade core)
+        const int DefaultSlashOuterColor = 16758355; // 0xFFA053 (vibrant warm orange crescent trail)
+
+        // 1. Starter Sword (StartSword) strikes 1 & 2 mapping:
+        // fxAtkBackstabberA / atkBackStabberA -> fxSaberA (outward crescent slash wave)
+        if (string.Equals(rawFx, "fxAtkBackstabberA", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(rawAnim, "atkBackStabberA", StringComparison.OrdinalIgnoreCase))
+        {
+            return ("fxSaberA", DefaultSlashInnerColor, DefaultSlashOuterColor);
+        }
+
+        // fxAtkBackstabberB / atkBackStabberB -> fxSaberB (inward return crescent slash wave)
+        if (string.Equals(rawFx, "fxAtkBackstabberB", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(rawAnim, "atkBackStabberB", StringComparison.OrdinalIgnoreCase))
+        {
+            return ("fxSaberB", DefaultSlashInnerColor, DefaultSlashOuterColor);
+        }
+
+        // 2. If fxId is empty/null, deduce from sword animation:
+        if (string.IsNullOrEmpty(rawFx) && !string.IsNullOrEmpty(rawAnim))
+        {
+            if (string.Equals(rawAnim, "atkSaberA", StringComparison.OrdinalIgnoreCase))
+                return ("fxSaberA", innerColor ?? DefaultSlashInnerColor, outerColor ?? DefaultSlashOuterColor);
+            if (string.Equals(rawAnim, "atkSaberB", StringComparison.OrdinalIgnoreCase))
+                return ("fxSaberB", innerColor ?? DefaultSlashInnerColor, outerColor ?? DefaultSlashOuterColor);
+            if (string.Equals(rawAnim, "atkSwordA", StringComparison.OrdinalIgnoreCase))
+                return ("fxSwordAtkA", innerColor ?? DefaultSlashInnerColor, outerColor ?? DefaultSlashOuterColor);
+            if (string.Equals(rawAnim, "atkSwordB", StringComparison.OrdinalIgnoreCase))
+                return ("fxSwordAtkB", innerColor ?? DefaultSlashInnerColor, outerColor ?? DefaultSlashOuterColor);
+        }
+
+        // 3. For fxSaberA / fxSaberB with dull/dark colors (e.g. 7901874), upgrade to vibrant trail colors:
+        if (string.Equals(rawFx, "fxSaberA", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(rawFx, "fxSaberB", StringComparison.OrdinalIgnoreCase))
+        {
+            var resInner = (!innerColor.HasValue || innerColor.Value <= 7901874) ? DefaultSlashInnerColor : innerColor.Value;
+            var resOuter = (!outerColor.HasValue || outerColor.Value <= 7901874) ? DefaultSlashOuterColor : outerColor.Value;
+            return (rawFx, resInner, resOuter);
+        }
+
+        // 4. Default: pass-through unchanged for all other weapons
+        return (rawFx, innerColor, outerColor);
+    }
 }

@@ -53,17 +53,46 @@ namespace DeadCellsMultiplayerMod.Ghost
             var fx = source?._level?.fx ?? owner?._level?.fx;
             if(fx == null) return;
 
+            string? fxId = null;
+            try { fxId = cinf.fxId?.ToString(); } catch { }
+            if(string.IsNullOrEmpty(fxId))
+            {
+                try { fxId = ReadFxId(cinf)?.ToString(); } catch { }
+            }
+
+            string? animId = null;
+            try { animId = cinf.animId?.ToString(); } catch { }
+            if(string.IsNullOrEmpty(animId))
+            {
+                try { animId = ReadAnimId(cinf)?.ToString(); } catch { }
+            }
+
+            int? innerColor = null;
+            int? outerColor = null;
+            try
+            {
+                if(cinf.fxProps != null)
+                {
+                    innerColor = cinf.fxProps.fxInnerColor;
+                    outerColor = cinf.fxProps.fxOuterColor;
+                }
+            }
+            catch { }
+
+            var (resolvedFxId, resInner, resOuter) = CombatSyncHelpers.ResolveWeaponSlashFx(fxId, animId, innerColor, outerColor);
+            var customIdHs = !string.IsNullOrEmpty(resolvedFxId) ? resolvedFxId.AsHaxeString() : null;
+
             var castSpeed = get_curSkill()?.getCastSpeed() ?? 1.0;
             try
             {
                 HSprite? animSpr = null;
                 if(source != null)
                 {
-                    try { animSpr = fx.playWeaponAnim(source, cinf, castSpeed, null, null, null); } catch { }
+                    try { animSpr = fx.playWeaponAnim(source, cinf, castSpeed, customIdHs, resInner, resOuter); } catch { }
                 }
                 if(animSpr == null && source?.spr != null)
                 {
-                    try { animSpr = fx.playWeaponAnimFromObject(source.spr, cinf, castSpeed, null, null, null, null, null); } catch { }
+                    try { animSpr = fx.playWeaponAnimFromObject(source.spr, cinf, castSpeed, null, null, customIdHs, resInner, resOuter); } catch { }
                 }
                 if(animSpr != null)
                     lastFx = animSpr;

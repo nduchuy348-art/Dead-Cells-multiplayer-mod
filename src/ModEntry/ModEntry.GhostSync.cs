@@ -1752,19 +1752,12 @@ namespace DeadCellsMultiplayerMod
 
                     if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsLandingTransition(prevAnim, anim))
                     {
-                        fx.dust(lx, ly, 12.0, 6, 0);
-                        fx.landSmoke(lx, ly, null);
-                        if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsHardLanding(anim) ||
-                            DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsHardLanding(prevAnim))
-                        {
-                            fx.breakGroundLight(cx, cy, 1, 1);
-                            fx.landHeavy(lx, ly, null, null);
-                        }
-                    }
-                    else if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsJumpTransition(prevAnim, anim))
-                    {
-                        fx.jumpFrom(lx, ly, dir, 0);
+                        fx.breakGroundLight(cx, cy, 1, 1);
                         fx.dust(lx, ly, 8.0, 4, 0);
+                        if (anim.StartsWith("idle", StringComparison.OrdinalIgnoreCase))
+                        {
+                            anim = "land";
+                        }
                     }
                     else if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsRollTransition(prevAnim, anim))
                     {
