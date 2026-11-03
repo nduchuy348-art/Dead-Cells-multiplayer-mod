@@ -1,0 +1,584 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "DCCMTool/35.14.2": {
+        "dependencies": {
+          "BytecodeMapping": "35.14.2",
+          "GameRes.Core": "35.14.2",
+          "HashlinkNET.Compiler": "35.14.2",
+          "HaxeDocs": "35.14.2",
+          "NonPublicNativeMembers": "35.14.2",
+          "Spectre.Console": "0.57.2",
+          "Spectre.Console.Cli": "0.55.0",
+          "Steamworks.NET": "2025.164.1.0"
+        },
+        "runtime": {
+          "DCCMTool.dll": {}
+        }
+      },
+      "K4os.Hash.xxHash/1.0.8": {
+        "runtime": {
+          "lib/net6.0/K4os.Hash.xxHash.dll": {
+            "assemblyVersion": "1.0.8.0",
+            "fileVersion": "1.0.8.0"
+          }
+        }
+      },
+      "MemoryPack/1.21.4": {
+        "dependencies": {
+          "MemoryPack.Core": "1.21.4"
+        }
+      },
+      "MemoryPack.Core/1.21.4": {
+        "runtime": {
+          "lib/net8.0/MemoryPack.Core.dll": {
+            "assemblyVersion": "1.21.4.0",
+            "fileVersion": "1.21.4.0"
+          }
+        }
+      },
+      "Mono.Cecil/0.11.6": {
+        "runtime": {
+          "lib/netstandard2.0/Mono.Cecil.Mdb.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0"
+          },
+          "lib/netstandard2.0/Mono.Cecil.Pdb.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0"
+          },
+          "lib/netstandard2.0/Mono.Cecil.Rocks.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0"
+          },
+          "lib/netstandard2.0/Mono.Cecil.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0"
+          }
+        }
+      },
+      "MonoMod.Backports/1.1.2": {
+        "dependencies": {
+          "MonoMod.ILHelpers": "1.1.0"
+        },
+        "runtime": {
+          "lib/net8.0/MonoMod.Backports.dll": {
+            "assemblyVersion": "1.1.2.0",
+            "fileVersion": "1.1.2.0"
+          }
+        }
+      },
+      "MonoMod.Core/1.3.6": {
+        "dependencies": {
+          "Mono.Cecil": "0.11.6",
+          "MonoMod.Backports": "1.1.2",
+          "MonoMod.ILHelpers": "1.1.0",
+          "MonoMod.Utils": "25.0.14"
+        },
+        "runtime": {
+          "lib/net10.0/MonoMod.Core.dll": {
+            "assemblyVersion": "1.3.6.0",
+            "fileVersion": "1.3.6.0"
+          },
+          "lib/net10.0/MonoMod.Iced.dll": {
+            "assemblyVersion": "1.21.0.0",
+            "fileVersion": "1.21.0.0"
+          }
+        }
+      },
+      "MonoMod.ILHelpers/1.1.0": {
+        "runtime": {
+          "lib/net8.0/MonoMod.ILHelpers.dll": {
+            "assemblyVersion": "1.1.0.0",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "MonoMod.RuntimeDetour/25.3.6": {
+        "dependencies": {
+          "Mono.Cecil": "0.11.6",
+          "MonoMod.Backports": "1.1.2",
+          "MonoMod.Core": "1.3.6",
+          "MonoMod.ILHelpers": "1.1.0",
+          "MonoMod.Utils": "25.0.14"
+        },
+        "runtime": {
+          "lib/net10.0/MonoMod.RuntimeDetour.dll": {
+            "assemblyVersion": "25.3.6.0",
+            "fileVersion": "25.3.6.0"
+          }
+        }
+      },
+      "MonoMod.Utils/25.0.14": {
+        "dependencies": {
+          "Mono.Cecil": "0.11.6",
+          "MonoMod.Backports": "1.1.2",
+          "MonoMod.ILHelpers": "1.1.0"
+        },
+        "runtime": {
+          "lib/net10.0/MonoMod.Utils.dll": {
+            "assemblyVersion": "25.0.14.0",
+            "fileVersion": "25.0.14.0"
+          }
+        }
+      },
+      "Newtonsoft.Json/13.0.4": {
+        "runtime": {
+          "lib/net6.0/Newtonsoft.Json.dll": {
+            "assemblyVersion": "13.0.0.0",
+            "fileVersion": "13.0.4.30916"
+          }
+        }
+      },
+      "Serilog/4.4.0": {
+        "runtime": {
+          "lib/net10.0/Serilog.dll": {
+            "assemblyVersion": "4.4.0.0",
+            "fileVersion": "4.4.0.0"
+          }
+        }
+      },
+      "SharpPdb/1.0.4": {
+        "dependencies": {
+          "SharpPdb.Windows": "1.0.4"
+        },
+        "runtime": {
+          "lib/netstandard2.0/SharpPdb.dll": {
+            "assemblyVersion": "1.0.4.0",
+            "fileVersion": "1.0.4.0"
+          }
+        }
+      },
+      "SharpPdb.Windows/1.0.4": {
+        "dependencies": {
+          "SharpUtilities": "1.4.6"
+        },
+        "runtime": {
+          "lib/netstandard2.0/SharpPdb.Windows.dll": {
+            "assemblyVersion": "1.0.4.0",
+            "fileVersion": "1.0.4.0"
+          }
+        }
+      },
+      "SharpUtilities/1.4.6": {
+        "runtime": {
+          "lib/netstandard2.0/SharpUtilities.dll": {
+            "assemblyVersion": "1.4.6.0",
+            "fileVersion": "1.4.6.0"
+          }
+        }
+      },
+      "Spectre.Console/0.57.2": {
+        "dependencies": {
+          "Spectre.Console.Ansi": "0.57.2"
+        },
+        "runtime": {
+          "lib/net10.0/Spectre.Console.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.57.2.0"
+          }
+        }
+      },
+      "Spectre.Console.Ansi/0.57.2": {
+        "runtime": {
+          "lib/net10.0/Spectre.Console.Ansi.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.57.2.0"
+          }
+        }
+      },
+      "Spectre.Console.Cli/0.55.0": {
+        "dependencies": {
+          "Spectre.Console": "0.57.2"
+        },
+        "runtime": {
+          "lib/net10.0/Spectre.Console.Cli.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.55.0.0"
+          }
+        },
+        "resources": {
+          "lib/net10.0/de/Spectre.Console.Cli.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net10.0/es/Spectre.Console.Cli.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net10.0/fr/Spectre.Console.Cli.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net10.0/it/Spectre.Console.Cli.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net10.0/ja/Spectre.Console.Cli.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net10.0/ko/Spectre.Console.Cli.resources.dll": {
+            "locale": "ko"
+          },
+          "lib/net10.0/pt/Spectre.Console.Cli.resources.dll": {
+            "locale": "pt"
+          },
+          "lib/net10.0/ru/Spectre.Console.Cli.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net10.0/sv/Spectre.Console.Cli.resources.dll": {
+            "locale": "sv"
+          },
+          "lib/net10.0/zh-Hans/Spectre.Console.Cli.resources.dll": {
+            "locale": "zh-Hans"
+          }
+        }
+      },
+      "StbImageSharp/2.30.16": {
+        "runtime": {
+          "lib/net8.0/StbImageSharp.dll": {
+            "assemblyVersion": "2.30.16.0",
+            "fileVersion": "2.30.16.0"
+          }
+        }
+      },
+      "StbImageWriteSharp/1.16.7": {
+        "runtime": {
+          "lib/netstandard2.0/StbImageWriteSharp.dll": {
+            "assemblyVersion": "1.16.7.0",
+            "fileVersion": "1.16.7.0"
+          }
+        }
+      },
+      "BytecodeMapping/35.14.2": {
+        "dependencies": {
+          "MemoryPack": "1.21.4",
+          "Mono.Cecil": "0.11.6"
+        },
+        "runtime": {
+          "BytecodeMapping.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "GameRes.Core/35.14.2": {
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.4",
+          "StbImageSharp": "2.30.16",
+          "StbImageWriteSharp": "1.16.7"
+        },
+        "runtime": {
+          "GameRes.Core.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "HashlinkNET.Bytecode/35.14.2": {
+        "runtime": {
+          "HashlinkNET.Bytecode.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "HashlinkNET.Compiler/35.14.2": {
+        "dependencies": {
+          "BytecodeMapping": "35.14.2",
+          "HashlinkNET.Bytecode": "35.14.2",
+          "HaxeDocs": "35.14.2",
+          "HaxeProxy": "35.14.2",
+          "K4os.Hash.xxHash": "1.0.8",
+          "Mono.Cecil": "0.11.6",
+          "Newtonsoft.Json": "13.0.4"
+        },
+        "runtime": {
+          "HashlinkNET.Compiler.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "HashlinkSharp/35.14.2": {
+        "dependencies": {
+          "HashlinkNET.Bytecode": "35.14.2",
+          "ModCore.Common": "35.14.2",
+          "ModCore.Native": "35.14.2",
+          "MonoMod.Core": "1.3.6",
+          "Newtonsoft.Json": "13.0.4"
+        },
+        "runtime": {
+          "HashlinkSharp.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "HaxeDocs/35.14.2": {
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.4"
+        },
+        "runtime": {
+          "HaxeDocs.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "HaxeProxy/35.14.2": {
+        "dependencies": {
+          "HashlinkSharp": "35.14.2",
+          "ModCore.Common": "35.14.2"
+        },
+        "runtime": {
+          "HaxeProxy.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "ModCore.Common/35.14.2": {
+        "dependencies": {
+          "Mono.Cecil": "0.11.6",
+          "MonoMod.RuntimeDetour": "25.3.6",
+          "Newtonsoft.Json": "13.0.4",
+          "Serilog": "4.4.0"
+        },
+        "runtime": {
+          "ModCore.Common.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "ModCore.Native/35.14.2": {
+        "dependencies": {
+          "ModCore.Common": "35.14.2"
+        },
+        "runtime": {
+          "ModCore.Native.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "NonPublicNativeMembers/35.14.2": {
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.4",
+          "SharpPdb": "1.0.4"
+        },
+        "runtime": {
+          "NonPublicNativeMembers.dll": {
+            "assemblyVersion": "35.14.2.0",
+            "fileVersion": "35.14.2.0"
+          }
+        }
+      },
+      "Steamworks.NET/2025.164.1.0": {
+        "runtime": {
+          "Steamworks.NET.dll": {
+            "assemblyVersion": "2025.164.1.0",
+            "fileVersion": "2025.164.1.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "DCCMTool/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "K4os.Hash.xxHash/1.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Wp2F7BamQ2Q/7Hk834nV9vRQapgcr8kgv9Jvfm8J3D0IhDqZMMl+a2yxUq5ltJitvXvQfB8W6K4F4fCbw/P6YQ==",
+      "path": "k4os.hash.xxhash/1.0.8",
+      "hashPath": "k4os.hash.xxhash.1.0.8.nupkg.sha512"
+    },
+    "MemoryPack/1.21.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-wy3JTBNBsO8LfQcBvvYsWr3lm2Oakolrfu0UQ3oSJSEiD+7ye0GUhYTaXuYYBowqsXBXWD9gf2218ae0JRiYVQ==",
+      "path": "memorypack/1.21.4",
+      "hashPath": "memorypack.1.21.4.nupkg.sha512"
+    },
+    "MemoryPack.Core/1.21.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-6RszGorZ0ejNmp37ZcboPBMvvPCuNW2jlrdQfcs/lMzE5b3pmPF6hsm/laDc34hRlbAST1ZxaX/DvYu2DF5sBQ==",
+      "path": "memorypack.core/1.21.4",
+      "hashPath": "memorypack.core.1.21.4.nupkg.sha512"
+    },
+    "Mono.Cecil/0.11.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA==",
+      "path": "mono.cecil/0.11.6",
+      "hashPath": "mono.cecil.0.11.6.nupkg.sha512"
+    },
+    "MonoMod.Backports/1.1.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-baYlNy8n8kmaNhNvqmZ/dIPOeO1r9//dG1i2WbunMWtWZ2EKtIgmXaS+ZzphzTsikkGnoD4Jwr5g0TVdpDjgpw==",
+      "path": "monomod.backports/1.1.2",
+      "hashPath": "monomod.backports.1.1.2.nupkg.sha512"
+    },
+    "MonoMod.Core/1.3.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-GD28eU8S3KVGCpeaLzQbtAswsJSdiUO3DzUU4vZqhPgYNt51PTmFwP6lmnu7FxJkPWSHZBs5aEl6v0wt64Xqlw==",
+      "path": "monomod.core/1.3.6",
+      "hashPath": "monomod.core.1.3.6.nupkg.sha512"
+    },
+    "MonoMod.ILHelpers/1.1.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-L2FWjhTrv7tcIxshfZ+M3OcaNr4cNw0IwiVZEgwqRnZ5QAN3+RrNJ8ZwCzwXUWyPDqooJxMcjjg8PsSYUiNBjQ==",
+      "path": "monomod.ilhelpers/1.1.0",
+      "hashPath": "monomod.ilhelpers.1.1.0.nupkg.sha512"
+    },
+    "MonoMod.RuntimeDetour/25.3.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-2var7nTk7TFIxOIyH1xyRLE0n6xVjmzRRIhsaL3iila6autQPeEeXqBT9mEqwjWTVMoWpNmXiOEB1a0t2sMujw==",
+      "path": "monomod.runtimedetour/25.3.6",
+      "hashPath": "monomod.runtimedetour.25.3.6.nupkg.sha512"
+    },
+    "MonoMod.Utils/25.0.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-o481/gh7MJkKHZIYrqBwPfPhDF1WevuH3xPnuFa2SCDKkPdl0InnJmxnwIvRCQj+plhnsy1EUNYQ/zaEZflZnQ==",
+      "path": "monomod.utils/25.0.14",
+      "hashPath": "monomod.utils.25.0.14.nupkg.sha512"
+    },
+    "Newtonsoft.Json/13.0.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-pdgNNMai3zv51W5aq268sujXUyx7SNdE2bj1wZcWjAQrKMFZV260lbqYop1d2GM67JI1huLRwxo9ZqnfF/lC6A==",
+      "path": "newtonsoft.json/13.0.4",
+      "hashPath": "newtonsoft.json.13.0.4.nupkg.sha512"
+    },
+    "Serilog/4.4.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ZC6Le3rr4TVJJjS4KsQAesxeF1EhW9qcZmmG7eP5Y2G3+gTGkJEUXkq4+tZNPtyp05I0wWOxnIjwtxFweJsObw==",
+      "path": "serilog/4.4.0",
+      "hashPath": "serilog.4.4.0.nupkg.sha512"
+    },
+    "SharpPdb/1.0.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-S3w0H+MgjWGrMEuLAj+ItP098yqr24E7jUh39baHlKHzXgIAnd/kGK6ju34tZdac23n1KpYT8+OfIEnwJPywRw==",
+      "path": "sharppdb/1.0.4",
+      "hashPath": "sharppdb.1.0.4.nupkg.sha512"
+    },
+    "SharpPdb.Windows/1.0.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-mreCGkazAKvntPSQwbkHv5hRZ3DCoyV/fK5ECx2xgEPUkPhAA0yulEdLa2sLqu+vo/nlcWviWfVKl3xdO4/UTg==",
+      "path": "sharppdb.windows/1.0.4",
+      "hashPath": "sharppdb.windows.1.0.4.nupkg.sha512"
+    },
+    "SharpUtilities/1.4.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-QMET3pp+fJwqH1amZEX9joB1YfIEu8u86qUaRt/JV/uSQEDEH4VodpDr+Bz2N44lnfeqAlzkDniOZXm3BbhI+A==",
+      "path": "sharputilities/1.4.6",
+      "hashPath": "sharputilities.1.4.6.nupkg.sha512"
+    },
+    "Spectre.Console/0.57.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-wzsB+P9i6F9G+cFOJxRotCiQWNSzZVAMxi8YMiHlGXXU1JLMXGp7zSSqBMmROZS2bzpK5jk+Saa7Evp8HwqhKg==",
+      "path": "spectre.console/0.57.2",
+      "hashPath": "spectre.console.0.57.2.nupkg.sha512"
+    },
+    "Spectre.Console.Ansi/0.57.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Y1+u73shwP+JYHmrkdN6bSt2kaGBEAafhi2nrecczbXdFRey+k7J/WF9YPfcB0rqivv2S8fmif6FSBq9m/AFvw==",
+      "path": "spectre.console.ansi/0.57.2",
+      "hashPath": "spectre.console.ansi.0.57.2.nupkg.sha512"
+    },
+    "Spectre.Console.Cli/0.55.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-cFJTB1te4eaAICd4Zp+8T/kiRn1ikQxgGqmoNarb1qoQ/7LzHAvVQ62x5U9GW3E0QI7sZLcXIIoq4CpqgTx42Q==",
+      "path": "spectre.console.cli/0.55.0",
+      "hashPath": "spectre.console.cli.0.55.0.nupkg.sha512"
+    },
+    "StbImageSharp/2.30.16": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-qg1i+NHihXVKLKYacGKrauhSQIGL31eBWcTC4Vc7jnGmBFj87LkRuCdXB5aDZisWMRnB6x2mcfwYXQxMWEG/lw==",
+      "path": "stbimagesharp/2.30.16",
+      "hashPath": "stbimagesharp.2.30.16.nupkg.sha512"
+    },
+    "StbImageWriteSharp/1.16.7": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-NF9kOxi0iS9VunklnRKgOpAWC2knCGKRjdy7RT6XAqYNyb7LQfyPHPdl4l1fJw7TFYKrGQzQOmK1XpBONC2MoA==",
+      "path": "stbimagewritesharp/1.16.7",
+      "hashPath": "stbimagewritesharp.1.16.7.nupkg.sha512"
+    },
+    "BytecodeMapping/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "GameRes.Core/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "HashlinkNET.Bytecode/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "HashlinkNET.Compiler/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "HashlinkSharp/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "HaxeDocs/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "HaxeProxy/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "ModCore.Common/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "ModCore.Native/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "NonPublicNativeMembers/35.14.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Steamworks.NET/2025.164.1.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

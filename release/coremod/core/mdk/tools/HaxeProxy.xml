@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>HaxeProxy</name>
+    </assembly>
+    <members>
+        <member name="T:HaxeProxy.Runtime.Ref`1">
+            <summary>
+            A wrapper for a .NET reference
+            </summary>
+            <typeparam name="T"></typeparam>
+            <param name="value"></param>
+        </member>
+        <member name="M:HaxeProxy.Runtime.Ref`1.#ctor(`0@)">
+            <summary>
+            A wrapper for a .NET reference
+            </summary>
+            <typeparam name="T"></typeparam>
+            <param name="value"></param>
+        </member>
+        <member name="P:HaxeProxy.Runtime.Ref`1.Null">
+            <summary>
+            Get a null reference
+            </summary>
+        </member>
+        <member name="P:HaxeProxy.Runtime.Ref`1.DontCare">
+            <summary>
+            Get a reference to the shared storage.
+            This typically means you don't care what gets returned inside.
+            </summary>
+        </member>
+        <member name="M:HaxeProxy.Runtime.Ref`1.From(`0@)">
+            <summary>
+            Create a ref from a .NET ref
+            </summary>
+            <param name="val"></param>
+            <returns></returns>
+        </member>
+        <member name="M:HaxeProxy.Runtime.Ref`1.Out(`0@)">
+            <summary>
+            Create a ref from a .NET ref
+            </summary>
+            <param name="val"></param>
+            <returns></returns>
+        </member>
+        <member name="P:HaxeProxy.Runtime.Ref`1.IsNull">
+            <summary>
+            Gets a value indicating whether the current instance represents a null reference.
+            </summary>
+        </member>
+        <member name="M:HaxeProxy.Runtime.Ref`1.In(`0@)">
+            <summary>
+            
+            </summary>
+            <param name="val"></param>
+            <returns></returns>
+        </member>
+        <member name="F:HaxeProxy.Runtime.Ref`1.value">
+            <summary>
+            The value of the ref
+            </summary>
+        </member>
+    </members>
+</doc>

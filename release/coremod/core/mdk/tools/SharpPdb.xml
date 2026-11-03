@@ -1,0 +1,2327 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>SharpPdb</name>
+    </assembly>
+    <members>
+        <member name="T:SharpPdb.Managed.IPdbFile">
+            <summary>
+            Represents PDB file reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbFile.Guid">
+            <summary>
+            Gets the PDB file identifier.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbFile.Stamp">
+            <summary>
+            Gets the PDB stamp.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbFile.Age">
+            <summary>
+            Gets the PDB file age.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbFile.Functions">
+            <summary>
+            Gets the list of functions described in this PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.IPdbFile.GetFunctionFromToken(System.Int32)">
+            <summary>
+            Find function by the specified token.
+            </summary>
+            <param name="token">Method definition token.</param>
+            <returns><see cref="T:SharpPdb.Managed.IPdbFunction"/> object if found, <c>null</c> otherwise.</returns>
+        </member>
+        <member name="T:SharpPdb.Managed.IPdbFunction">
+            <summary>
+            Represents function referenced in PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbFunction.Token">
+            <summary>
+            Gets the method token.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbFunction.LocalScopes">
+            <summary>
+            Gets the list of local scopes in this function.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbFunction.SequencePoints">
+            <summary>
+            Gets the list of sequence points in this function.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.IPdbLocalConstant">
+            <summary>
+            Represents local constant defined in local scope in PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalConstant.Name">
+            <summary>
+            Gets the name of the local constant.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalConstant.Value">
+            <summary>
+            Gets the value of the local constant.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.IPdbLocalScope">
+            <summary>
+            Represents local scope in PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalScope.StartOffset">
+            <summary>
+            Gets the IL offset of the local scope start.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalScope.EndOffset">
+            <summary>
+            Gets the IL offset of the local scope end.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalScope.Length">
+            <summary>
+            Gets the length of the local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalScope.Function">
+            <summary>
+            Gets the function that contains this local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalScope.Parent">
+            <summary>
+            Gets the parent local scope or <c>null</c> if it doesn't exist.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalScope.Children">
+            <summary>
+            Gets the list of contained local scopes.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalScope.Constants">
+            <summary>
+            Gets the list of constants declared in this local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalScope.Variables">
+            <summary>
+            Gets the list of variables declared in this local scope.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.IPdbLocalVariable">
+            <summary>
+            Represents local variable defined in local scope in PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalVariable.Index">
+            <summary>
+            Gets the index on the stack of the local variable.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbLocalVariable.Name">
+            <summary>
+            Gets the name of the local variable.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.IPdbSequencePoint">
+            <summary>
+            Represents sequence point referenced in PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSequencePoint.Source">
+            <summary>
+            Gets the source file that contains this sequence point.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSequencePoint.StartLine">
+            <summary>
+            Gets the start line number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSequencePoint.EndLine">
+            <summary>
+            Gets the end line number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSequencePoint.StartColumn">
+            <summary>
+            Gets the start column number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSequencePoint.EndColumn">
+            <summary>
+            Gets the end column number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSequencePoint.Offset">
+            <summary>
+            Gets the IL offset of this sequence point.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.IPdbSource">
+            <summary>
+            Represents source file referenced in PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSource.Hash">
+            <summary>
+            Gets the hash value bytes.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSource.HashAlgorithm">
+            <summary>
+            Gets the hash algorithm id.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSource.Language">
+            <summary>
+            Gets the language id.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.IPdbSource.Name">
+            <summary>
+            Gets the source file name.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.PdbFileReader">
+            <summary>
+            Helper functions for reading PDB files.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.PdbFileReader.OpenPdb(System.String)">
+            <summary>
+            Opens PDB file from the specified path. It supports both Portable PDB and Windows PDB format.
+            </summary>
+            <param name="path">Path to the PDB file.</param>
+        </member>
+        <member name="T:SharpPdb.Managed.Portable.EmbeddedPdbFile">
+            <summary>
+            Represents Portable PDB file reader of embedded PDB into assembly.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.EmbeddedPdbFile.file">
+            <summary>
+            File loaded into memory for faster parsing.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.EmbeddedPdbFile.embeddedPdbReaderProvider">
+            <summary>
+            Embedded PDB reader provider.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.EmbeddedPdbFile.#ctor(SharpUtilities.MemoryLoadedFile)">
+            <summary>
+            Initializes a new instance of the <see cref="P:SharpPdb.Managed.Portable.EmbeddedPdbFile.PdbFile"/> class.
+            </summary>
+            <param name="file">File loaded into memory for faster parsing.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.EmbeddedPdbFile.PdbFile">
+            <summary>
+            Gets the Portable PDB file reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.EmbeddedPdbFile.Guid">
+            <summary>
+            Gets the PDB file identifier.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.EmbeddedPdbFile.Stamp">
+            <summary>
+            Gets the PDB stamp.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.EmbeddedPdbFile.Age">
+            <summary>
+            Gets the PDB file age.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.EmbeddedPdbFile.Functions">
+            <summary>
+            Gets the list of functions described in this PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.EmbeddedPdbFile.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.EmbeddedPdbFile.GetFunctionFromToken(System.Int32)">
+            <summary>
+            Find function by the specified token.
+            </summary>
+            <param name="token">Method definition token.</param>
+            <returns><see cref="T:SharpPdb.Managed.IPdbFunction"/> object if found, <c>null</c> otherwise.</returns>
+        </member>
+        <member name="T:SharpPdb.Managed.Portable.PdbFile">
+            <summary>
+            Represents Portable PDB file reader.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbFile.file">
+            <summary>
+            File loaded into memory for faster parsing.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbFile.idCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Portable.PdbFile.Id"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbFile.functionsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Portable.PdbFile.Functions"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbFile.functionsByHandle">
+            <summary>
+            Dictionary cache of functions by handle.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbFile.sourcesCache">
+            <summary>
+            Cache for source files accessed by indexing operator.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbFile.#ctor(SharpUtilities.MemoryLoadedFile)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Portable.PdbFile"/> class.
+            </summary>
+            <param name="file">File loaded into memory for faster parsing.</param>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbFile.#ctor(System.Reflection.Metadata.MetadataReader)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Portable.PdbFile"/> class.
+            </summary>
+            <param name="reader">Portable PDB metadata reader.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFile.Reader">
+            <summary>
+            Gets the portable PDB metadata reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFile.Id">
+            <summary>
+            Gets the PDB file blob content id.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFile.Guid">
+            <summary>
+            Gets the PDB file identifier.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFile.Stamp">
+            <summary>
+            Gets the PDB stamp.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFile.Age">
+            <summary>
+            Gets the PDB file age.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFile.Functions">
+            <summary>
+            Gets the list of functions described in this PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbFile.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbFile.GetFunctionFromToken(System.Int32)">
+            <summary>
+            Find function by the specified token.
+            </summary>
+            <param name="token">Method definition token.</param>
+            <returns><see cref="T:SharpPdb.Managed.IPdbFunction"/> object if found, <c>null</c> otherwise.</returns>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbFile.GetSource(System.Reflection.Metadata.DocumentHandle)">
+            <summary>
+            Creates source file for the cache.
+            </summary>
+            <param name="sourceHandle">Handle of the source file.</param>
+        </member>
+        <member name="T:SharpPdb.Managed.Portable.PdbFunction">
+            <summary>
+            Represents function referenced in Portable PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbFunction.methodDebugInformationCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Portable.PdbFunction.MethodDebugInformation"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbFunction.localScopesCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Portable.PdbFunction.LocalScopes"/> property
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbFunction.sequencePointsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Portable.PdbFunction.SequencePoints"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbFunction.#ctor(SharpPdb.Managed.Portable.PdbFile,System.Reflection.Metadata.MethodDebugInformationHandle)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Portable.PdbFunction"/> class.
+            </summary>
+            <param name="pdbFile">Portable PDB file reader.</param>
+            <param name="handle">Our metadata reader handle.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFunction.PdbFile">
+            <summary>
+            Gets the Portable PDB file reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFunction.MethodDebugInformation">
+            <summary>
+            Gets the method debug information.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFunction.Token">
+            <summary>
+            Gets the method token.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFunction.LocalScopes">
+            <summary>
+            Gets the list of local scopes in this function.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbFunction.SequencePoints">
+            <summary>
+            Gets the list of sequence points in this function.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Portable.PdbLocalConstant">
+            <summary>
+            Represents local constant defined in local scope in Portable PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbLocalConstant.localConstantCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Portable.PdbLocalConstant.LocalConstant"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbLocalConstant.nameCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Portable.PdbLocalConstant.Name"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbLocalConstant.valueCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Portable.PdbLocalConstant.Value"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbLocalConstant.#ctor(SharpPdb.Managed.Portable.PdbLocalScope,System.Reflection.Metadata.LocalConstantHandle)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Portable.PdbLocalConstant"/> class.
+            </summary>
+            <param name="localScope">Local scope where this contanst is defined.</param>
+            <param name="handle">Our metadata reader handle.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalConstant.LocalScope">
+            <summary>
+            Gets the local scope where this contanst is defined.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalConstant.LocalConstant">
+            <summary>
+            Gets the local constant.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalConstant.Name">
+            <summary>
+            Gets the name of the local constant.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalConstant.Value">
+            <summary>
+            Gets the value of the local constant.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Portable.PdbLocalScope">
+            <summary>
+            Represents local scope in Portable PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbLocalScope.localScopeCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Portable.PdbLocalScope.LocalScope"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbLocalScope.childrenCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Portable.PdbLocalScope.Children"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbLocalScope.constantsCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Portable.PdbLocalScope.Constants"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbLocalScope.variablesCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Portable.PdbLocalScope.Variables"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbLocalScope.#ctor(SharpPdb.Managed.Portable.PdbFunction,System.Reflection.Metadata.LocalScopeHandle,SharpPdb.Managed.IPdbLocalScope)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Portable.PdbLocalScope"/> class.
+            </summary>
+            <param name="function">Function that contains this scope.</param>
+            <param name="handle">Our metadata reader handle.</param>
+            <param name="parent">Parent scope.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.Function">
+            <summary>
+            Gets the function that contains this local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.LocalScope">
+            <summary>
+            Gets the local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.StartOffset">
+            <summary>
+            Gets the IL offset of the local scope start.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.EndOffset">
+            <summary>
+            Gets the IL offset of the local scope end.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.Length">
+            <summary>
+            Gets the length of the local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.SharpPdb#Managed#IPdbLocalScope#Function">
+            <summary>
+            Gets the function that contains this local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.Parent">
+            <summary>
+            Gets the parent local scope or <c>null</c> if it doesn't exist.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.Children">
+            <summary>
+            Gets the list of contained local scopes.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.Constants">
+            <summary>
+            Gets the list of constants declared in this local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalScope.Variables">
+            <summary>
+            Gets the list of variables declared in this local scope.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Portable.PdbLocalVariable">
+            <summary>
+            Represents local variable defined in local scope in Portable PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbLocalVariable.localVariableCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Portable.PdbLocalVariable.LocalVariable"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbLocalVariable.nameCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Portable.PdbLocalVariable.Name"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbLocalVariable.#ctor(SharpPdb.Managed.Portable.PdbLocalScope,System.Reflection.Metadata.LocalVariableHandle)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Portable.PdbLocalVariable"/> class.
+            </summary>
+            <param name="localScope">Local scope where this variable is defined.</param>
+            <param name="handle">Our metadata reader handle.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalVariable.LocalScope">
+            <summary>
+            Gets the local scope where this contanst is defined.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalVariable.LocalVariable">
+            <summary>
+            Gets the local variable.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalVariable.Index">
+            <summary>
+            Gets the index on the stack of the local variable.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbLocalVariable.Name">
+            <summary>
+            Gets the name of the local variable.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Portable.PdbSequencePoint">
+            <summary>
+            Represents sequence point referenced in Portable PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbSequencePoint.sourceCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Portable.PdbSequencePoint.Source"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbSequencePoint.#ctor(SharpPdb.Managed.Portable.PdbFunction,System.Reflection.Metadata.SequencePoint)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Portable.PdbSequencePoint"/> class.
+            </summary>
+            <param name="function">Function that contains this sequence point.</param>
+            <param name="sequencePoint">Sequence point.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSequencePoint.Function">
+            <summary>
+            Gets the function that contains this sequence point.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSequencePoint.SequencePoint">
+            <summary>
+            Gets the sequence point.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSequencePoint.Source">
+            <summary>
+            Gets the source file that contains this sequence point.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSequencePoint.StartLine">
+            <summary>
+            Gets the start line number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSequencePoint.EndLine">
+            <summary>
+            Gets the end line number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSequencePoint.StartColumn">
+            <summary>
+            Gets the start column number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSequencePoint.EndColumn">
+            <summary>
+            Gets the end column number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSequencePoint.Offset">
+            <summary>
+            Gets the IL offset of this sequence point.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Portable.PdbSource">
+            <summary>
+            Represents source file referenced in Portable PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbSource.documentCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Portable.PdbSource.Document"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbSource.hashCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Portable.PdbSource.Hash"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Portable.PdbSource.nameCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Portable.PdbSource.Name"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Portable.PdbSource.#ctor(SharpPdb.Managed.Portable.PdbFile,System.Reflection.Metadata.DocumentHandle)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Portable.PdbSource"/> class.
+            </summary>
+            <param name="pdbFile">Portable PDB file reader.</param>
+            <param name="handle">Our metadata reader handle.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSource.PdbFile">
+            <summary>
+            Gets the Portable PDB file reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSource.Document">
+            <summary>
+            Gets the document.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSource.Hash">
+            <summary>
+            Gets the hash value bytes.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSource.HashAlgorithm">
+            <summary>
+            Gets the hash algorithm id.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSource.Language">
+            <summary>
+            Gets the language id.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Portable.PdbSource.Name">
+            <summary>
+            Gets the source file name.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Windows.PdbFile">
+            <summary>
+            Represents Windows PDB file reader.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbFile.file">
+            <summary>
+            File loaded into memory for faster parsing.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbFile.functionsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Windows.PdbFile.Functions"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbFile.sourcesCache">
+            <summary>
+            Cache for source files accessed by indexing operator.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbFile.functionsByTokenCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Windows.PdbFile.FunctionsByToken"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbFile.tokenRidMapCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Windows.PdbFile.TokenRidMap"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Windows.PdbFile.#ctor(SharpUtilities.MemoryLoadedFile)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Windows.PdbFile"/> class.
+            </summary>
+            <param name="file">File loaded into memory for faster parsing.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFile.Reader">
+            <summary>
+            Gets the Windows PDB reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFile.NamesStream">
+            <summary>
+            Gets the <c>/names</c> stream.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFile.PdbId">
+            <summary>
+            Gets the PDB file info stream header.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFile.FunctionsByToken">
+            <summary>
+            Dictionary of available functions indexed by its token.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFile.TokenRidMap">
+            <summary>
+            Gets the token remapping table if exists.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFile.Guid">
+            <summary>
+            Gets the PDB file identifier.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFile.Stamp">
+            <summary>
+            Gets the PDB stamp.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFile.Age">
+            <summary>
+            Gets the PDB file age.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFile.Functions">
+            <summary>
+            Gets the list of functions described in this PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Windows.PdbFile.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Windows.PdbFile.GetFunctionFromToken(System.Int32)">
+            <summary>
+            Find function by the specified token.
+            </summary>
+            <param name="token">Method definition token.</param>
+            <returns><see cref="T:SharpPdb.Managed.IPdbFunction"/> object if found, <c>null</c> otherwise.</returns>
+        </member>
+        <member name="T:SharpPdb.Managed.Windows.PdbFunction">
+            <summary>
+            Represents function referenced in Windows PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbFunction.localScopesCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Windows.PdbFunction.LocalScopes"/> property
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbFunction.sequencePointsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Windows.PdbFunction.SequencePoints"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Windows.PdbFunction.#ctor(SharpPdb.Managed.Windows.PdbFile,SharpPdb.Windows.SymbolRecords.ManagedProcedureSymbol,SharpPdb.Windows.DBI.DbiModuleDescriptor)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Windows.PdbFunction"/> class.
+            </summary>
+            <param name="pdbFile">Portable PDB file reader.</param>
+            <param name="procedure">Managed procedure symbol from PDB.</param>
+            <param name="dbiModule">DBI module descriptor from PDB.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFunction.PdbFile">
+            <summary>
+            Gets the Windows PDB file reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFunction.Procedure">
+            <summary>
+            Gets the managed procedure symbol.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFunction.DbiModule">
+            <summary>
+            Gets the DBI module descriptor.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFunction.Token">
+            <summary>
+            Gets the method token.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFunction.LocalScopes">
+            <summary>
+            Gets the list of local scopes in this function.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbFunction.SequencePoints">
+            <summary>
+            Gets the list of sequence points in this function.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Windows.PdbLocalConstant">
+            <summary>
+            Represents local constant defined in local scope in Windows PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Windows.PdbLocalConstant.#ctor(SharpPdb.Managed.Windows.PdbLocalScope,SharpPdb.Windows.SymbolRecords.ConstantSymbol)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Windows.PdbLocalConstant"/> class.
+            </summary>
+            <param name="localScope">Local scope where this contanst is defined.</param>
+            <param name="constant">Constant symbol read from PDB.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalConstant.LocalScope">
+            <summary>
+            Gets the local scope where this contanst is defined.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalConstant.Constant">
+            <summary>
+            Gets the constant symbol read from PDB.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalConstant.Name">
+            <summary>
+            Gets the name of the local constant.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalConstant.Value">
+            <summary>
+            Gets the value of the local constant.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Windows.PdbLocalScope">
+            <summary>
+            Represents local scope in Windows PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbLocalScope.childrenCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Windows.PdbLocalScope.Children"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbLocalScope.constantsCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Windows.PdbLocalScope.Constants"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbLocalScope.variablesCache">
+            <summary>
+            Cache of <see cref="P:SharpPdb.Managed.Windows.PdbLocalScope.Variables"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Windows.PdbLocalScope.#ctor(SharpPdb.Managed.Windows.PdbFunction,SharpPdb.Windows.SymbolRecords.BlockSymbol,SharpPdb.Managed.Windows.PdbLocalScope)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Windows.PdbLocalScope"/> class.
+            </summary>
+            <param name="function">Function that contains this scope.</param>
+            <param name="block">Block symbol read from PDB.</param>
+            <param name="parent">Parent scope.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.Function">
+            <summary>
+            Gets the function that contains this local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.Block">
+            <summary>
+            Gets the block symbol.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.StartOffset">
+            <summary>
+            Gets the IL offset of the local scope start.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.EndOffset">
+            <summary>
+            Gets the IL offset of the local scope end.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.Length">
+            <summary>
+            Gets the length of the local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.SharpPdb#Managed#IPdbLocalScope#Function">
+            <summary>
+            Gets the function that contains this local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.Parent">
+            <summary>
+            Gets the parent local scope or <c>null</c> if it doesn't exist.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.Children">
+            <summary>
+            Gets the list of contained local scopes.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.Constants">
+            <summary>
+            Gets the list of constants declared in this local scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalScope.Variables">
+            <summary>
+            Gets the list of variables declared in this local scope.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Windows.PdbLocalVariable">
+            <summary>
+            Represents local variable defined in local scope in Windows PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Windows.PdbLocalVariable.#ctor(SharpPdb.Managed.Windows.PdbLocalScope,SharpPdb.Windows.SymbolRecords.AttributeSlotSymbol)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Windows.PdbLocalVariable"/> class.
+            </summary>
+            <param name="localScope">Local scope where this variable is defined.</param>
+            <param name="slot">Attribute slot symbol read from PDB.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalVariable.LocalScope">
+            <summary>
+            Gets the local scope where this contanst is defined.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalVariable.Slot">
+            <summary>
+            Gets the attribute slot symbol.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalVariable.Index">
+            <summary>
+            Gets the index on the stack of the local variable.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbLocalVariable.Name">
+            <summary>
+            Gets the name of the local variable.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Windows.PdbSequencePoint">
+            <summary>
+            Represents sequence point referenced in Windows PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Windows.PdbSequencePoint.#ctor(SharpPdb.Managed.Windows.PdbFunction,SharpPdb.Managed.Windows.PdbSource,SharpPdb.Windows.DebugSubsections.LinesSubsection.Line)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Windows.PdbSequencePoint"/> class.
+            </summary>
+            <param name="function">Function that contains this sequence point.</param>
+            <param name="source">Source file that contains this sequence point.</param>
+            <param name="line">Parsed line object that describes this sequence point.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSequencePoint.Function">
+            <summary>
+            Gets the function that contains this sequence point.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSequencePoint.Source">
+            <summary>
+            Gets the source file that contains this sequence point.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSequencePoint.Line">
+            <summary>
+            Gets the parsed line object that describes this sequence point.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSequencePoint.SharpPdb#Managed#IPdbSequencePoint#Source">
+            <summary>
+            Gets the source file that contains this sequence point.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSequencePoint.StartLine">
+            <summary>
+            Gets the start line number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSequencePoint.EndLine">
+            <summary>
+            Gets the end line number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSequencePoint.StartColumn">
+            <summary>
+            Gets the start column number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSequencePoint.EndColumn">
+            <summary>
+            Gets the end column number.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSequencePoint.Offset">
+            <summary>
+            Gets the IL offset of this sequence point.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Managed.Windows.PdbSource">
+            <summary>
+            Represents source file referenced in Windows PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbSource.hashCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Windows.PdbSource.Hash"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbSource.nameCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Windows.PdbSource.Name"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Managed.Windows.PdbSource.guidStreamCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Managed.Windows.PdbSource.GuidStream"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Managed.Windows.PdbSource.#ctor(SharpPdb.Managed.Windows.PdbFile,SharpPdb.Windows.DebugSubsections.FileChecksumSubsection)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Managed.Windows.PdbSource"/> class.
+            </summary>
+            <param name="pdbFile">Portable PDB file reader.</param>
+            <param name="checksum">File checksum subsection.</param>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSource.PdbFile">
+            <summary>
+            Gets the Windows PDB file reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSource.Checksum">
+            <summary>
+            Gets the file checksum subsection.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSource.GuidStream">
+            <summary>
+            Gets the guid stream associated with this source file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSource.Hash">
+            <summary>
+            Gets the hash value bytes.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSource.HashAlgorithm">
+            <summary>
+            Gets the hash algorithm id.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSource.Language">
+            <summary>
+            Gets the language id.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Managed.Windows.PdbSource.Name">
+            <summary>
+            Gets the source file name.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Native.PdbEnumeratorValue">
+            <summary>
+            Represents PDB enum type single enumerator value.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbEnumeratorValue.#ctor(SharpPdb.Native.Types.PdbEnumType,SharpPdb.Windows.TypeRecords.EnumeratorRecord)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbType"/> class.
+            </summary>
+            <param name="enumType">Enum type that contains this enumerator value.</param>
+            <param name="enumeratorRecord">The enumerator record.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbEnumeratorValue.EnumType">
+            <summary>
+            Gets the enum type that contains this enumerator value.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbEnumeratorValue.EnumeratorRecord">
+            <summary>
+            Gets the enumerator record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbEnumeratorValue.Name">
+            <summary>
+            Gets the enumerator name.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbEnumeratorValue.Value">
+            <summary>
+            Gets the enumerator value.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbEnumeratorValue.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="T:SharpPdb.Native.PdbFileReader">
+            <summary>
+            Represents Native Windows PDB file reader.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbFileReader.typesByIndex">
+            <summary>
+            Cache of types by type index.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbFileReader.userDefinedTypesCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.PdbFileReader.UserDefinedTypes"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbFileReader.globalVarablesCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.PdbFileReader.GlobalVariables"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbFileReader.publicSymbolsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.PdbFileReader.PublicSymbols"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbFileReader.functionsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.PdbFileReader.Functions"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbFileReader.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbFileReader"/> class.
+            </summary>
+            <param name="pdbPath">Path to PDB file.</param>
+        </member>
+        <member name="M:SharpPdb.Native.PdbFileReader.#ctor(SharpUtilities.MemoryLoadedFile)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbFileReader"/> class.
+            </summary>
+            <param name="file">File loaded into memory. Note that file will be closed when instance of this type is disposed.</param>
+        </member>
+        <member name="M:SharpPdb.Native.PdbFileReader.#ctor(SharpUtilities.IBinaryReader)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbFileReader"/> class.
+            </summary>
+            <param name="reader">Binary stream reader of the PDB file.</param>
+        </member>
+        <member name="M:SharpPdb.Native.PdbFileReader.#ctor(SharpPdb.Windows.PdbFile)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbFileReader"/> class.
+            </summary>
+            <param name="pdbFile">Opened PDB file.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFileReader.PdbFile">
+            <summary>
+            Gets the Native Windows PDB reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFileReader.UserDefinedTypes">
+            <summary>
+            Gets the user defined types from PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFileReader.GlobalVariables">
+            <summary>
+            Gets the global variables from PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFileReader.PublicSymbols">
+            <summary>
+            Gets the public symbols from PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFileReader.Functions">
+            <summary>
+            Gets the functions from PDB file.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFileReader.Item(SharpPdb.Windows.TypeIndex)">
+            <summary>
+            Gets the <see cref="T:SharpPdb.Native.PdbType"/> at the specified index.
+            </summary>
+            <param name="typeIndex">The type index.</param>
+        </member>
+        <member name="M:SharpPdb.Native.PdbFileReader.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbFileReader.CreateType(SharpPdb.Windows.TypeIndex)">
+            <summary>
+            Creates <see cref="T:SharpPdb.Native.PdbType"/> read from <see cref="P:SharpPdb.Native.PdbFileReader.PdbFile"/> for the specified type index.
+            </summary>
+            <param name="typeIndex">Type index.</param>
+        </member>
+        <member name="M:SharpPdb.Native.PdbFileReader.CreateType(SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.ModifierOptions,SharpPdb.Windows.TypeIndex)">
+            <summary>
+            Creates <see cref="T:SharpPdb.Native.PdbType"/> read from <see cref="P:SharpPdb.Native.PdbFileReader.PdbFile"/> for the specified type index.
+            </summary>
+            <param name="typeIndex">Type index.</param>
+            <param name="modifierOptions">Modifier options for new type.</param>
+            <param name="originalTypeIndex">Original type index of the PDB type.</param>
+        </member>
+        <member name="T:SharpPdb.Native.PdbFunction">
+            <summary>
+            Represents function read from the PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbFunction.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.SymbolRecords.ProcedureSymbol)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbFunction"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="procedure">Procedure symbol record.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.Pdb">
+            <summary>
+            Gets the PDB File reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.Procedure">
+            <summary>
+            Gets the procedure symbol record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.ParentOffset">
+            <summary>
+            Used in local procedures, global procedures, thunk start, with start, and
+            block start symbols. If the scope is not enclosed by another lexical scope,
+            then <see cref="P:SharpPdb.Native.PdbFunction.ParentOffset"/> is zero. Otherwise, the parent of this scope is the symbol
+            within this module that opens the outer scope that encloses this scope but
+            encloses no other scope that encloses this scope. The <see cref="P:SharpPdb.Native.PdbFunction.ParentOffset"/> field contains
+            the offset from the beginning of the module's symbol table of the symbol
+            that opens the enclosing lexical scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.End">
+            <summary>
+            Used in start search local procedures, global procedures, and thunk start
+            symbols. The <see cref="P:SharpPdb.Native.PdbFunction.Next"/> field, along with the start search symbol, defines a
+            group of lexically scoped symbols within a symbol table that is contained
+            within a code segment or PE section. For each segment or section
+            represented in the symbol table, there is a start search symbol that contains
+            the offset from the start of the symbols for this module to the first procedure
+            or thunk contained in the segment. Each outermost lexical scope symbol
+            has a next field containing the next outermost scope symbol contained in the
+            segment. The last outermost scope in the symbol table for each segment has
+            a next field of zero.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.Next">
+            <summary>
+            This field is defined for local procedures, global procedures, thunk, block,
+            and with symbols.The end field contains the offset from the start of the
+            symbols for this module to the matching block end symbol that terminates
+            the lexical scope.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.CodeSize">
+            <summary>
+            Gets the length in bytes of this procedure.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.DebugStart">
+            <summary>
+            Gets the offset in bytes from the start of the procedure to the point where the
+            stack frame has been set up. Parameter and frame variables can be viewed at this point.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.DebugEnd">
+            <summary>
+            Gets the offset in bytes from the start of the procedure to the point where the
+            procedure is ready to return and has calculated its return value, if any.
+            Frame and register variables can still be viewed.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.FunctionType">
+            <summary>
+            Gets the function type.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.Offset">
+            <summary>
+            Gets the offset portion of the procedure address.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.Segment">
+            <summary>
+            Gets the segment portion of the procedure address.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.Flags">
+            <summary>
+            Gets the procedure flags.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.Name">
+            <summary>
+            Gets the name of procedure.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.RelativeVirtualAddress">
+            <summary>
+            Gets the relative virtual address of this static field from module load address.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.HasCustomCallingConvention">
+            <summary>
+            <c>true</c> if the function uses a custom calling convention.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.HasFarReturn">
+            <summary>
+            <c>true</c> if the function performs a far return.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.HasOptimizedDebugInfo">
+            <summary>
+            <c>true</c> if the code has debug information for optimized code.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.HasFramePointer">
+            <summary>
+            <c>true</c> if the function has frame pointer present.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.IsNoInline">
+            <summary>
+            <c>true</c> if the function is not an inline function.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.IsNoReturn">
+            <summary>
+            <c>true</c> if the function does not return a value.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.IsUnreachable">
+            <summary>
+            <c>true</c> if the function is not reachable.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbFunction.HasInterruptReturn">
+            <summary>
+            <c>true</c> if the function has a return from interrupt.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbFunction.GetUndecoratedName(SharpPdb.Windows.NameUndecorator.Flags)">
+            <summary>
+            Gets the part or all of the undecorated symbol name.
+            </summary>
+            <param name="flags">Specifies a combination of flags that control what is returned.</param>
+            <returns>Returns the undecorated name for a C++ decorated name.</returns>
+        </member>
+        <member name="T:SharpPdb.Native.PdbGlobalVariable">
+            <summary>
+            Represents global variable read from the PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbGlobalVariable.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.SymbolRecords.DataSymbol)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbTypeRegularStaticField"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="data">Data symbol for this static field.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbGlobalVariable.Pdb">
+            <summary>
+            Gets the PDB File reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbGlobalVariable.Data">
+            <summary>
+            Gets the data symbol for this static field.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbGlobalVariable.Name">
+            <summary>
+            Gets the global variable name.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbGlobalVariable.Type">
+            <summary>
+            Gets the global variable type.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbGlobalVariable.Offset">
+            <summary>
+            Gets the offset portion of symbol address.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbGlobalVariable.Segment">
+            <summary>
+            Gets the segment portion of symbol address.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbGlobalVariable.RelativeVirtualAddress">
+            <summary>
+            Gets the relative virtual address of this static field from module load address.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Native.PdbPublicSymbol">
+            <summary>
+            Represents public symbol read from the PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbPublicSymbol.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.SymbolRecords.Public32Symbol)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbPublicSymbol"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="publicSymbol">Public symbol record.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.Pdb">
+            <summary>
+            Gets the PDB File reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.PublicSymbol">
+            <summary>
+            Gets the public symbol record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.Flags">
+            <summary>
+            Gets public symbol flags.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.Offset">
+            <summary>
+            Gets the offset.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.Segment">
+            <summary>
+            Gets the segment.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.Name">
+            <summary>
+            Gets the name.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.RelativeVirtualAddress">
+            <summary>
+            Gets the relative virtual address of this static field from module load address.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.IsCode">
+            <summary>
+            <c>true</c> if the symbol's location is in code.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.IsFunction">
+            <summary>
+            <c>true</c> if the symbol is a function.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.IsManaged">
+            <summary>
+            <c>true</c> if the symbol's location is in managed code.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbPublicSymbol.IsMsil">
+            <summary>
+            <c>true</c> if the symbol's location is in Microsoft Intermediate Language (MSIL) code.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbPublicSymbol.GetUndecoratedName(SharpPdb.Windows.NameUndecorator.Flags)">
+            <summary>
+            Gets the part or all of the undecorated symbol name.
+            </summary>
+            <param name="flags">Specifies a combination of flags that control what is returned.</param>
+            <returns>Returns the undecorated name for a C++ decorated name.</returns>
+        </member>
+        <member name="T:SharpPdb.Native.PdbType">
+            <summary>
+            Represents type read from PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.ModifierOptions,System.String,System.UInt64)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="modifierOptions">The modifier options.</param>
+            <param name="name">The type name.</param>
+            <param name="size">The type size in bytes.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbType.Pdb">
+            <summary>
+            Gets the PDB File reader.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbType.ModifierOptions">
+            <summary>
+            Gets the modifier options.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbType.Name">
+            <summary>
+            Gets the type name.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbType.Size">
+            <summary>
+            Gets the type size in bytes.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbType.TypeIndex">
+            <summary>
+            Gets the type index.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Native.PdbTypeBaseClass">
+            <summary>
+            Represents base class of the user defined type read from the PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbTypeBaseClass.Offset">
+            <summary>
+            Offset of subobject that represents the base class within the structure.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbTypeBaseClass.BaseType">
+            <summary>
+            Type that represents the base class within the structure.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbTypeBaseClass.Access">
+            <summary>
+            Base class access.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Native.PdbTypeBitField">
+            <summary>
+            Represents bit field of the type read from the PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeBitField.#ctor(SharpPdb.Native.Types.PdbUserDefinedType,SharpPdb.Windows.TypeRecords.DataMemberRecord,SharpPdb.Windows.TypeRecords.BitFieldRecord)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbTypeBitField"/> class.
+            </summary>
+            <param name="containerType">Type that contains this field.</param>
+            <param name="dataMemberRecord">The data member record.</param>
+            <param name="bitFieldRecord">The bit field record.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeBitField.BitFieldRecord">
+            <summary>
+            Gets the bit field record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeBitField.BitSize">
+            <summary>
+            Gets the length in bits of this field.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeBitField.BitOffset">
+            <summary>
+            Gets the starting position (from bit 0) of the object in the word.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeBitField.Type">
+            <summary>
+            Gets the field type.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeBitField.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="T:SharpPdb.Native.PdbTypeConstant">
+            <summary>
+            Represents constant static field of the type read from the PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeConstant.#ctor(SharpPdb.Native.Types.PdbUserDefinedType,SharpPdb.Windows.TypeRecords.StaticDataMemberRecord,SharpPdb.Windows.SymbolRecords.ConstantSymbol)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbTypeConstant"/> class.
+            </summary>
+            <param name="containerType">Type that contains this field.</param>
+            <param name="staticDataMemberRecord">The static data member record.</param>
+            <param name="constant">The constant symbol.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeConstant.Constant">
+            <summary>
+            Gets the constant symbol.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeConstant.Value">
+            <summary>
+            Gets the value of the constant.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeConstant.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="T:SharpPdb.Native.PdbTypeField">
+            <summary>
+            Represents field of the type read from the PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeField.#ctor(SharpPdb.Native.Types.PdbUserDefinedType,SharpPdb.Windows.TypeRecords.DataMemberRecord)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbTypeField"/> class.
+            </summary>
+            <param name="containerType">Type that contains this field.</param>
+            <param name="dataMemberRecord">The data member record.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeField.ContainerType">
+            <summary>
+            Gets the type that contains this field.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeField.DataMemberRecord">
+            <summary>
+            Gets the data member record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeField.Name">
+            <summary>
+            Gets the field name.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeField.Type">
+            <summary>
+            Gets the field type.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeField.Offset">
+            <summary>
+            Gets the offset of field in the <see cref="P:SharpPdb.Native.PdbTypeField.ContainerType"/>.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeField.Attributes">
+            <summary>
+            Gets the field attributes.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeField.Access">
+            <summary>
+            Gets the field access.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeField.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="T:SharpPdb.Native.PdbTypeRegularStaticField">
+            <summary>
+            Represents regular static field of the type read from the PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeRegularStaticField.#ctor(SharpPdb.Native.Types.PdbUserDefinedType,SharpPdb.Windows.TypeRecords.StaticDataMemberRecord,SharpPdb.Windows.SymbolRecords.DataSymbol)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbTypeRegularStaticField"/> class.
+            </summary>
+            <param name="containerType">Type that contains this field.</param>
+            <param name="staticDataMemberRecord">The static data member record.</param>
+            <param name="data">Data symbol for this static field.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeRegularStaticField.Data">
+            <summary>
+            Gets the data symbol for this static field.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeRegularStaticField.Offset">
+            <summary>
+            Gets the offset portion of symbol address.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeRegularStaticField.Segment">
+            <summary>
+            Gets the segment portion of symbol address.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeRegularStaticField.RelativeVirtualAddress">
+            <summary>
+            Gets the relative virtual address of this static field from module load address.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Native.PdbTypeStaticField">
+            <summary>
+            Represents static field of the type read from the PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeStaticField.#ctor(SharpPdb.Native.Types.PdbUserDefinedType,SharpPdb.Windows.TypeRecords.StaticDataMemberRecord)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbTypeStaticField"/> class.
+            </summary>
+            <param name="containerType">Type that contains this field.</param>
+            <param name="staticDataMemberRecord">The static data member record.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeStaticField.ContainerType">
+            <summary>
+            Gets the type that contains this field.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeStaticField.StaticDataMemberRecord">
+            <summary>
+            Gets the static data member record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeStaticField.Name">
+            <summary>
+            Gets the field name.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeStaticField.Type">
+            <summary>
+            Gets the field type.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeStaticField.Attributes">
+            <summary>
+            Gets the field attributes.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeStaticField.Access">
+            <summary>
+            Gets the field access.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeStaticField.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="T:SharpPdb.Native.PdbTypeThreadLocalStorage">
+            <summary>
+            Represents thread local storage static field of the type read from the PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeThreadLocalStorage.#ctor(SharpPdb.Native.Types.PdbUserDefinedType,SharpPdb.Windows.TypeRecords.StaticDataMemberRecord,SharpPdb.Windows.SymbolRecords.ThreadLocalDataSymbol)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbTypeThreadLocalStorage"/> class.
+            </summary>
+            <param name="containerType">Type that contains this field.</param>
+            <param name="staticDataMemberRecord">The static data member record.</param>
+            <param name="threadLocalData">The thread local data.</param>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeThreadLocalStorage.ThreadLocalData">
+            <summary>
+            Gets the thread local data.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeThreadLocalStorage.Offset">
+            <summary>
+            Gets the offset into thread local storage.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.PdbTypeThreadLocalStorage.Segment">
+            <summary>
+            Gets the segment of thread local storage.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.PdbTypeThreadLocalStorage.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="T:SharpPdb.Native.PdbTypeVirtualBaseClass">
+            <summary>
+            Represents virtual base class of the user defined type read from the PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbTypeVirtualBaseClass.BaseType">
+            <summary>
+            Type that represents the base class within the structure.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbTypeVirtualBaseClass.VirtualBasePointerType">
+            <summary>
+            Type of the virtual base pointer for this base.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbTypeVirtualBaseClass.Access">
+            <summary>
+            Base class access.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbTypeVirtualBaseClass.IsDirect">
+            <summary>
+            Is this virtual base class direct or indirect.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbTypeVirtualBaseClass.VirtualBasePointerOffset">
+            <summary>
+            Gets the offset of the virtual base pointer from the
+            address point of the class for this virtual base.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.PdbTypeVirtualBaseClass.VirtualTableIndex">
+            <summary>
+            Gets the index into the virtual base displacement
+            table of the entry that contains the displacement of the virtual base.
+            The displacement is relative to the address point of the class plus <see cref="F:SharpPdb.Native.PdbTypeVirtualBaseClass.VirtualBasePointerOffset"/>.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbArrayType">
+            <summary>
+            Represents array type read from PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbArrayType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.ArrayRecord,SharpPdb.Windows.TypeRecords.ModifierOptions)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.Types.PdbArrayType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="arrayRecord">The array record.</param>
+            <param name="modifierOptions">The modifier options.</param>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbArrayType.ArrayRecord">
+            <summary>
+            Gets the array record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbArrayType.IndexType">
+            <summary>
+            Gets the PDB type of indexing variable.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbArrayType.ElementType">
+            <summary>
+            Gets the PDB type of each array element.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbArrayType.Count">
+            <summary>
+            Gets the number of elements in the array.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbArrayType.GetTypeName(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeRecords.ArrayRecord)">
+            <summary>
+            Gets the type name from array record.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="arrayRecord">The array record.</param>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbClassType">
+            <summary>
+            Represents class, structure or interface type read from PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbClassType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.ClassRecord,SharpPdb.Windows.TypeRecords.ModifierOptions)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="classRecord">The class record.</param>
+            <param name="modifierOptions">The modifier options.</param>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbClassType.ClassRecord">
+            <summary>
+            Gets the class record.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbClassType.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbComplexPointerType">
+            <summary>
+            Represents complex pointer type read from PDB file (type that has <see cref="P:SharpPdb.Native.Types.PdbComplexPointerType.PointerRecord"/> to better describe it).
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbComplexPointerType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.PointerRecord,SharpPdb.Windows.TypeRecords.ModifierOptions)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.Types.PdbComplexPointerType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="pointerRecord">The pointer record.</param>
+            <param name="modifierOptions">The modifier options.</param>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbComplexPointerType.PointerRecord">
+            <summary>
+            Gets the pointer record.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbComplexPointerType.CombineModifierOptions(SharpPdb.Windows.TypeRecords.ModifierOptions,SharpPdb.Windows.TypeRecords.PointerRecord)">
+            <summary>
+            Combines modifier options with pointer record data.
+            </summary>
+            <param name="modifierOptions">The modifier options.</param>
+            <param name="pointerRecord">The pointer record.</param>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbComplexPointerType.GetPointerSize(SharpPdb.Windows.TypeRecords.PointerRecord)">
+            <summary>
+            Gets pointer size from pointer type record.
+            </summary>
+            <param name="pointerRecord">The pointer record.</param>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbEnumType">
+            <summary>
+            Represents enumeration type read from PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.Types.PdbEnumType.valuesCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.Types.PdbEnumType.Values"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbEnumType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.EnumRecord,SharpPdb.Windows.TypeRecords.ModifierOptions)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="enumRecord">The enum record.</param>
+            <param name="modifierOptions">The modifier options.</param>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbEnumType.EnumRecord">
+            <summary>
+            Gets the enum record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbEnumType.UnderlyingType">
+            <summary>
+            Gets the underlying type of enum.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbEnumType.Values">
+            <summary>
+            Gets the list of enumerator values.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbEnumType.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbFunctionType">
+            <summary>
+            Represents function type read from PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.Types.PdbFunctionType.argumentsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.Types.PdbFunctionType.Arguments"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbFunctionType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.ProcedureRecord,SharpPdb.Windows.TypeRecords.ModifierOptions)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.Types.PdbFunctionType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="procedureRecord">The procedure record.</param>
+            <param name="modifierOptions">The modifier options.</param>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbFunctionType.ProcedureRecord">
+            <summary>
+            Gets the procedure record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbFunctionType.CallingConvention">
+            <summary>
+            Gets the calling convention of the function.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbFunctionType.ParameterCount">
+            <summary>
+            Gets the number of parameters.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbFunctionType.ReturnType">
+            <summary>
+            Gets the PDB type of the value returned by the function.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbFunctionType.Arguments">
+            <summary>
+            Gets the function arguments.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbMemberFunctionType">
+            <summary>
+            Represents member function type read from PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.Types.PdbMemberFunctionType.argumentsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.Types.PdbMemberFunctionType.Arguments"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbMemberFunctionType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.MemberFunctionRecord,SharpPdb.Windows.TypeRecords.ModifierOptions)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.Types.PdbMemberFunctionType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="memberFuctionRecord">The member function record.</param>
+            <param name="modifierOptions">The modifier options.</param>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbMemberFunctionType.MemberFunctionRecord">
+            <summary>
+            Gets the member function record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbMemberFunctionType.CallingConvention">
+            <summary>
+            Gets the calling convention of the function.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbMemberFunctionType.ParameterCount">
+            <summary>
+            Gets the number of parameters. This count includes the <c>this</c> parameter.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbMemberFunctionType.ReturnType">
+            <summary>
+            Gets the PDB type of the value returned by the function.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbMemberFunctionType.Arguments">
+            <summary>
+            Gets the function arguments.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbMemberFunctionType.ThisType">
+            <summary>
+            Gets the PDB type of the <c>this</c> parameter of the member function. A type of
+            <c>void</c> indicates that the member function is static and has no <c>this</c> parameter.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbMemberFunctionType.ThisPointerAdjustment">
+            <summary>
+            Gets the Logical <c>this</c> adjuster for the method. Whenever a class element is
+            referenced via the <c>this</c> pointer, <see cref="P:SharpPdb.Native.Types.PdbMemberFunctionType.ThisPointerAdjustment"/> will be added to the resultant
+            offset before referencing the element.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbMemberFunctionType.ShouldAddThisAsParameter">
+            <summary>
+            <c>true</c> if <c>this</c> should be added as a parameter - checks if function is static.
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbPointerType">
+            <summary>
+            Represents pointer type read from PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbPointerType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.ModifierOptions,SharpPdb.Windows.TypeIndex,System.UInt64,System.Boolean,System.Boolean)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.Types.PdbPointerType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="modifierOptions">The modifier options.</param>
+            <param name="elementType">PDB type of object pointed to.</param>
+            <param name="size">The type size in bytes.</param>
+            <param name="isLValueReference"><c>true</c> if pointer is L-value reference</param>
+            <param name="isRValueReference"><c>true</c> if pointer is R-value reference</param>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbPointerType.ElementType">
+            <summary>
+            Gets the PDB type of object pointed to.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbPointerType.IsLValueReference">
+            <summary>
+            <c>true</c> if pointer is L-value reference
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbPointerType.IsRValueReference">
+            <summary>
+            <c>true</c> if pointer is R-value reference
+            </summary>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbSimplePointerType">
+            <summary>
+            Represents simple pointer type read from PDB file (type that is described with <see cref="T:SharpPdb.Windows.TypeIndex"/>).
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbSimplePointerType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.ModifierOptions)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.Types.PdbSimplePointerType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="modifierOptions">The modifier options.</param>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbSimplePointerType.GetPointerSize(SharpPdb.Windows.TypeIndex)">
+            <summary>
+            Gets the pointer size from type index.
+            </summary>
+            <param name="typeIndex">The type index.</param>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbSimpleType">
+            <summary>
+            Represents simple type read from PDB file (type that is described with <see cref="T:SharpPdb.Windows.TypeIndex"/>).
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbSimpleType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.ModifierOptions)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.Types.PdbSimpleType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="modifierOptions">The modifier options.</param>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbSimpleType.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbSimpleType.GetSize(SharpPdb.Windows.TypeIndex)">
+            <summary>
+            Gets the type size from the type index.
+            </summary>
+            <param name="typeIndex">The type index.</param>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbUnionType">
+            <summary>
+            Represents union type read from PDB file.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbUnionType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.UnionRecord,SharpPdb.Windows.TypeRecords.ModifierOptions)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="unionRecord">The union record.</param>
+            <param name="modifierOptions">The modifier options.</param>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUnionType.UnionRecord">
+            <summary>
+            Gets the union record.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbUnionType.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="T:SharpPdb.Native.Types.PdbUserDefinedType">
+            <summary>
+            Represents user defined type read from PDB file.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.Types.PdbUserDefinedType.fieldsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.Fields"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.Types.PdbUserDefinedType.staticFieldsCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.StaticFields"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.Types.PdbUserDefinedType.baseClassesCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.BaseClasses"/> property.
+            </summary>
+        </member>
+        <member name="F:SharpPdb.Native.Types.PdbUserDefinedType.virtualBaseClassesCache">
+            <summary>
+            Cache for <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.VirtualBaseClasses"/> property.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbUserDefinedType.#ctor(SharpPdb.Native.PdbFileReader,SharpPdb.Windows.TypeIndex,SharpPdb.Windows.TypeRecords.TagRecord,SharpPdb.Windows.TypeRecords.ModifierOptions,System.UInt64)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpPdb.Native.PdbType"/> class.
+            </summary>
+            <param name="pdb">The PDB file reader.</param>
+            <param name="typeIndex">Type index.</param>
+            <param name="tagRecord">The tag record.</param>
+            <param name="modifierOptions">The modifier options.</param>
+            <param name="size">The type size in bytes.</param>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord">
+            <summary>
+            Gets the tag record.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.UniqueName">
+            <summary>
+            Gets the unique type name.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.Fields">
+            <summary>
+            Gets the all fields from this type.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.StaticFields">
+            <summary>
+            Gets the all static fields from this type.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.BaseClasses">
+            <summary>
+            Gets the all direct base classes of this user defined type.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.VirtualBaseClasses">
+            <summary>
+            Gets the all direct virtual base classes of this user defined type.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.IsNested">
+            <summary>
+            <c>true</c> if <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.<see cref="P:SharpPdb.Windows.TypeRecords.TagRecord.Options"/> contain <see cref="F:SharpPdb.Windows.TypeRecords.ClassOptions.Nested"/>.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.IsScoped">
+            <summary>
+            <c>true</c> if <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.<see cref="P:SharpPdb.Windows.TypeRecords.TagRecord.Options"/> contain <see cref="F:SharpPdb.Windows.TypeRecords.ClassOptions.Scoped"/>.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.IsPacked">
+            <summary>
+            <c>true</c> if <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.<see cref="P:SharpPdb.Windows.TypeRecords.TagRecord.Options"/> contain <see cref="F:SharpPdb.Windows.TypeRecords.ClassOptions.Packed"/>.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.HasOverloadedOperator">
+            <summary>
+            <c>true</c> if <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.<see cref="P:SharpPdb.Windows.TypeRecords.TagRecord.Options"/> contain <see cref="F:SharpPdb.Windows.TypeRecords.ClassOptions.HasOverloadedOperator"/>.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.ContainsNestedClass">
+            <summary>
+            <c>true</c> if <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.<see cref="P:SharpPdb.Windows.TypeRecords.TagRecord.Options"/> contain <see cref="F:SharpPdb.Windows.TypeRecords.ClassOptions.ContainsNestedClass"/>.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.HasOverloadedAssignmentOperator">
+            <summary>
+            <c>true</c> if <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.<see cref="P:SharpPdb.Windows.TypeRecords.TagRecord.Options"/> contain <see cref="F:SharpPdb.Windows.TypeRecords.ClassOptions.HasOverloadedAssignmentOperator"/>.
+            </summary>
+        </member>
+        <member name="P:SharpPdb.Native.Types.PdbUserDefinedType.HasConstructorOrDestructor">
+            <summary>
+            <c>true</c> if <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.<see cref="P:SharpPdb.Windows.TypeRecords.TagRecord.Options"/> contain <see cref="F:SharpPdb.Windows.TypeRecords.ClassOptions.HasConstructorOrDestructor"/>.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbUserDefinedType.EnumerateFieldList">
+            <summary>
+            Enumerates field list of <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbUserDefinedType.EnumerateFields">
+            <summary>
+            Creates a list of fields based on <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.<see cref="P:SharpPdb.Windows.TypeRecords.TagRecord.FieldList"/>.
+            </summary>
+        </member>
+        <member name="M:SharpPdb.Native.Types.PdbUserDefinedType.EnumerateStaticFields">
+            <summary>
+            Creates a list of static fields based on <see cref="P:SharpPdb.Native.Types.PdbUserDefinedType.TagRecord"/>.<see cref="P:SharpPdb.Windows.TypeRecords.TagRecord.FieldList"/>.
+            </summary>
+        </member>
+    </members>
+</doc>

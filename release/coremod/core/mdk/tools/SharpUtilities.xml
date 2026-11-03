@@ -1,0 +1,1033 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>SharpUtilities</name>
+    </assembly>
+    <members>
+        <member name="T:SharpUtilities.ArrayCache`1">
+            <summary>
+            Helper class for caching objects inside the array. New object will be cached on the request.
+            </summary>
+            <typeparam name="TValue">Type of the value.</typeparam>
+        </member>
+        <member name="F:SharpUtilities.ArrayCache`1.populateAction">
+            <summary>
+            The populate action
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.ArrayCache`1.values">
+            <summary>
+            The cached values
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.ArrayCache`1.disableLocking">
+            <summary>
+            Disables locking during value population.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.ArrayCache`1.#ctor(System.Int32,System.Func{System.Int32,`0})">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.ArrayCache`1"/> class.
+            </summary>
+            <param name="length">Length of the array.</param>
+            <param name="populateAction">The populate action.</param>
+        </member>
+        <member name="M:SharpUtilities.ArrayCache`1.#ctor(System.Int32,System.Boolean,System.Func{System.Int32,`0})">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.ArrayCache`1"/> class.
+            </summary>
+            <param name="length">Length of the array.</param>
+            <param name="disableLocking">Disables locking during value population. It is not recommended to disable locking when using <see cref="T:System.IDisposable"/> values.</param>
+            <param name="populateAction">The populate action.</param>
+        </member>
+        <member name="M:SharpUtilities.ArrayCache`1.Clear">
+            <summary>
+            Removes all items from this cache.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.ArrayCache`1.Count">
+            <summary>
+            Gets the number of entries inside the cache.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.ArrayCache`1.Item(System.Int32)">
+            <summary>
+            Gets or sets the &lt;TValue&gt; with the specified index.
+            </summary>
+            <param name="index">The array index.</param>
+        </member>
+        <member name="M:SharpUtilities.ArrayCache`1.GetEnumerator">
+            <summary>
+            Returns all cached values in this cache.
+            </summary>
+            <returns>IEnumerator of all the cache values.</returns>
+        </member>
+        <member name="M:SharpUtilities.ArrayCache`1.InvalidateCache">
+            <summary>
+            Invalidates this cache.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.ArrayCache`1.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.BinaryReaderExtensions">
+            <summary>
+            Extension methods for <see cref="T:SharpUtilities.IBinaryReader"/>.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadGuid(SharpUtilities.IBinaryReader)">
+            <summary>
+            Reads <c>Guid</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadAllBytes(SharpUtilities.IBinaryReader)">
+            <summary>
+            Reads all bytes from the stream.
+            </summary>
+            <param name="reader">Binary reader.</param>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadByteArray(SharpUtilities.IBinaryReader,System.Int32)">
+            <summary>
+            Reads <c>byte[]</c> from the stream.
+            </summary>
+            <param name="reader">Binary reader.</param>
+            <param name="length">Number of elements to be read.</param>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadUshortArray(SharpUtilities.IBinaryReader,System.Int32)">
+            <summary>
+            Reads <c>ushort[]</c> from the stream.
+            </summary>
+            <param name="reader">Binary reader.</param>
+            <param name="length">Number of elements to be read.</param>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadUintArray(SharpUtilities.IBinaryReader,System.Int32)">
+            <summary>
+            Reads <c>uint[]</c> from the stream.
+            </summary>
+            <param name="reader">Binary reader.</param>
+            <param name="length">Number of elements to be read.</param>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadSubstream``1(``0,System.Int64)">
+            <summary>
+            Creates substream of the specified length from the current position and moves position by the substream length.
+            </summary>
+            <typeparam name="TStream">Type of the parent stream.</typeparam>
+            <param name="reader">Parent binary stream.</param>
+            <param name="length">Substream length in bytes.</param>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.Align(SharpUtilities.IBinaryReader,System.Int64)">
+            <summary>
+            Aligns binary reader to the specified number of alignment bytes.
+            </summary>
+            <param name="reader">Stream binary reader.</param>
+            <param name="alignment">Number of bytes to be aligned</param>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadFloat(SharpUtilities.IBinaryReader)">
+            <summary>
+            Reads 32-bit floating point number from the stream.
+            </summary>
+            <param name="reader">Stream binary reader.</param>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadDouble(SharpUtilities.IBinaryReader)">
+            <summary>
+            Reads 64-bit floating point number from the stream.
+            </summary>
+            <param name="reader">Stream binary reader.</param>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadBString(SharpUtilities.IBinaryReader)">
+            <summary>
+            Reads length prefixed UTF8 string from the stream.
+            </summary>
+            <param name="reader">Stream binary reader.</param>
+        </member>
+        <member name="M:SharpUtilities.BinaryReaderExtensions.ReadDecimal(SharpUtilities.IBinaryReader)">
+            <summary>
+            Reads decimal number from the stream.
+            </summary>
+            <param name="reader">Stream binary reader.</param>
+        </member>
+        <member name="T:SharpUtilities.BinarySubstreamReader`1">
+            <summary>
+            Represents substream <see cref="T:SharpUtilities.IBinaryReader"/>.
+            </summary>
+            <typeparam name="TStream">Type of the substream.</typeparam>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.#ctor(`0,System.Int64,System.Int64)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.BinarySubstreamReader`1"/> class.
+            </summary>
+            <param name="parentStream">Parent stream binary reader.</param>
+            <param name="parentOffset">Position in the parent stream that is the beginning of this stream.</param>
+            <param name="length">Length of this stream.</param>
+        </member>
+        <member name="P:SharpUtilities.BinarySubstreamReader`1.ParentOffset">
+            <summary>
+            Gets the position in the parent stream that is the beginning of this stream.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.BinarySubstreamReader`1.ParentStream">
+            <summary>
+            Gets the parent stream binary reader.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.BinarySubstreamReader`1.Position">
+            <summary>
+            Gets or sets the position in the stream.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.BinarySubstreamReader`1.Length">
+            <summary>
+            Gets the length of the stream in bytes.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.BinarySubstreamReader`1.BytesRemaining">
+            <summary>
+            Gets the remaining number of bytes in the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.Duplicate">
+            <summary>
+            Creates duplicate of this stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadByte">
+            <summary>
+            Reads <c>byte</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadShort">
+            <summary>
+            Reads <c>short</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadUshort">
+            <summary>
+            Reads <c>ushort</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadInt">
+            <summary>
+            Reads <c>int</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadUint">
+            <summary>
+            Reads <c>uint</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadLong">
+            <summary>
+            Reads <c>long</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadUlong">
+            <summary>
+            Reads <c>ulong</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadCString">
+            <summary>
+            Reads C-style string (null terminated) from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadCStringWide">
+            <summary>
+            Reads C-style wide (2 bytes) string (null terminated) from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadBytes(System.Byte*,System.UInt32)">
+            <summary>
+            Reads bytes buffer from the stream.
+            </summary>
+            <param name="bytes">Buffer pointer where bytes should be stored.</param>
+            <param name="count">Number of bytes to from the stream</param>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.Move(System.UInt32)">
+            <summary>
+            Moves position by the specified bytes.
+            </summary>
+            <param name="bytes">Number of bytes to move the stream.</param>
+        </member>
+        <member name="M:SharpUtilities.BinarySubstreamReader`1.ReadBuffer(System.UInt32)">
+            <summary>
+            Reads memory buffer from the stream.
+            </summary>
+            <param name="length">Number of bytes to read from the stream.</param>
+            <returns>Memory buffer read from the stream.</returns>
+        </member>
+        <member name="T:SharpUtilities.CacheInvalidator">
+            <summary>
+            Helper class that is used to collect caches that needs to be invalidated on particular event.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.CacheInvalidator.Caches">
+            <summary>
+            Collected caches that should be invalidated.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.CacheInvalidator.CreateDictionaryCache``2(System.Func{``0,``1})">
+            <summary>
+            Creates <see cref="T:SharpUtilities.DictionaryCache`2"/> that is added to <see cref="P:SharpUtilities.CacheInvalidator.Caches"/> when it is populated.
+            </summary>
+            <typeparam name="TKey">Dictionary cache key type.</typeparam>
+            <typeparam name="TValue">Dictionary cache value type.</typeparam>
+            <param name="populateAction">Function that will populate dictionary cache entries.</param>
+        </member>
+        <member name="M:SharpUtilities.CacheInvalidator.CreateSimpleCache``1(System.Func{``0})">
+            <summary>
+            Creates <see cref="T:SharpUtilities.SimpleCache`1"/> that is added to <see cref="P:SharpUtilities.CacheInvalidator.Caches"/> when it is populated.
+            </summary>
+            <typeparam name="T">Simple cache value type.</typeparam>
+            <param name="populateAction">Function that will populate simple cache.</param>
+        </member>
+        <member name="M:SharpUtilities.CacheInvalidator.InvalidateCache">
+            <summary>
+            Invalidate cache entry.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.CacheInvalidator.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.CacheInvalidator.GetEnumerator">
+            <summary>
+            Gets enumerator for all the cached objects in this cache.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.CacheInvalidator.InvalidateCaches(System.Object)">
+            <summary>
+            Invalidates all the instances of type <see cref="T:SharpUtilities.ICache" /> and
+            <see cref="T:SharpUtilities.DictionaryCache`2" /> which are fields of class given as root object and any
+            fields of the same type in child fields recursively.
+            Use it when there are massive changes and all the caches need to be invalidated.
+            </summary>
+            <param name="rootObject">Root object from which we recursively drop the caches.</param>
+        </member>
+        <member name="T:SharpUtilities.DictionaryCache`2">
+            <summary>
+            Helper class for caching objects inside the dictionary. New object will be cached on the request.
+            </summary>
+            <typeparam name="TKey">Type of the key.</typeparam>
+            <typeparam name="TValue">Type of the value.</typeparam>
+        </member>
+        <member name="F:SharpUtilities.DictionaryCache`2.populateAction">
+            <summary>
+            The populate action
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.DictionaryCache`2.values">
+            <summary>
+            The cached values
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.DictionaryCache`2.#ctor(System.Func{`0,`1})">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.DictionaryCache`2"/> class.
+            </summary>
+            <param name="populateAction">The populate action.</param>
+        </member>
+        <member name="M:SharpUtilities.DictionaryCache`2.Clear">
+            <summary>
+            Removes all items from this cache.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.DictionaryCache`2.Values">
+            <summary>
+            Gets the values.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.DictionaryCache`2.Count">
+            <summary>
+            Gets the number of entries inside the cache.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.DictionaryCache`2.Item(`0)">
+            <summary>
+            Gets or sets the &lt;TValue&gt; with the specified key.
+            </summary>
+            <param name="key">The key value.</param>
+        </member>
+        <member name="M:SharpUtilities.DictionaryCache`2.TryGetExistingValue(`0,`1@)">
+            <summary>
+            Gets the existing value in the cache associated with the specified key. Value won't be populated if it is not in cache.
+            </summary>
+            <param name="key">The key of the value to get.</param>
+            <param name="value">When this method returns, contains the value associated with the specified key,
+            if the key is found; otherwise, the default value for the type of the value parameter. This parameter
+            is passed uninitialized.</param>
+            <returns>
+              <c>true</c> if the <see cref="T:SharpUtilities.DictionaryCache`2" /> contains an element with the specified key; otherwise, <c>false</c>.
+            </returns>
+        </member>
+        <member name="M:SharpUtilities.DictionaryCache`2.TryGetValue(`0,`1@)">
+            <summary>
+            Gets the value in the cache associated with the specified key. Value will be populated if it is not in cache.
+            </summary>
+            <param name="typeName">The key of the value to get.</param>
+            <param name="userType">When this method returns, contains the value associated with the specified key,
+            if the key is found; otherwise, the default value for the type of the value parameter. This parameter
+            is passed uninitialized.</param>
+            <returns>
+              <c>true</c> if the <see cref="T:SharpUtilities.DictionaryCache`2" /> contains an element with the specified key; otherwise, <c>false</c>.
+            </returns>
+        </member>
+        <member name="M:SharpUtilities.DictionaryCache`2.RemoveEntry(`0,`1@)">
+            <summary>
+            Removes dictionary entry with given key.
+            </summary>
+            <param name="key">Key of entry to be removed..</param>
+            <param name="value">Value assoiated with the key that is being removed.</param>
+        </member>
+        <member name="M:SharpUtilities.DictionaryCache`2.GetEnumerator">
+            <summary>
+            Returns all cached values in this cache.
+            </summary>
+            <returns>IEnumerator of all the cache values.</returns>
+        </member>
+        <member name="M:SharpUtilities.DictionaryCache`2.InvalidateCache">
+            <summary>
+            Invalidates this cache.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.DictionaryCache`2.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.IBinaryReader">
+            <summary>
+            Interface that defines simple binary reader
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.IBinaryReader.Position">
+            <summary>
+            Gets or sets the position in the stream.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.IBinaryReader.Length">
+            <summary>
+            Gets the length of the stream in bytes.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.IBinaryReader.BytesRemaining">
+            <summary>
+            Gets the remaining number of bytes in the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadByte">
+            <summary>
+            Reads <c>byte</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadShort">
+            <summary>
+            Reads <c>short</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadUshort">
+            <summary>
+            Reads <c>ushort</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadInt">
+            <summary>
+            Reads <c>int</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadUint">
+            <summary>
+            Reads <c>uint</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadLong">
+            <summary>
+            Reads <c>long</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadUlong">
+            <summary>
+            Reads <c>ulong</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadCString">
+            <summary>
+            Reads C-style string (null terminated) from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadCStringWide">
+            <summary>
+            Reads C-style wide (2 bytes) string (null terminated) from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.Move(System.UInt32)">
+            <summary>
+            Moves position by the specified bytes.
+            </summary>
+            <param name="bytes">Number of bytes to move the stream.</param>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadBytes(System.Byte*,System.UInt32)">
+            <summary>
+            Reads bytes buffer from the stream.
+            </summary>
+            <param name="bytes">Buffer pointer where bytes should be stored.</param>
+            <param name="count">Number of bytes to copy from the stream.</param>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.ReadBuffer(System.UInt32)">
+            <summary>
+            Reads memory buffer from the stream.
+            </summary>
+            <param name="length">Number of bytes to read from the stream.</param>
+            <returns>Memory buffer read from the stream.</returns>
+        </member>
+        <member name="M:SharpUtilities.IBinaryReader.Duplicate">
+            <summary>
+            Creates duplicate of this stream.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.ICache">
+            <summary>
+            Interface for all caching structures.
+            <see cref="T:System.Collections.IEnumerable"/> implementation is responsible for returning all cached objects in this cache.
+            <see cref="T:System.IDisposable"/> implementation is responsible for clearing the cache.
+            All caches are aware of <see cref="T:System.IDisposable"/> object that can be stored inside and will dispose them on clear.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.ICache.InvalidateCache">
+            <summary>
+            Invalidates this cache.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.MemoryBinaryReader">
+            <summary>
+            Class that implements <see cref="T:SharpUtilities.IBinaryReader"/> for memory (pointer and length).
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.MemoryBinaryReader.basePointer">
+            <summary>
+            Pointer to the start of memory buffer.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.MemoryBinaryReader.pointer">
+            <summary>
+            Current position in the memory buffer.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.#ctor(System.Byte*,System.Int64)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.MemoryBinaryReader"/> class.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.MemoryBinaryReader.Length">
+            <summary>
+            Gets the length of the stream in bytes.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.MemoryBinaryReader.Position">
+            <summary>
+            Gets or sets the position in the stream.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.MemoryBinaryReader.BytesRemaining">
+            <summary>
+            Gets the remaining number of bytes in the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.Duplicate">
+            <summary>
+            Creates duplicate of this stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadByte">
+            <summary>
+            Reads <c>byte</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadShort">
+            <summary>
+            Reads <c>short</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadUshort">
+            <summary>
+            Reads <c>ushort</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadInt">
+            <summary>
+            Reads <c>int</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadUint">
+            <summary>
+            Reads <c>uint</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadLong">
+            <summary>
+            Reads <c>long</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadUlong">
+            <summary>
+            Reads <c>ulong</c> from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadCString">
+            <summary>
+            Reads C-style string (null terminated) from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadCStringWide">
+            <summary>
+            Reads C-style wide (2 bytes) string (null terminated) from the stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadBytes(System.Byte*,System.UInt32)">
+            <summary>
+            Reads bytes buffer from the stream.
+            </summary>
+            <param name="bytes">Buffer pointer where bytes should be stored.</param>
+            <param name="count">Number of bytes to from the stream</param>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.Move(System.UInt32)">
+            <summary>
+            Moves position by the specified bytes.
+            </summary>
+            <param name="bytes">Number of bytes to move the stream.</param>
+        </member>
+        <member name="M:SharpUtilities.MemoryBinaryReader.ReadBuffer(System.UInt32)">
+            <summary>
+            Reads memory buffer from the stream.
+            </summary>
+            <param name="length">Number of bytes to read from the stream.</param>
+            <returns>Memory buffer read from the stream.</returns>
+        </member>
+        <member name="T:SharpUtilities.MemoryBuffer">
+            <summary>
+            Helper structure that holds pointer to memory buffer or byte array
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.MemoryBuffer.MemCpyFunction">
+            <summary>
+            Delegate for C-style memcpy function.
+            </summary>
+            <param name="destination">Destination buffer.</param>
+            <param name="source">Source buffer.</param>
+            <param name="bytes">Number of bytes to be copied.</param>
+        </member>
+        <member name="F:SharpUtilities.MemoryBuffer.MemCpy">
+            <summary>
+            IL generated method that executes C-style memcpy function.
+            It is fastest implementation for memcpy in .NET.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.MemoryBuffer.bytes">
+            <summary>
+            The memory buffer bytes
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryBuffer.#ctor(System.Byte[])">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.MemoryBuffer"/> class.
+            </summary>
+            <param name="bytes">The bytes.</param>
+        </member>
+        <member name="M:SharpUtilities.MemoryBuffer.#ctor(System.Byte*,System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.MemoryBuffer" /> class.
+            </summary>
+            <param name="bytePointer">The byte pointer.</param>
+            <param name="length">The length of the buffer.</param>
+        </member>
+        <member name="P:SharpUtilities.MemoryBuffer.Bytes">
+            <summary>
+            Gets the bytes from the memory buffer.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.MemoryBuffer.BytePointer">
+            <summary>
+            Gets the byte pointer.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.MemoryBuffer.Length">
+            <summary>
+            Gets the length of memory buffer.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.MemoryLoadedFile">
+            <summary>
+            Simple wrapper class for memory mapped file for reading file by loading it into memory.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.MemoryLoadedFile.fileStream">
+            <summary>
+            File stream for underlying file that will be opened for reading.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.MemoryLoadedFile.memoryMappedFile">
+            <summary>
+            Memory mapped file.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.MemoryLoadedFile.stream">
+            <summary>
+            Memory mapped view stream.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.MemoryLoadedFile.basePointer">
+            <summary>
+            Memory pointer to the file start.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryLoadedFile.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.MemoryLoadedFile"/> class.
+            </summary>
+            <param name="filePath">Path of the file to be opened.</param>
+        </member>
+        <member name="M:SharpUtilities.MemoryLoadedFile.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.MemoryLoadedFile.BasePointer">
+            <summary>
+            Gets the pointer to the file start.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.MemoryLoadedFile.Length">
+            <summary>
+            Gets the length in bytes of the stream.
+            </summary>
+            <returns>A long value representing the length of the stream in bytes.</returns>
+        </member>
+        <member name="T:SharpUtilities.MemoryLoadedFileReader">
+            <summary>
+            Class that implements <see cref="T:SharpUtilities.IBinaryReader"/> for <see cref="T:SharpUtilities.MemoryLoadedFile"/> as stream.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryLoadedFileReader.#ctor(SharpUtilities.MemoryLoadedFile)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.MemoryLoadedFileReader"/> class.
+            </summary>
+            <param name="file">The <see cref="T:SharpUtilities.MemoryLoadedFile"/> as stream.</param>
+        </member>
+        <member name="P:SharpUtilities.MemoryLoadedFileReader.File">
+            <summary>
+            Gets the <see cref="T:SharpUtilities.MemoryLoadedFile"/>.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.MemoryLoadedFileReader.Duplicate">
+            <summary>
+            Creates duplicate of this stream.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.SimpleCache">
+            <summary>
+            Helper class for caching results - it is being used as lazy evaluation
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCache.Create``1(System.Func{``0})">
+            <summary>
+            Creates a new instance of the <see cref="T:SharpUtilities.SimpleCache`1" /> class.
+            </summary>
+            <typeparam name="T">Type to be cached</typeparam>
+            <param name="populateAction">The function that populates the cache on demand.</param>
+            <returns>Simple cache of &lt;T&gt;</returns>
+        </member>
+        <member name="M:SharpUtilities.SimpleCache.CreateStruct``1(System.Func{``0})">
+            <summary>
+            Creates a new instance of the <see cref="T:SharpUtilities.SimpleCacheStruct`1" /> class.
+            </summary>
+            <typeparam name="T">Type to be cached</typeparam>
+            <param name="populateAction">The function that populates the cache on demand.</param>
+            <returns>Simple cache struct of &lt;T&gt;</returns>
+        </member>
+        <member name="M:SharpUtilities.SimpleCache.CreateWithContext``2(``1,System.Func{``1,``0})">
+            <summary>
+            Creates a new instance of the <see cref="T:SharpUtilities.SimpleCacheStruct`1" /> class.
+            </summary>
+            <typeparam name="T">Type to be cached</typeparam>
+            <typeparam name="ContextType">Type of the context.</typeparam>
+            <param name="context">The context object</param>
+            <param name="populateAction">The function that populates the cache on demand.</param>
+            <returns>Simple cache with context of &lt;T&gt;</returns>
+        </member>
+        <member name="T:SharpUtilities.SimpleCache`1">
+            <summary>
+            Helper class for caching results - it is being used as lazy evaluation
+            </summary>
+            <typeparam name="T">Type to be cached</typeparam>
+        </member>
+        <member name="F:SharpUtilities.SimpleCache`1.populateAction">
+            <summary>
+            The populate action
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.SimpleCache`1.value">
+            <summary>
+            The value that is cached
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCache`1.#ctor(System.Func{`0})">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.SimpleCache`1"/> class.
+            </summary>
+            <param name="populateAction">The function that populates the cache on demand.</param>
+        </member>
+        <member name="P:SharpUtilities.SimpleCache`1.Cached">
+            <summary>
+            Gets a value indicating whether value is cached.
+            </summary>
+            <value>
+              <c>true</c> if cached; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="P:SharpUtilities.SimpleCache`1.Value">
+            <summary>
+            Gets or sets the value. The value will be populated if it wasn't cached.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCache`1.GetEnumerator">
+            <summary>
+            Gets enumerator for all the cached objects in this cache.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:SharpUtilities.SimpleCache`1.InvalidateCache">
+            <summary>
+            Invalidate cache entry.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCache`1.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.SimpleCacheStruct`1">
+            <summary>
+            Helper structure for caching results - it is being used as lazy evaluation
+            </summary>
+            <remarks>
+            This variant is meant to be used when smaller amount of memory is supposed to be used or less allocations.
+            </remarks>
+            <typeparam name="T">Type to be cached</typeparam>
+        </member>
+        <member name="F:SharpUtilities.SimpleCacheStruct`1.populateAction">
+            <summary>
+            The populate action
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.SimpleCacheStruct`1.value">
+            <summary>
+            The value that is cached
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCacheStruct`1.#ctor(System.Func{`0})">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.SimpleCacheStruct`1"/> class.
+            </summary>
+            <param name="populateAction">The function that populates the cache on demand.</param>
+        </member>
+        <member name="P:SharpUtilities.SimpleCacheStruct`1.Cached">
+            <summary>
+            Gets a value indicating whether value is cached.
+            </summary>
+            <value>
+              <c>true</c> if cached; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="P:SharpUtilities.SimpleCacheStruct`1.Value">
+            <summary>
+            Gets or sets the value. The value will be populated if it wasn't cached.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCacheStruct`1.InvalidateCache">
+            <summary>
+            Invalidate cache entry.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCacheStruct`1.GetEnumerator">
+            <summary>
+            Gets enumerator for all the cached objects in this cache.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:SharpUtilities.SimpleCacheStruct`1.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.SimpleCacheWithContext`2">
+             <summary>
+             Helper structure for caching results - it is being used as lazy evaluation.
+             </summary>
+             <remarks>
+             This variant is meant to be used when minimal memory supposed to be used - when lots of objects
+             of the same time should be created in the runtime.
+             </remarks>
+             <example>
+             <code>
+             class Test
+             {
+                 private Func&lt;Test, int&gt; staticDelegate = (t) => t.LazyInitialization();
+                 private SimpleCacheWithContext&lt;int, Test&gt; cache;
+            
+                 public Test()
+                 {
+                     cache = SimpleCache.CreateWithContext(staticDelegate, this);
+                 }
+            
+                 public int Data => cache.Value;
+            
+                 private int LazyInitialization()
+                 {
+                     // Some complex long lasting lazy evaluation
+                     return 42;
+                 }
+             }
+             </code>
+             </example>
+             <typeparam name="T">Type to be cached</typeparam>
+             <typeparam name="ContextType">Type of the context.</typeparam>
+        </member>
+        <member name="F:SharpUtilities.SimpleCacheWithContext`2.populateAction">
+            <summary>
+            The populate action
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.SimpleCacheWithContext`2.context">
+            <summary>
+            The context object.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.SimpleCacheWithContext`2.value">
+            <summary>
+            The value that is cached
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCacheWithContext`2.#ctor(`1,System.Func{`1,`0})">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.SimpleCacheWithContext`2"/> class.
+            </summary>
+            <param name="context">The context object</param>
+            <param name="populateAction">The function that populates the cache on demand.</param>
+        </member>
+        <member name="P:SharpUtilities.SimpleCacheWithContext`2.Cached">
+            <summary>
+            Gets a value indicating whether value is cached.
+            </summary>
+            <value>
+              <c>true</c> if cached; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="P:SharpUtilities.SimpleCacheWithContext`2.Value">
+            <summary>
+            Gets or sets the value. The value will be populated if it wasn't cached.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCacheWithContext`2.InvalidateCache">
+            <summary>
+            Invalidate cache entry.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.SimpleCacheWithContext`2.GetEnumerator">
+            <summary>
+            Gets enumerator for all the cached objects in this cache.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:SharpUtilities.SimpleCacheWithContext`2.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.StringReference">
+            <summary>
+            Represents string that has been read from binary reader.
+            </summary>
+        </member>
+        <member name="T:SharpUtilities.StringReference.Encoding">
+            <summary>
+            List of encodings <see cref="T:SharpUtilities.StringReference"/> supports for reading.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.StringReference.Encoding.UTF8">
+            <summary>
+            Uses <see cref="P:System.Text.Encoding.UTF8"/> for parsing string.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.StringReference.Encoding.Unicode">
+            <summary>
+            Uses <see cref="P:System.Text.Encoding.Unicode"/> for parsing string.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.StringReference.encoding">
+            <summary>
+            Encoding used for reading string.
+            </summary>
+        </member>
+        <member name="F:SharpUtilities.StringReference.text">
+            <summary>
+            Cache for read string.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.StringReference.#ctor(SharpUtilities.MemoryBuffer,SharpUtilities.StringReference.Encoding)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.MemoryBuffer"/> class.
+            </summary>
+            <param name="buffer">Buffer that holds the string.</param>
+            <param name="encoding">Encoding that will be used for reading the string.</param>
+        </member>
+        <member name="M:SharpUtilities.StringReference.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SharpUtilities.MemoryBuffer"/> class.
+            </summary>
+            <param name="text">Cache for read string.</param>
+        </member>
+        <member name="P:SharpUtilities.StringReference.Buffer">
+            <summary>
+            Gets the memory buffer that contains the string.
+            </summary>
+        </member>
+        <member name="P:SharpUtilities.StringReference.String">
+            <summary>
+            Gets the string from the memory buffer.
+            </summary>
+        </member>
+        <member name="M:SharpUtilities.StringReference.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="M:SharpUtilities.StringReference.ReadString">
+            <summary>
+            Reads the string from the memory buffer.
+            </summary>
+            <returns>Converted string.</returns>
+        </member>
+        <member name="M:SharpUtilities.StringReference.ReadString(System.Byte*,System.Int32,SharpUtilities.StringReference.Encoding)">
+            <summary>
+            Converts byte buffer into string using the specified encoding.
+            </summary>
+            <param name="buffer">Start of the buffer.</param>
+            <param name="length">Length of the buffer.</param>
+            <param name="encoding">Encoding that will be used for conversion.</param>
+            <returns>Converted string.</returns>
+        </member>
+        <member name="M:SharpUtilities.StringReference.ReadString(System.Byte[],SharpUtilities.StringReference.Encoding)">
+            <summary>
+            Converts bytes into string using the specified encoding.
+            </summary>
+            <param name="bytes">Bytes that hold the string.</param>
+            <param name="encoding">Encoding that will be used for conversion.</param>
+            <returns>Converted string.</returns>
+        </member>
+    </members>
+</doc>

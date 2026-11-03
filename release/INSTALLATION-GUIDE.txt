@@ -1,0 +1,85 @@
+================================================================================
+           DEAD CELLS MULTIPLAYER MOD - QUICK INSTALLATION GUIDE
+================================================================================
+
+Compatible with:
+ - Steam Official Version
+ - Standalone / GOG / Portable / Cracked Versions
+ - Dead Cells (PC) Update 35 ("The End is Near")
+
+--------------------------------------------------------------------------------
+OPTION 1: AUTOMATIC INSTALLER (RECOMMENDED - FASTEST & EASIEST)
+--------------------------------------------------------------------------------
+1. Extract "DeadCells-Multiplayer-Mod-Release.zip" to any folder.
+2. Double-click "Setup.exe" (or "Installer.exe"):
+   - The installer will automatically locate your Dead Cells directory
+     (checks Steam default libraries and standard install paths).
+   - If your game is in a custom location, click "Browse..." and select the
+     folder containing "deadcells.exe".
+   - Keep "Automatically add Windows Firewall rule for TCP port 1234" checked.
+   - Keep "Create 'Dead Cells Multiplayer' shortcut on Desktop" checked.
+3. Click "INSTALL NOW".
+4. Within 2 seconds, installation is complete! You can launch the game immediately
+   from the newly created Desktop shortcut or by clicking "Launch Game".
+
+--------------------------------------------------------------------------------
+OPTION 2: MANUAL INSTALLATION
+--------------------------------------------------------------------------------
+1. Open your Dead Cells game directory (where "deadcells.exe" is located).
+2. Copy the entire "coremod" folder from this release into your game directory:
+      <Your Dead Cells Directory>\coremod\
+3. (Optional) If you plan to Host, right-click "Allow-Firewall.bat" and select
+   "Run as administrator" to allow incoming multiplayer traffic on TCP port 1234.
+4. Launch the game using "Play-Multiplayer.bat" (or run
+   "coremod\core\host\startup\DeadCellsModding.exe").
+
+--------------------------------------------------------------------------------
+HOW TO PLAY (2-PLAYER CO-OP)
+--------------------------------------------------------------------------------
+Both players must have the mod installed and start the game using
+"Play-Multiplayer.bat" (or the Desktop shortcut).
+
+[FOR THE HOST]:
+1. Launch the game.
+2. At the Main Menu, click "Play multiplayer" -> "Host game".
+3. The lobby screen will display:
+   - Room Code (6-character Base-36 code, e.g. RVQ3O0)
+   - Host IP Address (LAN IP or Tailscale IP)
+4. Click "Copy Room Code & IP" and send it to your co-op partner.
+5. When your friend joins and both players are "Ready", click "Launch game"!
+
+[FOR THE JOINING PLAYER (CLIENT)]:
+1. Launch the game.
+2. At the Main Menu, click "Play multiplayer" -> "Join game".
+3. Click "Paste from Clipboard & Connect" (or manually type the Room Code / IP).
+4. Once connected to the lobby, click "Ready" and wait for the Host to start!
+
+--------------------------------------------------------------------------------
+PLAYING OVER THE INTERNET (DIFFERENT HOMES)
+--------------------------------------------------------------------------------
+If you and your friend are on different Wi-Fi/Internet networks:
+1. Both players download and install free Tailscale (https://tailscale.com) or
+   Radmin VPN.
+2. Sign in to the same Tailscale account (or connect to the same Radmin network).
+3. The Host runs the game and clicks "Copy Room Code & IP".
+4. The Client connects using the Tailscale Room Code or IP.
+No complicated router port forwarding is needed!
+
+--------------------------------------------------------------------------------
+TROUBLESHOOTING & COMMON QUESTIONS
+--------------------------------------------------------------------------------
+Q: Cannot connect to Host?
+A: 1. Ensure the Host has run "Allow-Firewall.bat" as Administrator.
+   2. If using Tailscale / VPN, verify both computers show a green connected status.
+
+Q: Game crashes or closes instantly on launch?
+A: Ensure you have Microsoft .NET 10.0 Desktop Runtime (x64) installed:
+   https://dotnet.microsoft.com/download/dotnet/10.0
+
+Q: Does this affect my original singleplayer save?
+A: No! The mod uses dedicated multiplayer save profiles stored in "coremod/config/".
+   Your original singleplayer saves remain 100% untouched and safe.
+
+================================================================================
+Have fun playing Dead Cells Co-op!
+================================================================================

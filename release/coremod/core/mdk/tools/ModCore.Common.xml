@@ -1,0 +1,218 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ModCore.Common</name>
+    </assembly>
+    <members>
+        <member name="T:ModCore.Events.EventAttribute">
+            <summary>
+            All events should contain this attribute.
+            </summary>
+        </member>
+        <member name="P:ModCore.Events.EventAttribute.Once">
+            <summary>
+            A value indicating whether the event is one-time.
+            </summary>
+        </member>
+        <member name="T:ModCore.Events.EventSystem">
+            <summary>
+            DCCM Event System
+            </summary>
+        </member>
+        <member name="E:ModCore.Events.EventSystem.OnAddReceiver">
+            <summary>
+            It is triggered when an event receiver is added.
+            </summary>
+        </member>
+        <member name="E:ModCore.Events.EventSystem.OnRemoveReceiver">
+            <summary>
+            It is triggered when an event receiver is removed.
+            </summary>
+        </member>
+        <member name="M:ModCore.Events.EventSystem.AddReceiver(ModCore.Events.IEventReceiver)">
+            <summary>
+            Add an event receiver
+            </summary>
+            <param name="receiver"></param>
+        </member>
+        <member name="M:ModCore.Events.EventSystem.RemoveReceiver(ModCore.Events.IEventReceiver)">
+            <summary>
+            Remove an event receiver
+            </summary>
+            <param name="receiver"></param>
+        </member>
+        <member name="M:ModCore.Events.EventSystem.FindReceiver``1">
+            <summary>
+            Search for an event receiver of a specified type
+            </summary>
+            <typeparam name="T"></typeparam>
+            <returns></returns>
+        </member>
+        <member name="M:ModCore.Events.EventSystem.FindReceivers``1">
+            <summary>
+            Search for event receivers of a specified type
+            </summary>
+            <typeparam name="T"></typeparam>
+            <returns></returns>
+        </member>
+        <member name="T:ModCore.Events.IEventReceiver">
+            <summary>
+            All event receivers should implement this interface
+            </summary>
+        </member>
+        <member name="P:ModCore.Events.IEventReceiver.Priority">
+            <summary>
+            The priority of the event receiver
+            </summary>
+        </member>
+        <member name="T:ModCore.Storage.CacheFile">
+            <summary>
+            Cache File
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.CacheFile.CachePath">
+            <summary>
+            Cache file storage location
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.CacheFile.IsValid">
+            <summary>
+            A value indicating whether the cache is valid
+            </summary>
+        </member>
+        <member name="M:ModCore.Storage.CacheFile.#ctor(System.String)">
+            <summary>
+            
+            </summary>
+            <param name="name">The name of the cache file</param>
+        </member>
+        <member name="M:ModCore.Storage.CacheFile.UpdateMetadata(System.String,System.ReadOnlySpan{System.Byte})">
+            <summary>
+            Update the metadata of cached files
+            </summary>
+            <param name="name">The name of the metadata</param>
+            <param name="data">Metadata content</param>
+        </member>
+        <member name="M:ModCore.Storage.CacheFile.UpdateMetadata(System.String,System.String)">
+            <summary>
+            Update the metadata of cached files
+            </summary>
+            <param name="name">The name of the metadata</param>
+            <param name="data">Metadata content</param>
+        </member>
+        <member name="M:ModCore.Storage.CacheFile.UpdateCache(System.ReadOnlySpan{System.Byte})">
+            <summary>
+            Update cache file
+            </summary>
+            <param name="data">Data</param>
+        </member>
+        <member name="M:ModCore.Storage.CacheFile.UpdateCache">
+            <summary>
+            Reports that the current cache file is valid
+            </summary>
+        </member>
+        <member name="M:ModCore.Storage.CacheFile.TryGetCache(System.ReadOnlySpan{System.Byte}@)">
+            <summary>
+            Try to get the cache file contents.
+            </summary>
+            <param name="data"></param>
+            <returns>A value indicating whether the cache is valid</returns>
+        </member>
+        <member name="T:ModCore.Storage.FolderInfo">
+            <summary>
+            Represents information about a folder
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.CoreRoot">
+            <summary>
+            A value indicating the folder where the core file is located
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.NativeRoot">
+            <summary>
+            A value representing the folder where all native files are located
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.CurrentNativeRoot">
+            <summary>
+            A value representing the folder where the native files for the current platform are located
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.GameRoot">
+            <summary>
+            A value representing the root directory of the game file
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.SaveRoot">
+            <summary>
+            A value indicating the location of the game save file
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.Logs">
+            <summary>
+            A value indicating the location of the DCCM log file
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.Config">
+            <summary>
+            A value indicating the location of the configuration file
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.Cache">
+            <summary>
+            A value indicating the location of the cache file
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.Data">
+            <summary>
+            A value indicating the location of the data file
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.Mods">
+            <summary>
+            A value indicating the location of mod
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.Plugins">
+            <summary>
+            A value indicating the location of plugin
+            </summary>
+        </member>
+        <member name="M:ModCore.Storage.FolderInfo.GetFilePath(System.String)">
+            <summary>
+            Get the full path of a file in the folder (the file does not necessarily exist)
+            </summary>
+            <param name="name"></param>
+            <returns></returns>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.Info">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.Name">
+            <summary>
+            The name of the folder
+            </summary>
+        </member>
+        <member name="P:ModCore.Storage.FolderInfo.FullPath">
+            <summary>
+            The full path to the folder
+            </summary>
+        </member>
+        <member name="M:ModCore.Storage.FolderInfo.GetFolder(System.String)">
+            <summary>
+            Get FolderInfo by name
+            </summary>
+            <param name="name">The name of the folder</param>
+            <returns></returns>
+        </member>
+        <member name="M:ModCore.Storage.FolderInfo.#ctor(System.String,System.String)">
+            <summary>
+            Create a FolderInfo
+            </summary>
+            <param name="name">The name of the folder</param>
+            <param name="path">The full path of the folder</param>
+        </member>
+    </members>
+</doc>

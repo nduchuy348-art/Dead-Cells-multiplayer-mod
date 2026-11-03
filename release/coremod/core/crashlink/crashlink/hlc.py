@@ -1,0 +1,2537 @@
+from __future__ import annotations
+
+import enum
+import hashlib
+from typing import Any, Callable, List, Literal, Optional, Dict, Set, Tuple
+
+from crashlink.errors import MalformedBytecode
+from crashlink.globals import DEBUG, VERSION
+
+from .core import *
+
+
+def _scaled_cb(progress_cb: Optional[ProgressCallback], start: float, end: float) -> Optional[ProgressCallback]:
+    """Wrap `progress_cb` so a sub-phase's own [0, 1] fraction reports as [start, end] overall."""
+    if progress_cb is None:
+        return None
+
+    def _cb(frac: float, status: str) -> None:
+        progress_cb(start + (end - start) * frac, status)
+
+    return _cb
+
+
+KEYWORDS = {
+    "auto",
+    "bool",
+    "break",
+    "case",
+    "char",
+    "const",
+    "continue",
+    "default",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "extern",
+    "float",
+    "for",
+    "goto",
+    "if",
+    "int",
+    "long",
+    "register",
+    "return",
+    "short",
+    "signed",
+    "sizeof",
+    "static",
+    "struct",
+    "switch",
+    "typedef",
+    "union",
+    "unsigned",
+    "void",
+    "volatile",
+    "while",
+    # C99/C11 keywords
+    "inline",
+    "restrict",
+    "_Alignas",
+    "_Alignof",
+    "_Atomic",
+    "_Bool",
+    "_Complex",
+    "_Generic",
+    "_Imaginary",
+    "_Noreturn",
+    "_Static_assert",
+    "_Thread_local",
+    "_Pragma",
+    # Common values/macros
+    "NULL",
+    "true",
+    "false",
+    # GCC/MSVC specifics and other reserved names
+    "asm",
+    "typeof",
+    "__declspec",
+    "dllimport",
+    "dllexport",
+    "naked",
+    "thread",
+    # MSVC UCRT defines these as function-like macros (e.g. `#define stdin (__acrt_iob_func(0))`),
+    # so using them as raw struct field names only breaks on MSVC, not glibc/clang libc.
+    "stdin",
+    "stdout",
+    "stderr",
+    "errno",
+    # Reserved by HLC itself
+    "t",
+}
+
+
+def sanitize_ident(name: str) -> str:
+    """
+    Sanitizes a Haxe identifier to ensure it's a valid C identifier.
+    If the name is a C keyword or starts with '__', it's prefixed with '_hx_'.
+    """
+    if name in KEYWORDS or name.startswith("__"):
+        return "_hx_" + name
+    return name
+
+
+def sanitize_field_ident(name: str, fallback: str) -> str:
+    if not name:
+        return fallback
+    return sanitize_ident(name)
+
+
+def c_escape_string(value: str) -> str:
+    encoded = value.encode("utf-16-le")
+    return "".join(f"\\x{byte:02x}" for byte in encoded) + "\\x00\\x00"
+
+
+def _signed32(v: int) -> int:
+    v = v & 0xFFFFFFFF
+    return v - 0x100000000 if v >= 0x80000000 else v
+
+
+def hl_hash_utf8(name: str) -> int:
+    """Hash UTF-8 string until null terminator - matches C hl_hash_gen"""
+    h = 0
+    for char in name:
+        char_val = ord(char)
+        if char_val == 0:
+            break
+        h = _signed32(223 * h + char_val)
+    if h >= 0:
+        return h % 0x1FFFFF7B
+    return -((-h) % 0x1FFFFF7B)
+
+
+def hl_hash(name: bytes) -> int:
+    """General hash function - processes until null terminator - matches C hl_hash_gen"""
+    h = 0
+    for byte_val in name:
+        if byte_val == 0:
+            break
+        h = _signed32(223 * h + byte_val)
+    if h >= 0:
+        return h % 0x1FFFFF7B
+    return -((-h) % 0x1FFFFF7B)
+
+
+def hash_string(s: str) -> int:
+    """Hash a string by encoding it as UTF-8 bytes"""
+    return hl_hash(s.encode("utf-8"))
+
+
+def _ctype_no_ptr(code: Bytecode, typ: Type, i: int) -> Tuple[str, int]:
+    """
+    Internal helper to get the base C type name and pointer level.
+    Returns: A tuple of (base_c_name: str, pointer_level: int).
+    """
+    defn = typ.definition
+    if defn is None:
+        raise ValueError(f"Type t@{i} has no definition, cannot determine C type.")
+
+    if isinstance(defn, Void):
+        return "void", 0
+    if isinstance(defn, U8):
+        return "unsigned char", 0
+    if isinstance(defn, U16):
+        return "unsigned short", 0
+    if isinstance(defn, I32):
+        return "int", 0
+    if isinstance(defn, I64):
+        return "int64", 0
+    if isinstance(defn, F32):
+        return "float", 0
+    if isinstance(defn, F64):
+        return "double", 0
+    if isinstance(defn, Bool):
+        return "bool", 0
+    if isinstance(defn, Bytes):
+        return "vbyte", 1
+    if isinstance(defn, Dyn):
+        return "vdynamic", 1
+    if isinstance(defn, Fun):
+        return "vclosure", 1
+    if isinstance(defn, Array):
+        return "varray", 1
+    if isinstance(defn, TypeType):
+        return "hl_type", 1
+    if isinstance(defn, Virtual):
+        return "vvirtual", 1
+    if isinstance(defn, DynObj):
+        return "vdynobj", 1
+    if isinstance(defn, Enum):
+        return "venum", 1
+    if isinstance(defn, Null):
+        return "vdynamic", 1
+    if isinstance(defn, Method):
+        return "void", 1
+    if isinstance(defn, GUID):
+        return "int64", 0
+    if isinstance(defn, Obj) or isinstance(defn, Struct):
+        return f"obj_s_{i}", 0
+
+    if isinstance(defn, Abstract):
+        # AN ABSTRACT'S NAME BECOMES A C TYPE, SO IT MUST BE SANITIZED.
+        c_name = sanitize_ident(defn.name.resolve(code))
+        return c_name, 1
+
+    if isinstance(defn, Ref):
+        inner_type = defn.type.resolve(code)
+        base_name, ptr_level = _ctype_no_ptr(code, inner_type, defn.type.value)
+        return base_name, ptr_level + 1
+
+    if isinstance(defn, Packed):
+        inner_type = defn.inner.resolve(code)
+        base_name, ptr_level = _ctype_no_ptr(code, inner_type, defn.inner.value)
+        return f"struct _{base_name}", ptr_level
+
+    raise NotImplementedError(f"C type conversion not implemented for type definition: {type(defn).__name__}")
+
+
+def ctype(code: Bytecode, typ: Type, i: int) -> str:
+    """Converts a Type object into a C type string representation, including pointers."""
+    base_name, ptr_level = _ctype_no_ptr(code, typ, i)
+    return base_name + ("*" * ptr_level) if ptr_level > 0 else base_name
+
+
+def ctype_no_ptr(code: Bytecode, typ: Type, i: int) -> str:
+    """Converts a Type object into a C type string representation, excluding pointers."""
+    base_name, _ = _ctype_no_ptr(code, typ, i)
+    return base_name
+
+
+def cast_fun(code: Bytecode, func_ptr_expr: str, ret_type: tIndex, args_types: List[tIndex]) -> str:
+    """Generates a C cast for a function pointer."""
+    ret_t_str = ctype(code, ret_type.resolve(code), ret_type.value)
+    args_t_str = ", ".join(ctype(code, t.resolve(code), t.value) for t in args_types) or "void"
+    return f"(({ret_t_str} (*)({args_t_str})){func_ptr_expr})"
+
+
+def is_ptr(kind: int) -> bool:
+    """Checks if a type kind represents a pointer."""
+    return kind not in {
+        Type.Kind.VOID.value,
+        Type.Kind.U8.value,
+        Type.Kind.U16.value,
+        Type.Kind.I32.value,
+        Type.Kind.I64.value,
+        Type.Kind.F32.value,
+        Type.Kind.F64.value,
+        Type.Kind.BOOL.value,
+        Type.Kind.GUID.value,
+    }
+
+
+class Indenter:
+    """A context manager for dynamically handling indentation levels."""
+
+    indent_char: str
+    level: int
+    current_indent: str
+
+    def __init__(self, indent_char: str = "    ") -> None:
+        self.indent_char = indent_char
+        self.level = 0
+        self.current_indent = ""
+
+    def __enter__(self) -> "Indenter":
+        self.level += 1
+        self.current_indent = self.indent_char * self.level
+        return self
+
+    def __exit__(self, exc_type: Optional[Any], exc_val: Optional[Any], exc_tb: Optional[Any]) -> Literal[False]:
+        self.level -= 1
+        self.current_indent = self.indent_char * self.level
+        return False
+
+
+KIND_SHELLS = {
+    0: "HVOID",
+    1: "HUI8",
+    2: "HUI16",
+    3: "HI32",
+    4: "HI64",
+    5: "HF32",
+    6: "HF64",
+    7: "HBOOL",
+    8: "HBYTES",
+    9: "HDYN",
+    10: "HFUN",
+    11: "HOBJ",
+    12: "HARRAY",
+    13: "HTYPE",
+    14: "HREF",
+    15: "HVIRTUAL",
+    16: "HDYNOBJ",
+    17: "HABSTRACT",
+    18: "HENUM",
+    19: "HNULL",
+    20: "HMETHOD",
+    21: "HSTRUCT",
+    22: "HPACKED",
+    23: "HGUID",
+    24: "HLAST",
+}
+
+
+def generate_abstract_forwards(code: Bytecode) -> List[str]:
+    """Generates forward declarations for abstract C types used by HL natives and objects."""
+    res = []
+    indent = Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(indent.current_indent + " ".join(str(arg) for arg in args))
+
+    abstract_names = set()
+
+    def visit_type(typ: Type) -> None:
+        dfn = typ.definition
+        if isinstance(dfn, Abstract):
+            name = dfn.name.resolve(code)
+            if name not in {"hl_tls", "hl_mutex", "hl_thread"}:
+                abstract_names.add(sanitize_ident(name))
+        elif isinstance(dfn, Fun):
+            visit_type(dfn.ret.resolve(code))
+            for arg in dfn.args:
+                visit_type(arg.resolve(code))
+        elif isinstance(dfn, (Ref, Null, Packed)):
+            inner = dfn.type if hasattr(dfn, "type") else dfn.inner
+            visit_type(inner.resolve(code))
+
+    for typ in code.types:
+        visit_type(typ)
+
+    for native in code.natives:
+        native_type = native.type.resolve(code)
+        if isinstance(native_type, Type):
+            visit_type(native_type)
+
+    for name in sorted(list(abstract_names)):
+        line(f"typedef struct _{name} {name};")
+
+    return res
+
+
+def generate_runtime_resolution() -> List[str]:
+    """Generates runtime-resolved wrappers for all external dependencies.
+
+    Every external dependency is resolved via ``hl_resolve_native_library`` and cached
+    in a static function pointer.  Static-inline wrapper functions shadow the original
+    symbols so that *no* call-site changes are required.
+    """
+    # (name, ret_type, c_params, c_args, lib_name)
+    # Use "" as library name for symbols that are already linked into the process.
+    FUNCTIONS: list[tuple[str, str, str, str, str]] = [
+        # -- HL allocator / init --
+        ("hl_alloc_init", "void", "void *a0", "a0", ""),
+        # -- HL type initialisation --
+        ("hl_init_virtual", "void", "hl_type *a0, hl_module_context *a1", "a0, a1", ""),
+        ("hl_init_enum", "void", "hl_type *a0, hl_module_context *a1", "a0, a1", ""),
+        ("hl_add_root", "void", "void **a0", "a0", ""),
+        ("hl_hash", "int", "vbyte *a0", "a0", ""),
+        # -- HL fatal / errors --
+        ("hl_fatal", "void", "const char *a0", "a0", ""),
+        ("hl_null_access", "void", "void", "", ""),
+        ("hl_null_access_op", "void", "int a0", "a0", ""),
+        ("hl_assert", "void", "void", "", ""),
+        # -- HL exceptions --
+        ("hl_throw", "void", "vdynamic *a0", "a0", ""),
+        ("hl_rethrow", "void", "vdynamic *a0", "a0", ""),
+        # -- HL allocation --
+        ("hl_alloc_dynamic", "vdynamic *", "hl_type *a0", "a0", ""),
+        ("hl_alloc_obj", "void *", "hl_type *a0", "a0", ""),
+        ("hl_alloc_dynobj", "vdynobj *", "void", "", ""),
+        ("hl_alloc_virtual", "vvirtual *", "hl_type *a0", "a0", ""),
+        ("hl_alloc_dynbool", "vdynamic *", "int a0", "a0", ""),
+        ("hl_alloc_closure_ptr", "vclosure *", "hl_type *a0, void *a1, void *a2", "a0, a1, a2", ""),
+        ("hl_alloc_enum", "venum *", "hl_type *a0, int a1", "a0, a1", ""),
+        # -- HL dynamic calls --
+        ("hl_dyn_call", "vdynamic *", "vclosure *a0, vdynamic **a1, int a2", "a0, a1, a2", ""),
+        ("hl_dyn_call_obj", "void *", "vdynamic *a0, hl_type *a1, int a2, void **a3, vdynamic *a4", "a0, a1, a2, a3, a4", ""),
+        ("hl_dyn_compare", "bool", "vdynamic *a0, vdynamic *a1", "a0, a1", ""),
+        ("hl_same_type", "bool", "hl_type *a0, hl_type *a1", "a0, a1", ""),
+        ("hl_to_virtual", "vvirtual *", "hl_type *a0, vdynamic *a1", "a0, a1", ""),
+        ("hl_make_dyn", "vdynamic *", "void *a0, hl_type *a1", "a0, a1", ""),
+        # -- HL dynamic get (per-prefix) --
+        ("hl_dyn_getp", "void *", "vdynamic *a0, int a1, hl_type *a2", "a0, a1, a2", ""),
+        ("hl_dyn_geti", "int", "vdynamic *a0, int a1, hl_type *a2", "a0, a1, a2", ""),
+        ("hl_dyn_getf", "float", "vdynamic *a0, int a1", "a0, a1", ""),
+        ("hl_dyn_getd", "double", "vdynamic *a0, int a1", "a0, a1", ""),
+        ("hl_dyn_geti64", "int64", "vdynamic *a0, int a1", "a0, a1", ""),
+        # -- HL dynamic set (per-prefix) --
+        ("hl_dyn_setp", "void", "vdynamic *a0, int a1, hl_type *a2, void *a3", "a0, a1, a2, a3", ""),
+        ("hl_dyn_seti", "void", "vdynamic *a0, int a1, hl_type *a2, int a3", "a0, a1, a2, a3", ""),
+        ("hl_dyn_setf", "void", "vdynamic *a0, int a1, float a2", "a0, a1, a2", ""),
+        ("hl_dyn_setd", "void", "vdynamic *a0, int a1, double a2", "a0, a1, a2", ""),
+        ("hl_dyn_seti64", "void", "vdynamic *a0, int a1, int64 a2", "a0, a1, a2", ""),
+        # -- HL dynamic cast (per-prefix) --
+        ("hl_dyn_castp", "void *", "vdynamic **a0, hl_type *a1, hl_type *a2", "a0, a1, a2", ""),
+        ("hl_dyn_casti", "int", "vdynamic **a0, hl_type *a1, hl_type *a2", "a0, a1, a2", ""),
+        ("hl_dyn_castf", "float", "vdynamic **a0, hl_type *a1", "a0, a1", ""),
+        ("hl_dyn_castd", "double", "vdynamic **a0, hl_type *a1", "a0, a1", ""),
+        ("hl_dyn_casti64", "int64", "vdynamic **a0, hl_type *a1", "a0, a1", ""),
+        # -- HL wrapper --
+        ("hl_wrapper_call", "vdynamic *", "void *a0, void **a1, vdynamic *a2", "a0, a1, a2", ""),
+        # -- Math --
+        ("fmod", "double", "double a0, double a1", "a0, a1", ""),
+        ("fmodf", "float", "float a0, float a1", "a0, a1", ""),
+    ]
+
+    res: list[str] = []
+    ind = Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(ind.current_indent + " ".join(str(a) for a in args))
+
+    line("// ---------------------------------------------------------------------------")
+    line("//  Runtime-resolved wrappers for ALL external dependencies")
+    line("//  Every call below goes through hl_resolve_native_library and is cached.")
+    line("// ---------------------------------------------------------------------------")
+    line("")
+    line("// The ONE and ONLY HL_API function -- all other symbols are resolved at runtime.")
+    line("//HL_API void *hl_resolve_native_library(const char *lib, const char *entry);")
+    line("")
+
+    for name, ret, params, args, lib in FUNCTIONS:
+        c_params_str = params if params else "void"
+        ret_is_void = ret == "void"
+        return_stmt = "" if ret_is_void else "return "
+
+        line(f"static {ret} (*_hlc_p_{name})({c_params_str}) = NULL;")
+        line(f"static inline {ret} {name}({c_params_str}) {{")
+        with ind:
+            line(f"if (!_hlc_p_{name})")
+            with ind:
+                line(f'_hlc_p_{name} = ({ret} (*)({c_params_str}))hl_resolve_native_library("{lib}", "{name}");')
+            line(f"{return_stmt}_hlc_p_{name}({args});")
+        line("}")
+        line("")
+
+    return res
+
+
+def generate_natives(code: Bytecode) -> List[str]:
+    """Generates native function prototypes and wrapper functions.
+
+    ALL natives, including those from the ``"std"`` library, are resolved at runtime
+    through ``hl_resolve_native_library`` so that no external symbols need to be
+    statically linked.
+    """
+    res = []
+    indent = Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(indent.current_indent + " ".join(str(arg) for arg in args))
+
+    line("// Native function prototypes")
+    sorted_natives = sorted(code.natives, key=lambda n: (n.lib.resolve(code), n.name.resolve(code)))
+
+    for native in sorted_natives:
+        func_type = native.type.resolve(code)
+        if not isinstance(func_type.definition, Fun):
+            continue
+        fun_def = func_type.definition
+
+        lib_name = native.lib.resolve(code).lstrip("?")
+        native_name = native.name.resolve(code)
+        ret_type_str = ctype(code, fun_def.ret.resolve(code), fun_def.ret.value)
+        arg_types = [ctype(code, arg.resolve(code), arg.value) for arg in fun_def.args]
+        args_str = ", ".join(arg_types) if arg_types else "void"
+
+        args_with_names = (
+            ", ".join(f"{arg_type} r{i}" for i, arg_type in enumerate(arg_types)) if arg_types else "void"
+        )
+        arg_names_str = ", ".join(f"r{i}" for i in range(len(arg_types)))
+
+        typedef_name = f"_hl_nfn_{native.findex.value}"
+        line(f"typedef {ret_type_str} (*{typedef_name})({args_str});")
+        line(f"{ret_type_str} f_s_{native.findex.value}({args_with_names}){{")
+        with indent:
+            line(f"static {typedef_name} _ptr = NULL;")
+            line(
+                f'if (!_ptr) _ptr = ({typedef_name})hl_resolve_native_library("{lib_name}", "{native_name}");'
+            )
+            if arg_types:
+                line(f"{'return ' if ret_type_str != 'void' else ''}_ptr({arg_names_str});")
+            else:
+                line(f"{'return ' if ret_type_str != 'void' else ''}_ptr();")
+        line("}")
+    return res
+
+
+def generate_structs(code: Bytecode) -> List[str]:
+    """Generates C struct forward declarations and definitions for Haxe classes."""
+    res = []
+    indent = Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(indent.current_indent + " ".join(str(arg) for arg in args))
+
+    types = code.types
+    struct_map = {i: t for i, t in enumerate(types) if isinstance(t.definition, (Struct, Obj))}
+    if not struct_map:
+        return res
+
+    line("// Class/Struct forward definitions")
+    for i in sorted(struct_map.keys()):
+        dfn = struct_map[i].definition
+        assert isinstance(dfn, (Obj, Struct)), f"Expected definition to be Obj or Struct, got {type(dfn).__name__}."
+        line(f"typedef struct _obj_s_{i} *obj_s_{i}; /* {dfn.name.resolve(code)} */")
+    res.append("")
+
+    line("// Enum constructor struct typedefs")
+    for i, typ in enumerate(types):
+        df = typ.definition
+        if isinstance(df, Enum):
+            for cid, constr in enumerate(df.constructs):
+                if constr.params:
+                    c_name = enum_constr_type(code, df, cid)
+                    line(f"typedef struct {{")
+                    with indent:
+                        line("HL__ENUM_CONSTRUCT__")
+                        for pid, param_tindex in enumerate(constr.params):
+                            param_type = ctype(code, param_tindex.resolve(code), param_tindex.value)
+                            line(f"{param_type} p{pid};")
+                    line(f"}} {c_name};")
+    res.append("")
+
+    line("// Class/Struct definitions")
+    for i, typ in sorted(struct_map.items()):
+        df = typ.definition
+        assert isinstance(df, (Obj, Struct)), f"Expected definition to be Obj or Struct, got {type(df).__name__}."
+        is_struct = isinstance(df, Struct)
+        root_is_struct = is_struct
+        current = df
+        while current.super.value >= 0:
+            parent_type = current.super.resolve(code)
+            parent_def = parent_type.definition
+            if isinstance(parent_def, (Obj, Struct)):
+                if isinstance(parent_def, Obj) and not isinstance(parent_def, Struct):
+                    root_is_struct = False
+                    break
+                current = parent_def
+            else:
+                break
+        has_parent = df.super.value >= 0
+        line(f"struct _obj_s_{i} {{ /* {df.name.resolve(code)} */")
+        with indent:
+            if not has_parent and not root_is_struct:
+                line("hl_type *_s_type;")
+            elif has_parent and not root_is_struct:
+                line("hl_type *_s_type;")
+            for field_idx, f in enumerate(df.resolve_fields(code)):
+                field_type = ctype(code, f.type.resolve(code), f.type.value)
+                field_name = sanitize_field_ident(f.name.resolve(code), f"_fld_{field_idx}")
+                line(f"{field_type} {field_name};")
+        line("};")
+    return res
+
+
+def generate_types(code: Bytecode, progress_cb: Optional[ProgressCallback] = None) -> List[str]:
+    """Generates the C data and initializers for all hl_type instances."""
+    res = []
+    indent = Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(indent.current_indent + " ".join(str(arg) for arg in args))
+
+    types = code.types
+
+    line("// Type shells")
+    for i, typ in enumerate(types):
+        line(f"hl_type t_s_{i} = {{ {KIND_SHELLS[typ.kind.value]} }};")
+
+    line("\n// Type data")
+    ntypes = len(types)
+    for i, typ in enumerate(types):
+        if progress_cb is not None and ntypes:
+            progress_cb(i / ntypes, f"generating type {i}/{ntypes}")
+        df = typ.definition
+        if isinstance(df, (Obj, Struct)):
+            if df.fields:
+                vals = ", ".join(
+                    f'{{(const uchar*)USTR("{f.name.resolve(code)}"), &t_s_{f.type.value}, {hl_hash_utf8(f.name.resolve(code))}}}'
+                    for f in df.fields
+                )
+                line(f"static hl_obj_field fieldst_s_{i}[] = {{{vals}}};")
+            if df.protos:
+                vals = ", ".join(
+                    f'{{(const uchar*)USTR("{p.name.resolve(code)}"), {p.findex.value}, {p.pindex.value}, {hl_hash_utf8(p.name.resolve(code))}}}'
+                    for p in df.protos
+                )
+                line(f"static hl_obj_proto protot_s_{i}[] = {{{vals}}};")
+            if df.bindings:
+                bindings = ", ".join(f"{b.field.value}, {b.findex.value}" for b in df.bindings)
+                line(f"static int bindingst_s_{i}[] = {{{bindings}}};")
+            line(f"static hl_type_obj objt_s_{i} = {{")
+            with indent:
+                line(f"{df.nfields}, {df.nprotos}, {df.nbindings},")
+                line(f'(const uchar*)USTR("{df.name.resolve(code)}"),')
+                line(f"&t_s_{df.super.value}," if df.super.value >= 0 else "NULL,")
+                line(f"fieldst_s_{i}," if df.fields else "NULL,")
+                line(f"protot_s_{i}," if df.protos else "NULL,")
+                line(f"bindingst_s_{i}," if df.bindings else "NULL,")
+            line("};")
+        elif isinstance(df, Fun):
+            if df.args:
+                line(f"static hl_type *fargst_s_{i}[] = {{{', '.join(f'&t_s_{arg.value}' for arg in df.args)}}};")
+                line(f"static hl_type_fun tfunt_s_{i} = {{fargst_s_{i}, &t_s_{df.ret.value}, {df.nargs}}};")
+            else:
+                line(f"static hl_type_fun tfunt_s_{i} = {{NULL, &t_s_{df.ret.value}, 0}};")
+        elif isinstance(df, Virtual):
+            if df.fields:
+                vals = ", ".join(
+                    f'{{(const uchar*)USTR("{f.name.resolve(code)}"), &t_s_{f.type.value}, {hl_hash_utf8(f.name.resolve(code))}}}'
+                    for f in df.fields
+                )
+                line(f"static hl_obj_field vfieldst_s_{i}[] = {{{vals}}};")
+                line(f"static hl_type_virtual virtt_s_{i} = {{vfieldst_s_{i}, {df.nfields}}};")
+            else:
+                line(f"static hl_type_virtual virtt_s_{i} = {{NULL, 0}};")
+        elif isinstance(df, Enum):
+            for cid, constr in enumerate(df.constructs):
+                if constr.params:
+                    param_types_str = ", ".join(f"&t_s_{p.value}" for p in constr.params)
+                    line(f"static hl_type *econstruct_params_{i}_{cid}[] = {{{param_types_str}}};")
+                    offsets_str = ", ".join("0" for _ in constr.params)
+                    line(f"static int econstruct_offsets_{i}_{cid}[] = {{{offsets_str}}};")
+
+            if df.constructs:
+                construct_data_list = []
+                for cid, constr in enumerate(df.constructs):
+                    constr_name_str = constr.name.resolve(code)
+                    nparams = len(constr.params)
+                    has_params = nparams > 0
+
+                    size_str = f"sizeof({enum_constr_type(code, df, cid)})" if has_params else "0"
+
+                    has_ptr = any(is_gc_ptr(p.resolve(code)) for p in constr.params)
+
+                    construct_entry = (
+                        f'{{(const uchar*)USTR("{constr_name_str}"), {nparams}, '
+                        f"{'econstruct_params_' + str(i) + '_' + str(cid) if has_params else 'NULL'}, "
+                        f"{size_str}, {'true' if has_ptr else 'false'}, "
+                        f"{'econstruct_offsets_' + str(i) + '_' + str(cid) if has_params else 'NULL'}}}"
+                    )
+                    construct_data_list.append(construct_entry)
+
+                line(f"static hl_enum_construct econstructs{i}[] = {{{', '.join(construct_data_list)}}};")
+
+            line(f"static hl_type_enum enumt_s_{i} = {{")
+            with indent:
+                enum_name = df.name.resolve(code)
+                line(f'(const uchar*)USTR("{enum_name}"),')
+                line(f"{df.nconstructs},")
+                line(f"econstructs{i}" if df.constructs else "NULL")
+            line("};")
+
+    ntypes = len(types)
+    line(f"\nhl_type *hl_instance_types[{ntypes}] = {{")
+    with indent:
+        line(",\n".join(f"&t_s_{i}" for i in range(ntypes)))
+    line("};")
+
+    return res
+
+
+def is_gc_ptr(typ: Type) -> bool:
+    """Checks if a type is a pointer that the GC needs to track."""
+    NON_GC_POINTER_KINDS = {
+        Type.Kind.VOID.value,
+        Type.Kind.U8.value,
+        Type.Kind.U16.value,
+        Type.Kind.I32.value,
+        Type.Kind.I64.value,
+        Type.Kind.F32.value,
+        Type.Kind.F64.value,
+        Type.Kind.BOOL.value,
+        Type.Kind.TYPETYPE.value,
+        Type.Kind.REF.value,
+        Type.Kind.METHOD.value,
+        Type.Kind.PACKED.value,
+        Type.Kind.GUID.value,
+    }
+    return typ.kind.value not in NON_GC_POINTER_KINDS
+
+
+def generate_globals(code: Bytecode) -> List[str]:
+    """Generates C code for all global variables and their initialization."""
+    res, indent = [], Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(indent.current_indent + " ".join(str(arg) for arg in args))
+
+    if not code.global_types:
+        return res
+
+    all_types = code.types
+    line("// Global variables")
+    for i, g_type_ptr in enumerate(code.global_types):
+        g_type = g_type_ptr.resolve(code)
+        c_type_str = ctype(code, g_type, all_types.index(g_type))
+        line(f"{c_type_str} g_s_{i} = 0;")
+
+    nglobals = len(code.global_types)
+    if nglobals > 0:
+        line(f"\nvoid *hlc_global_data[{nglobals}] = {{")
+        with indent:
+            line(",\n".join(f"(void*)&g_s_{i}" for i in range(nglobals)))
+        line("};")
+
+    for const in code.constants:
+        obj = const._global.resolve(code).definition
+        objIdx = const._global.partial_resolve(code).value
+        assert isinstance(obj, Obj), (
+            f"Expected global constant to be an Obj, got {type(obj).__name__}. This should never happen."
+        )
+        fields = obj.resolve_fields(code)
+        const_fields: List[str] = []
+        for i, field in enumerate(const.fields):
+            typd = fields[i].type.resolve(code).definition
+            name = fields[i].name.resolve(code)
+            if isinstance(typd, (Obj, Struct)):
+                raise MalformedBytecode("Global constants cannot contain other initialized Objs or Structs.")
+            elif isinstance(typd, (I32, U8, U16, I64)):
+                const_fields.append(str(code.ints[field.value].value))
+            elif isinstance(typd, (F32, F64)):
+                const_fields.append(str(code.floats[field.value].value))
+            elif isinstance(typd, Bytes):
+                val = code.strings.value[field.value]
+                c_escaped_str = c_escape_string(val)
+                const_fields.append(f'(vbyte*)USTRN("{c_escaped_str}")')
+        line(f"static struct _obj_s_{objIdx} const_g_s_{const._global.value} = {{&t_s_{objIdx}, {', '.join(const_fields)}}};")
+
+    line("\n// Type initializer")
+    line("void hlc_init_types( hl_module_context *ctx ) {")
+    with indent:
+        for j, typ in enumerate(code.types):
+            df = typ.definition
+            if isinstance(df, (Obj, Struct)):
+                line(f"objt_s_{j}.m = ctx;")
+                if df._global and df._global.value:
+                    line(
+                        f"objt_s_{j}.global_value = (void**)&g_s_{df._global.value - 1};"
+                    )  # I think the 1-index is correct, but I'm still a bit iffy about this. YOLO!
+                line(f"t_s_{j}.obj = &objt_s_{j};")
+            elif isinstance(df, Fun):
+                line(f"t_s_{j}.fun = &tfunt_s_{j};")
+            elif isinstance(df, Virtual):
+                line(f"t_s_{j}.virt = &virtt_s_{j};")
+                line(f"hl_init_virtual(&t_s_{j},ctx);")
+            elif isinstance(df, Enum):
+                line(f"t_s_{j}.tenum = &enumt_s_{j};")
+                if df._global and df._global.value:
+                    line(f"enumt_s_{j}.global_value = (void**)&g_s_{df._global.value - 1};")
+                line(f"hl_init_enum(&t_s_{j},ctx);")
+            elif isinstance(df, (Null, Ref, Packed)):
+                if isinstance(df, Packed):
+                    line(f"t_s_{j}.tparam = &t_s_{df.inner.value};")
+                else:
+                    line(f"t_s_{j}.tparam = &t_s_{df.type.value};")
+    line("}\n")
+
+    line("\nvoid hlc_init_roots() {")
+    with indent:
+        for const in code.constants:
+            line(f"g_s_{const._global.value} = &const_g_s_{const._global.value};")
+        for i, g_type_ptr in enumerate(code.global_types):
+            g_type = g_type_ptr.resolve(code)
+            if is_gc_ptr(g_type):
+                line(f"hl_add_root((void**)&g_s_{i});")
+    line("}")
+    return res
+
+
+def generate_entry(code: Bytecode) -> List[str]:
+    """Generates the C entry point for the HLC module."""
+    res = []
+    indent = Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(indent.current_indent + " ".join(str(arg) for arg in args))
+
+    line("void hl_entry_point() {")
+    with indent:
+        line("hl_module_context ctx;")
+        line("hl_alloc_init(&ctx.alloc);")
+        line("ctx.functions_ptrs = hl_functions_ptrs;")
+        line("ctx.functions_types = hl_functions_types;")
+        line("hlc_init_types(&ctx);")
+        line("hlc_init_hashes();")
+        line("hlc_init_roots();")
+        line(f"f_s_{code.entrypoint.value}();")
+    line("}")
+    return res
+
+
+unknown_ops: Set[str] = set()
+
+
+def dyn_value_field(typ: Type) -> str:
+    """
+    Returns the C member access path for storing a value within a vdynamic struct.
+    E.g. "v.d" for F64, "v.i" for I32, "v.ptr" for pointer types.
+    """
+    dfn = typ.definition
+    if isinstance(dfn, U8):
+        return "v.ui8"
+    if isinstance(dfn, U16):
+        return "v.ui16"
+    if isinstance(dfn, I32):
+        return "v.i"
+    if isinstance(dfn, (I64, GUID)):
+        return "v.i64"
+    if isinstance(dfn, F32):
+        return "v.f"
+    if isinstance(dfn, F64):
+        return "v.d"
+    if isinstance(dfn, Bool):
+        return "v.b"
+    return "v.ptr"
+
+
+COMP_OP_MAP = {
+    "JSLt": "<",
+    "JSLte": "<=",
+    "JSGt": ">",
+    "JSGte": ">=",
+    "JEq": "==",
+    "JNotEq": "!=",
+    "JULt": "<",
+    "JUGte": ">=",
+}
+
+SWAP_OP_MAP = {
+    "JSLt": "JSGt",
+    "JSGt": "JSLt",
+    "JSLte": "JSGte",
+    "JSGte": "JSLte",
+    "JEq": "JEq",
+    "JNotEq": "JNotEq",
+}
+
+
+def generate_reflection(code: Bytecode) -> List[str]:
+    """Generates the C reflection helpers: hlc_static_call and the function wrappers."""
+    res = []
+    indent = Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(indent.current_indent + " ".join(str(arg) for arg in args))
+
+    def get_type_kind(typ: Type) -> Type.Kind:
+        """Simplifies a type into a broader category for reflection."""
+        kind_val = typ.kind.value
+        if kind_val in {Type.Kind.BOOL.value, Type.Kind.U8.value, Type.Kind.U16.value, Type.Kind.I32.value}:
+            return Type.Kind.I32
+        if kind_val in {Type.Kind.F32.value, Type.Kind.F64.value, Type.Kind.I64.value, Type.Kind.VOID.value}:
+            return Type.Kind(kind_val)
+        return Type.Kind.DYN
+
+    def get_type_kind_id(kind: Type.Kind) -> int:
+        """Maps a kinded type to a small integer for building a unique signature hash."""
+        kind_map = {
+            Type.Kind.VOID.value: 0,
+            Type.Kind.I32.value: 1,
+            Type.Kind.F32.value: 2,
+            Type.Kind.F64.value: 3,
+            Type.Kind.I64.value: 4,
+            Type.Kind.DYN.value: 5,
+        }
+        return kind_map.get(kind.value, 5)
+
+    fun_by_args: Dict[int, Dict[Tuple[Tuple[Type.Kind, ...], Type.Kind], None]] = {}
+
+    def add_fun(args: List[Type], ret: Type) -> None:
+        nargs = len(args)
+        kinded_args = tuple(get_type_kind(arg) for arg in args)
+        kinded_ret = get_type_kind(ret)
+
+        if nargs not in fun_by_args:
+            fun_by_args[nargs] = {}
+        fun_by_args[nargs][(kinded_args, kinded_ret)] = None
+
+    for func in code.functions:
+        for op in func.ops:
+            if op.op in {"SafeCast", "DynGet"}:
+                dst_type = func.regs[op.df["dst"].value].resolve(code)
+                if isinstance(dst_type.definition, Fun):
+                    fun_def = dst_type.definition
+                    arg_types = [t.resolve(code) for t in fun_def.args]
+                    ret_type = fun_def.ret.resolve(code)
+                    add_fun(arg_types, ret_type)
+
+    f: Function | Native
+    for f in code.functions:
+        f_def = f.type.resolve(code).definition
+        if isinstance(f_def, Fun):
+            add_fun([t.resolve(code) for t in f_def.args], f_def.ret.resolve(code))
+    for n in code.natives:
+        n_def = n.type.resolve(code).definition
+        if isinstance(n_def, Fun):
+            add_fun([t.resolve(code) for t in n_def.args], n_def.ret.resolve(code))
+
+    line("static int TKIND[] = {0,1,1,1,4,2,3,1,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5};")
+    line("")
+    line("void *hlc_static_call( void *fun, hl_type *t, void **args, vdynamic *out ) {")
+    with indent:
+        line("int chk = TKIND[t->fun->ret->kind];")
+        line("vdynamic *d;")
+        line("switch( t->fun->nargs ) {")
+
+        sorted_arg_counts = sorted(fun_by_args.keys())
+        for nargs in sorted_arg_counts:
+            line(f"case {nargs}:")
+            with indent:
+                if nargs > 9:
+                    line('hl_fatal("Too many arguments, TODO:use more bits");')
+                else:
+                    for i in range(nargs):
+                        line(f"chk |= TKIND[t->fun->args[{i}]->kind] << {(i + 1) * 3};")
+                    line("switch( chk ) {")
+
+                    signatures = fun_by_args[nargs]
+                    for (arg_kinds, ret_kind), _ in signatures.items():
+                        all_kinds = [ret_kind] + list(arg_kinds)
+                        chk_val = sum(get_type_kind_id(kind) << (i * 3) for i, kind in enumerate(all_kinds))
+                        line(f"case {chk_val}:")
+                        with indent:
+                            found_sig = False
+                            for f in code.functions + code.natives:
+                                f_def = f.type.resolve(code).definition
+                                if isinstance(f_def, Fun) and len(f_def.args) == nargs:
+                                    current_arg_tindices = f_def.args
+                                    current_ret_tindex = f_def.ret
+                                    current_arg_types = [t.resolve(code) for t in current_arg_tindices]
+                                    current_ret_type = current_ret_tindex.resolve(code)
+
+                                    if (
+                                        tuple(get_type_kind(t) for t in current_arg_types) == arg_kinds
+                                        and get_type_kind(current_ret_type) == ret_kind
+                                    ):
+                                        arg_list_str = []
+                                        for i, arg_tindex in enumerate(current_arg_tindices):
+                                            arg_type = arg_tindex.resolve(code)
+                                            if is_ptr(arg_type.kind.value):
+                                                arg_list_str.append(
+                                                    f"({ctype(code, arg_type, arg_tindex.value)})args[{i}]"
+                                                )
+                                            else:
+                                                arg_list_str.append(
+                                                    f"*({ctype(code, arg_type, arg_tindex.value)}*)args[{i}]"
+                                                )
+
+                                        call_str = f"{cast_fun(code, 'fun', current_ret_tindex, current_arg_tindices)}({', '.join(arg_list_str)})"
+
+                                        if is_ptr(current_ret_type.kind.value):
+                                            line(f"return {call_str};")
+                                        elif current_ret_type.kind.value == Type.Kind.VOID.value:
+                                            line(f"{call_str};")
+                                            line("return NULL;")
+                                        else:
+                                            line(f"out->{dyn_value_field(current_ret_type)} = {call_str};")
+                                            line(f"return &out->{dyn_value_field(current_ret_type)};")
+                                        found_sig = True
+                                        break
+                            if not found_sig:
+                                line("/* Signature not found for this case, should not happen */")
+
+                    line("}")
+                    line("break;")
+        line("}")
+        line('hl_fatal("Unsupported dynamic call");')
+        line("return NULL;")
+    line("}")
+    line("")
+
+    # --- 3. Generate wrapper functions ---
+    def get_wrap_char(typ: Type) -> str:
+        kind = typ.kind.value
+        if kind == Type.Kind.VOID.value:
+            return "v"
+        if kind in {Type.Kind.U8.value, Type.Kind.U16.value, Type.Kind.I32.value, Type.Kind.BOOL.value}:
+            return "i"
+        if kind == Type.Kind.F32.value:
+            return "f"
+        if kind == Type.Kind.F64.value:
+            return "d"
+        if kind == Type.Kind.I64.value:
+            return "i64"
+        return "p"
+
+    def make_wrap_name(args: List[Type], ret: Type) -> str:
+        return "".join(get_wrap_char(t) for t in args) + "_" + get_wrap_char(ret)
+
+    for nargs in sorted_arg_counts:
+        processed_wrappers = set()
+        for f in code.functions + code.natives:
+            f_def = f.type.resolve(code).definition
+            if isinstance(f_def, Fun) and len(f_def.args) == nargs:
+                # --- FIX IS HERE ---
+                # We need the original tIndex objects to generate correct C types
+                arg_tindices = f_def.args
+                ret_tindex = f_def.ret
+                arg_types = [t.resolve(code) for t in arg_tindices]
+                ret_type = ret_tindex.resolve(code)
+                # --- END OF FIX ---
+
+                wrap_name = make_wrap_name(arg_types, ret_type)
+                if wrap_name in processed_wrappers:
+                    continue
+                processed_wrappers.add(wrap_name)
+
+                c_args = [f"p{i}" for i in range(nargs)]
+                # --- FIX IS HERE ---
+                # Pass the correct index to ctype
+                c_args_typed = [
+                    f"{ctype(code, t, t_idx.value)} {name}" for t, t_idx, name in zip(arg_types, arg_tindices, c_args)
+                ]
+                # --- END OF FIX ---
+                c_args_str = ", ".join(c_args_typed)
+
+                line(
+                    f"static {ctype(code, ret_type, ret_tindex.value)} wrap_{wrap_name}(void *value{', ' + c_args_str if c_args_str else ''}) {{"
+                )
+                with indent:
+                    if arg_types:
+                        packed_args = [
+                            f"&p{i}" if not is_ptr(t.kind.value) else f"p{i}" for i, t in enumerate(arg_types)
+                        ]
+                        line(f"void *args[] = {{{', '.join(packed_args)}}};")
+
+                    vargs = "args" if arg_types else "NULL"
+                    if ret_type.kind.value == Type.Kind.VOID.value:
+                        line(f"hl_wrapper_call(value, {vargs}, NULL);")
+                    elif is_ptr(ret_type.kind.value):
+                        line(f"return hl_wrapper_call(value, {vargs}, NULL);")
+                    else:
+                        line("vdynamic ret;")
+                        line(f"hl_wrapper_call(value, {vargs}, &ret);")
+                        line(f"return ret.v.{get_wrap_char(ret_type)};")
+                line("}")
+
+    line("")
+
+    # --- 4. Generate hlc_get_wrapper ---
+    line("void *hlc_get_wrapper( hl_type *t ) {")
+    with indent:
+        line("int chk = TKIND[t->fun->ret->kind];")
+        line("switch( t->fun->nargs ) {")
+
+        for nargs in sorted_arg_counts:
+            line(f"case {nargs}:")
+            with indent:
+                if nargs > 9:
+                    line('hl_fatal("Too many arguments, TODO:use more bits");')
+                else:
+                    for i in range(nargs):
+                        line(f"chk |= TKIND[t->fun->args[{i}]->kind] << {(i + 1) * 3};")
+                    line("switch( chk ) {")
+
+                    signatures = fun_by_args[nargs]
+                    for (arg_kinds, ret_kind), _ in signatures.items():
+                        all_kinds = [ret_kind] + list(arg_kinds)
+                        chk_val = sum(get_type_kind_id(kind) << (i * 3) for i, kind in enumerate(all_kinds))
+                        line(f"case {chk_val}:")
+                        with indent:
+                            found_sig = False
+                            for f in code.functions + code.natives:
+                                f_def = f.type.resolve(code).definition
+                                if isinstance(f_def, Fun) and len(f_def.args) == nargs:
+                                    current_arg_types = [t.resolve(code) for t in f_def.args]
+                                    current_ret_type = f_def.ret.resolve(code)
+                                    if (
+                                        tuple(get_type_kind(t) for t in current_arg_types) == arg_kinds
+                                        and get_type_kind(current_ret_type) == ret_kind
+                                    ):
+                                        wrap_name = make_wrap_name(current_arg_types, current_ret_type)
+                                        line(f"return wrap_{wrap_name};")
+                                        found_sig = True
+                                        break
+                            if not found_sig:
+                                line("/* Wrapper not found for this case */")
+                    line("}")
+                    line("break;")
+        line("}")
+        line("return NULL;")
+    line("}")
+    return res
+
+
+def generate_function_tables(code: Bytecode) -> List[str]:
+    """Generates the hl_functions_ptrs and hl_functions_types C arrays."""
+    res = []
+    indent = Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(indent.current_indent + " ".join(str(arg) for arg in args))
+
+    if not code.functions and not code.natives:
+        max_findex = -1
+    else:
+        all_findexes = [f.findex.value for f in code.functions] + [n.findex.value for n in code.natives]
+        max_findex = max(all_findexes)
+
+    total_functions = max_findex + 1
+
+    known_findexes = {f.findex.value for f in code.functions} | {n.findex.value for n in code.natives}
+
+    line("void *hl_functions_ptrs[] = {")
+    with indent:
+        ptrs = []
+        for i in range(total_functions):
+            ptrs.append(f"(void*)f_s_{i}" if i in known_findexes else "NULL")
+        line(",\n".join(ptrs))
+    line("};")
+    line("")
+
+    line("hl_type *hl_functions_types[] = {")
+    with indent:
+        types = []
+        for i in range(total_functions):
+            try:
+                func_or_native = code.fn(i)
+                type_index = func_or_native.type.value
+                types.append(f"&t_s_{type_index}")
+            except ValueError:
+                types.append("&hlt_void")
+        line(",\n".join(types))
+    line("};")
+
+    return res
+
+
+def enum_constr_type(code: Bytecode, e: Enum, cid: int) -> str:
+    """
+    Generates the C type name for a specific enum constructor struct.
+    Example: my.pack.MyEnum constructor `MyValue(a:Int)` might become `my_pack_MyEnum_MyValue`.
+    """
+    constr = e.constructs[cid]
+    if not constr.params:
+        return "venum"
+
+    enum_idx = next((i for i, t in enumerate(code.types) if t.definition is e), -1)
+    if enum_idx >= 0:
+        return f"enum_s_{enum_idx}_ctor_s_{cid}"
+
+    enum_name_str = e.name.resolve(code)
+    c_enum_name = sanitize_ident(enum_name_str.replace(".", "__"))
+
+    constr_name_str = constr.name.resolve(code)
+    c_constr_name = sanitize_ident(constr_name_str)
+
+    if not enum_name_str:
+        return f"enum_ctor_{cid}"
+
+    if not constr_name_str:
+        return f"{c_enum_name}_{cid}"
+
+    return f"{c_enum_name}_{c_constr_name}"
+
+
+def generate_functions(code: Bytecode, progress_cb: Optional[ProgressCallback] = None) -> List[str]:
+    global unknown_ops
+
+    res = []
+    indent = Indenter()
+
+    def line(*args: Any) -> None:
+        res.append(indent.current_indent + " ".join(str(arg) for arg in args))
+
+    def opline(idx: int, *args: Any) -> None:
+        res.append(indent.current_indent + f"Op_{idx}: " + " ".join(str(arg) for arg in args))
+
+    def regstr(r: Reg | int) -> str:
+        return f"r{r}"
+
+    def cast_fun(code: Bytecode, func_ptr_expr: str, ret_type: tIndex, args_types: List[tIndex]) -> str:
+        """Generates a C cast for a function pointer."""
+        ret_t_str = ctype(code, ret_type.resolve(code), ret_type.value)
+        args_t_str = ", ".join(ctype(code, t.resolve(code), t.value) for t in args_types) or "void"
+        return f"(({ret_t_str} (*)({args_t_str})){func_ptr_expr})"
+
+    def rcast(code: Bytecode, reg: Reg, target_type_idx: tIndex, function: Function) -> str:
+        """Generates a C-style cast for a register if its type differs from the target."""
+        reg_type_idx = function.regs[reg.value]
+        reg_type_def = reg_type_idx.resolve(code).definition
+        target_type_def = target_type_idx.resolve(code).definition
+
+        if reg_type_idx.value == target_type_idx.value:
+            return regstr(reg)
+
+        if isinstance(reg_type_def, Packed) and isinstance(target_type_def, Struct):
+            target_ctype = ctype(code, target_type_idx.resolve(code), target_type_idx.value)
+            return f"(*({target_ctype}*){regstr(reg)})"
+
+        # Default cast
+        target_ctype = ctype(code, target_type_idx.resolve(code), target_type_idx.value)
+        return f"(({target_ctype}){regstr(reg)})"
+
+    def compare_op(
+        op_name: str, df: Dict[str, Any], function: Function, code: Bytecode, i: int
+    ) -> Tuple[bool, bool, str]:
+        """
+        Generates the C code for a comparison-based jump instruction.
+        Replicates the logic of the `compare_op` function in the OCaml source.
+
+        Returns:
+            A tuple (has_dst, no_semi, C_code_string). For jumps, this is always (False, True, code).
+        """
+        try:
+            comp_op_str = COMP_OP_MAP[op_name]
+        except KeyError:
+            raise NotImplementedError(f"Comparison operator for {op_name} not defined.")
+
+        reg_a_idx, reg_b_idx = df["a"], df["b"]
+        reg_a, reg_b = regstr(reg_a_idx), regstr(reg_b_idx)
+        label = f"Op_{df['offset'].value + i + 1}"  # HL op offsets are relative to the *next* instruction
+
+        regs = function.regs
+        type_a_def = regs[reg_a_idx.value].resolve(code).definition
+        type_b_def = regs[reg_b_idx.value].resolve(code).definition
+
+        def phys_compare() -> str:
+            """Generates a direct physical/pointer comparison in C."""
+            target_type_idx = regs[reg_a_idx.value]
+            casted_b = rcast(code, reg_b_idx, target_type_idx, function)
+            return f"if ({reg_a} {comp_op_str} {casted_b}) goto {label};"
+
+        # -- Primitive Types (Ints, Floats, Bools) --
+        if isinstance(type_a_def, (U8, U16, I32, F32, F64, Bool, I64)) and isinstance(
+            type_b_def, (U8, U16, I32, F32, F64, Bool, I64)
+        ):
+            return False, True, phys_compare()
+
+        # -- Simple Pointer-based Types (Bytes, Arrays, Structs, etc.) --
+        # These are compared by their memory address.
+        if isinstance(type_a_def, (Bytes, Array, Struct, DynObj, Abstract)) and type(type_a_def) == type(type_b_def):
+            return False, True, phys_compare()
+
+        # -- Enum types --
+        if isinstance(type_a_def, Enum) and isinstance(type_b_def, Enum):
+            inv = "&& i != hl_invalid_comparison " if op_name in ("JSGt", "JSGte") else ""
+            return (
+                False,
+                True,
+                f"{{ int i = hl_dyn_compare((vdynamic*){reg_a}, (vdynamic*){reg_b}); if (i {comp_op_str} 0 {inv}) goto {label}; }}",
+            )
+
+        # -- HType --
+        if isinstance(type_a_def, TypeType) and isinstance(type_b_def, TypeType):
+            # hl_same_type returns a bool: nonzero (true) when the types ARE equal.
+            same_type_op = "!=" if op_name == "JEq" else "=="
+            return False, True, f"if (hl_same_type({reg_a}, {reg_b}) {same_type_op} 0) goto {label};"
+
+        # -- HNull<T> --
+        if isinstance(type_a_def, Null) and isinstance(type_b_def, Null):
+            assert isinstance(type_a_def.type, tIndex)
+            inner_type = type_a_def.type.resolve(code)
+            field = dyn_value_field(inner_type)
+            pcompare = f"({reg_a}->{field} {comp_op_str} {reg_b}->{field})"
+
+            if op_name == "JEq":
+                return False, True, f"if ({reg_a} == {reg_b} || ({reg_a} && {reg_b} && {pcompare})) goto {label};"
+            if op_name == "JNotEq":
+                return False, True, f"if ({reg_a} != {reg_b} && (!{reg_a} || !{reg_b} || {pcompare})) goto {label};"
+            # For <, <=, >, >=, both must be non-null.
+            return False, True, f"if ({reg_a} && {reg_b} && {pcompare}) goto {label};"
+
+        # -- Dynamic or Function types --
+        if isinstance(type_a_def, (Dyn, Fun)) or isinstance(type_b_def, (Dyn, Fun)):
+            inv = "&& i != hl_invalid_comparison " if op_name in ("JSGt", "JSGte") else ""
+            return (
+                False,
+                True,
+                f"{{ int i = hl_dyn_compare((vdynamic*){reg_a}, (vdynamic*){reg_b}); if (i {comp_op_str} 0 {inv}) goto {label}; }}",
+            )
+
+        # -- HObj vs HObj --
+        if isinstance(type_a_def, Obj) and isinstance(type_b_def, Obj):
+            compare_fid = -1
+            # Find the __compare function if it exists on the prototype of type A
+            for proto in type_a_def.protos:
+                if proto.name.resolve(code) == "__compare":
+                    compare_fid = proto.findex.value
+                    break
+
+            if compare_fid == -1:
+                return False, True, phys_compare()
+            else:
+                # Note: The OCaml code uses a global function table `funname fid`. We use `f_s_{fid}`.
+                compare_call = f"f_s_{compare_fid}({reg_a}, (vdynamic*){reg_b})"
+                if op_name == "JEq":
+                    return (
+                        False,
+                        True,
+                        f"if ({reg_a} == {reg_b} || ({reg_a} && {reg_b} && {compare_call} == 0)) goto {label};",
+                    )
+                if op_name == "JNotEq":
+                    return (
+                        False,
+                        True,
+                        f"if ({reg_a} != {reg_b} && (!{reg_a} || !{reg_b} || {compare_call} != 0)) goto {label};",
+                    )
+                return False, True, f"if ({reg_a} && {reg_b} && {compare_call} {comp_op_str} 0) goto {label};"
+
+        # -- HVirtual vs HVirtual --
+        if isinstance(type_a_def, Virtual) and isinstance(type_b_def, Virtual):
+            if op_name == "JEq":
+                return (
+                    False,
+                    True,
+                    f"if ({reg_a} == {reg_b} || ({reg_a} && {reg_b} && {reg_a}->value && {reg_b}->value && {reg_a}->value == {reg_b}->value)) goto {label};",
+                )
+            if op_name == "JNotEq":
+                return (
+                    False,
+                    True,
+                    f"if ({reg_a} != {reg_b} && (!{reg_a} || !{reg_b} || !{reg_a}->value || !{reg_b}->value || {reg_a}->value != {reg_b}->value)) goto {label};",
+                )
+            # Other comparisons are not supported for Virtuals
+            return False, True, f"/* JSLt/JSGt on Virtual not supported */"
+
+        # -- HVirtual vs HObj --
+        if isinstance(type_a_def, Virtual) and isinstance(type_b_def, Obj):
+            if op_name == "JEq":
+                return (
+                    False,
+                    True,
+                    f"if ({reg_a} ? ({reg_b} && {reg_a}->value == (vdynamic*){reg_b}) : ({reg_b} == NULL)) goto {label};",
+                )
+            if op_name == "JNotEq":
+                return (
+                    False,
+                    True,
+                    f"if ({reg_a} ? ({reg_b} == NULL || {reg_a}->value != (vdynamic*){reg_b}) : ({reg_b} != NULL)) goto {label};",
+                )
+            return False, True, f"/* JSLt/JSGt on Virtual vs Obj not supported */"
+
+        # -- HObj vs HVirtual (recursive call with swapped operands) --
+        if isinstance(type_a_def, Obj) and isinstance(type_b_def, Virtual):
+            swapped_op = SWAP_OP_MAP[op_name]
+            swapped_df = df.copy()
+            swapped_df["a"], swapped_df["b"] = df["b"], df["a"]
+            return compare_op(swapped_op, swapped_df, function, code, i)
+
+        # Fallback for any unhandled combination
+        return (
+            False,
+            True,
+            f"/* UNHANDLED COMPARISON: {type(type_a_def).__name__} vs {type(type_b_def).__name__} */\n{indent.current_indent}{phys_compare()}",
+        )
+
+    def dyn_prefix(typ: Type) -> str:
+        """
+        Returns the one-char prefix for dynamic operations based on type.
+        'i' for int-like, 'f' for f32, 'd' for f64, 'i64' for i64, 'p' for pointers.
+        """
+        kind = typ.kind.value
+        if kind in {Type.Kind.U8.value, Type.Kind.U16.value, Type.Kind.I32.value, Type.Kind.BOOL.value}:
+            return "i"
+        if kind == Type.Kind.F32.value:
+            return "f"
+        if kind == Type.Kind.F64.value:
+            return "d"
+        if kind == Type.Kind.I64.value:
+            return "i64"
+        return "p"
+
+    for function in code.functions:
+        fun = function.type.resolve(code).definition
+        assert isinstance(fun, Fun), (
+            f"Expected function type to be Fun, got {type(fun).__name__}. This should never happen."
+        )
+        ret_t = ctype(code, fun.ret.resolve(code), fun.ret.value)
+        args_t = [ctype(code, arg.resolve(code), arg.value) for arg in fun.args]
+        args = [f"{t}" for t in args_t]
+        args_str = ", ".join(args) if args else "void"
+        line(f"{ret_t} f_s_{function.findex.value}({args_str}); /* t_s_{function.type.value} */")
+
+    nfunctions = len(code.functions)
+    for fidx, function in enumerate(code.functions):
+        if progress_cb is not None and nfunctions:
+            progress_cb(fidx / nfunctions, f"generating function {fidx}/{nfunctions}")
+        fun = function.type.resolve(code).definition
+        assert isinstance(fun, Fun), (
+            f"Expected function type to be Fun, got {type(fun).__name__}. This should never happen."
+        )
+        ret_t = ctype(code, fun.ret.resolve(code), fun.ret.value)
+        args_t = [ctype(code, arg.resolve(code), arg.value) for arg in fun.args]
+        args = [f"{t} r{i}" for i, t in enumerate(args_t)]
+        args_str = ", ".join(args) if args else "void"
+        line(f"{ret_t} f_s_{function.findex.value}({args_str}) {{")
+        closure_id = 0
+
+        max_trap_depth = 0
+        current_trap_depth = 0
+        for op in function.ops:
+            if op.op == "Trap":
+                current_trap_depth += 1
+                if current_trap_depth > max_trap_depth:
+                    max_trap_depth = current_trap_depth
+            elif op.op == "EndTrap":
+                if op.df["exc"].value != 0:
+                    current_trap_depth -= 1
+
+        if max_trap_depth > 0:
+            line("")  # cosmetic newline
+            for i in range(max_trap_depth):
+                line(f"hl_trap_ctx trap_s_{i};")
+
+        trap_depth = 0
+        fn_start = len(res)
+        with indent:
+            for i, reg in enumerate(function.regs[len(args) :]):
+                reg_idx = i + len(args)
+                if reg.resolve(code).kind.value == Type.Kind.VOID.value:
+                    line(f"// void r{reg_idx}")
+                    continue  # void is for explicit discard
+                reg_type = ctype(code, reg.resolve(code), reg.value)
+                line(f"{reg_type} r{reg_idx}; ")
+
+            for i, op in enumerate(function.ops):
+                # oh god, here we go
+                df = op.df
+                rhs = ""
+                has_dst = "dst" in df
+                no_semi = False
+
+                match op.op:
+                    case "Mov":
+                        dst_type_idx = function.regs[df["dst"].value]
+                        rhs = rcast(code, df["src"], dst_type_idx, function)
+                    case "Int":
+                        _int_val = code.ints[df["ptr"].value].value
+                        if _int_val > 0x7FFFFFFF:
+                            _int_val = _signed32(_int_val)
+                        rhs = "(-2147483647 - 1)" if _int_val == -2147483648 else str(_int_val)
+                    case "Float":
+                        _fval = code.floats[df["ptr"].value].value
+                        _fstr = f"{_fval:.19g}"
+                        if "." not in _fstr and "e" not in _fstr:
+                            _fstr += "."
+                        _float_kind = function.regs[df["dst"].value].resolve(code).kind.value
+                        rhs = f"{_fstr}f" if _float_kind == Type.Kind.F32.value else _fstr
+                    case "Bool":
+                        rhs = "true" if str(df["value"]) == "True" else "false"
+                    case "Bytes":
+                        # TODO not sure this is right - might be bytes pool past v5?
+                        rhs = f'(vbyte*)USTRN("{c_escape_string(code.strings.value[df["ptr"].value])}")'
+                    case "String":
+                        rhs = f'(vbyte*)USTRN("{c_escape_string(code.strings.value[df["ptr"].value])}")'
+                    case "Null":
+                        rhs = "NULL"
+                    case "Add":
+                        rhs = f"r{df['a']} + r{df['b']}"
+                    case "Sub":
+                        rhs = f"r{df['a']} - r{df['b']}"
+                    case "Mul":
+                        rhs = f"r{df['a']} * r{df['b']}"
+                    case "SDiv":
+                        rtype = function.regs[df["dst"].value].resolve(code).kind.value
+                        if rtype in {Type.Kind.U8.value, Type.Kind.U16.value, Type.Kind.I32.value}:
+                            rhs = f"(r{df['b']} == 0 || r{df['b']} == -1) ? r{df['a']} * r{df['b']} : r{df['a']} / r{df['b']}"
+                        else:
+                            rhs = f"r{df['a']} / r{df['b']}"
+                    case "UDiv":
+                        rhs = f"(r{df['b']} == 0) ? 0 : ((unsigned)r{df['a']}) / ((unsigned)r{df['b']})"
+                    case "SMod":
+                        rtype = function.regs[df["dst"].value].resolve(code).kind.value
+                        if rtype in {Type.Kind.U8.value, Type.Kind.U16.value, Type.Kind.I32.value}:
+                            rhs = f"(r{df['b']} == 0 || r{df['b']} == -1) ? 0 : r{df['a']} % r{df['b']}"
+                        elif rtype == Type.Kind.F32.value:
+                            rhs = f"fmodf(r{df['a']}, r{df['b']})"
+                        elif rtype == Type.Kind.F64.value:
+                            rhs = f"fmod(r{df['a']}, r{df['b']})"
+                        else:
+                            raise MalformedBytecode(
+                                f"Unsupported SMod type: {rtype} at op {i} in function {function.findex}"
+                            )
+                    case "UMod":
+                        rhs = f"(r{df['b']} == 0) ? 0 : ((unsigned)r{df['a']}) % ((unsigned)r{df['b']})"
+                    case "Shl":
+                        _shift_kind = function.regs[df["dst"].value].resolve(code).kind.value
+                        _shift_bits = {Type.Kind.U8.value: 8, Type.Kind.U16.value: 16, Type.Kind.I64.value: 64}.get(
+                            _shift_kind, 32
+                        )
+                        rhs = f"r{df['a']} << (r{df['b']} % {_shift_bits})"
+                    case "SShr":
+                        _shift_kind = function.regs[df["dst"].value].resolve(code).kind.value
+                        _shift_bits = {Type.Kind.U8.value: 8, Type.Kind.U16.value: 16, Type.Kind.I64.value: 64}.get(
+                            _shift_kind, 32
+                        )
+                        rhs = f"r{df['a']} >> (r{df['b']} % {_shift_bits})"
+                    case "UShr":
+                        _shift_kind = function.regs[df["dst"].value].resolve(code).kind.value
+                        _shift_bits = {Type.Kind.U8.value: 8, Type.Kind.U16.value: 16, Type.Kind.I64.value: 64}.get(
+                            _shift_kind, 32
+                        )
+                        if _shift_kind == Type.Kind.I64.value:
+                            rhs = f"((uint64)r{df['a']}) >> (r{df['b']} % {_shift_bits})"
+                        else:
+                            rhs = f"((unsigned)r{df['a']}) >> (r{df['b']} % {_shift_bits})"
+                    case "And":
+                        rhs = f"r{df['a']} & r{df['b']}"
+                    case "Or":
+                        rhs = f"r{df['a']} | r{df['b']}"
+                    case "Xor":
+                        rhs = f"r{df['a']} ^ r{df['b']}"
+                    case "Neg":
+                        rhs = f"-r{df['src']}"
+                    case "Not":
+                        rhs = f"!r{df['src']}"
+                    case "Incr":
+                        rhs = f"++r{df['dst']}"
+                        has_dst = False
+                    case "Decr":
+                        rhs = f"--r{df['dst']}"
+                        has_dst = False
+                    case "Call0" | "Call1" | "Call2" | "Call3" | "Call4":
+                        nargs = int(op.op[4:])
+                        args = [f"r{df[f'arg{i}']}" for i in range(nargs)]
+                        if nargs == 0:
+                            rhs = f"f_s_{df['fun']}()"
+                        else:
+                            rhs = f"f_s_{df['fun']}({', '.join(args)})"
+                    case "CallN":
+                        args = [f"r{arg}" for arg in df["args"].value]
+                        rhs = f"f_s_{df['fun']}({', '.join(args)})"
+                    case "CallMethod" | "CallThis":
+                        if op.op == "CallThis":
+                            obj_reg = 0
+                            arg_regs = df["args"].value
+                        else:
+                            obj_reg = df["args"].value[0].value
+                            arg_regs = df["args"].value[1:]
+                        obj_t = function.regs[obj_reg].resolve(code).definition
+                        if isinstance(obj_t, (Obj, Struct)):
+                            obj = f"r{obj_reg}"
+                            fid = df["field"].value
+                            func_ptr = f"{obj}->_s_type->vobj_proto[{fid}]"
+                            dst_reg = df["dst"].value
+                            ret_type = function.regs[dst_reg]
+                            obj_type = function.regs[obj_reg]
+                            arg_types = [obj_type] + [function.regs[r.value] for r in arg_regs]
+                            casted_fun = cast_fun(code, func_ptr, ret_type, arg_types)
+                            call_args_str = ", ".join([obj] + [f"r{r.value}" for r in arg_regs])
+                            rhs = f"{casted_fun}({call_args_str})"
+                        elif isinstance(obj_t, Virtual):
+                            fid = df["field"].value
+                            dst_reg = df["dst"].value
+                            ret_type_idx = function.regs[dst_reg]
+                            ret_type = ret_type_idx.resolve(code)
+                            ret_ctype = ctype(code, ret_type, ret_type_idx.value)
+                            ret_is_ptr = is_ptr(ret_type.kind.value)
+                            ret_is_void = ret_type.kind.value == Type.Kind.VOID.value
+
+                            dyn_idx = code.find_prim_type(Type.Kind.DYN)
+                            arg_type_idxs = [dyn_idx] + [function.regs[r.value] for r in arg_regs]
+                            meth = cast_fun(code, f"hl_vfields(r{obj_reg})[{fid}]", ret_type_idx, arg_type_idxs)
+                            call_args = ", ".join([f"r{obj_reg}->value"] + [f"r{r.value}" for r in arg_regs])
+
+                            assign = ""
+                            if not ret_is_void:
+                                assign = f"r{dst_reg} = ({ret_ctype})"
+
+                            field_info = obj_t.fields[fid]
+                            field_name = field_info.name.resolve(code)
+                            field_hash = hl_hash_utf8(field_name)
+                            field_type_idx = field_info.type
+
+                            has_dst = False
+                            no_semi = True
+
+                            opline(i, f"if( hl_vfields(r{obj_reg})[{fid}] ) {assign}{meth}({call_args}); else {{")
+                            with indent:
+                                if arg_regs:
+                                    args_arr_parts = []
+                                    for ar in arg_regs:
+                                        at = function.regs[ar.value].resolve(code)
+                                        if is_ptr(at.kind.value):
+                                            args_arr_parts.append(f"(void*)r{ar.value}")
+                                        else:
+                                            args_arr_parts.append(f"&r{ar.value}")
+                                    line(f"void *args[] = {{{', '.join(args_arr_parts)}}};")
+                                else:
+                                    pass
+                                if ret_is_void:
+                                    line(
+                                        f"hl_dyn_call_obj(r{obj_reg}->value, &t_s_{field_type_idx.value}, {field_hash}/*{field_name}*/, {'NULL' if not arg_regs else 'args'}, NULL);"
+                                    )
+                                elif ret_is_ptr:
+                                    line(
+                                        f"r{dst_reg} = ({ret_ctype})hl_dyn_call_obj(r{obj_reg}->value, &t_s_{field_type_idx.value}, {field_hash}/*{field_name}*/, {'NULL' if not arg_regs else 'args'}, NULL);"
+                                    )
+                                else:
+                                    prefix = dyn_prefix(ret_type)
+                                    line(
+                                        f"{{ vdynamic _ret; hl_dyn_call_obj(r{obj_reg}->value, &t_s_{field_type_idx.value}, {field_hash}/*{field_name}*/, {'NULL' if not arg_regs else 'args'}, &_ret); r{dst_reg} = ({ret_ctype})_ret.v.{prefix}; }}"
+                                    )
+                            line("}")
+                            continue
+                    case "CallClosure":
+                        closure_reg = df["fun"]
+                        closure_reg_str = regstr(closure_reg)
+                        closure_type = function.regs[closure_reg.value].resolve(code)
+                        if closure_type.kind.value == Type.Kind.DYN.value:
+                            call_arg_regs = df["args"].value
+                            dst_reg = df["dst"].value
+                            ret_type_idx = function.regs[dst_reg]
+                            ret_type = ret_type_idx.resolve(code)
+                            dynamic_return_kinds = {
+                                Type.Kind.DYN.value,
+                                Type.Kind.FUN.value,
+                                Type.Kind.OBJ.value,
+                                Type.Kind.ARRAY.value,
+                                Type.Kind.VIRTUAL.value,
+                                Type.Kind.DYNOBJ.value,
+                                Type.Kind.ENUM.value,
+                                Type.Kind.NULL.value,
+                                Type.Kind.METHOD.value,
+                                Type.Kind.STRUCT.value,
+                            }
+                            has_dst = False
+                            no_semi = True
+                            opline(i, "{")
+                            with indent:
+                                if call_arg_regs:
+                                    args_arr_parts = []
+                                    for ar in call_arg_regs:
+                                        at = function.regs[ar.value].resolve(code)
+                                        if at.kind.value == Type.Kind.DYN.value:
+                                            args_arr_parts.append(f"r{ar.value}")
+                                        elif is_ptr(at.kind.value):
+                                            args_arr_parts.append(f"(vdynamic*)r{ar.value}")
+                                        else:
+                                            args_arr_parts.append(
+                                                f"hl_make_dyn(&r{ar.value}, &t_s_{function.regs[ar.value].value})"
+                                            )
+                                    line(f"vdynamic *args[] = {{{', '.join(args_arr_parts)}}};")
+                                args_name = "NULL" if not call_arg_regs else "args"
+                                if ret_type.kind.value == Type.Kind.VOID.value:
+                                    line(
+                                        f"hl_dyn_call((vclosure*){closure_reg_str}, {args_name}, {len(call_arg_regs)});"
+                                    )
+                                elif ret_type.kind.value in dynamic_return_kinds:
+                                    ret_ctype = ctype(code, ret_type, ret_type_idx.value)
+                                    line(
+                                        f"r{dst_reg} = ({ret_ctype})hl_dyn_call((vclosure*){closure_reg_str}, {args_name}, {len(call_arg_regs)});"
+                                    )
+                                else:
+                                    ret_ctype = ctype(code, ret_type, ret_type_idx.value)
+                                    prefix = dyn_prefix(ret_type)
+                                    type_arg = ""
+                                    if ret_type.kind.value not in {
+                                        Type.Kind.F32.value,
+                                        Type.Kind.F64.value,
+                                        Type.Kind.I64.value,
+                                    }:
+                                        type_arg = f", &t_s_{ret_type_idx.value}"
+                                    line(
+                                        f"vdynamic *_ret = hl_dyn_call((vclosure*){closure_reg_str}, {args_name}, {len(call_arg_regs)});"
+                                    )
+                                    line(f"r{dst_reg} = ({ret_ctype})hl_dyn_cast{prefix}(&_ret, &hlt_dyn{type_arg});")
+                            line("}")
+                            continue
+                        if closure_type.kind.value != Type.Kind.FUN.value:
+                            raise MalformedBytecode(f"CallClosure on an unexpected type: {closure_type}")
+                        closure_type_def = closure_type.definition
+                        assert isinstance(closure_type_def, Fun)
+                        ret_type_idx = closure_type_def.ret
+                        closure_arg_type_idxs = closure_type_def.args
+                        call_arg_regs = df["args"].value
+                        if len(call_arg_regs) != len(closure_arg_type_idxs):
+                            raise MalformedBytecode(
+                                f"CallClosure argument count mismatch at op {i} in f{function.findex.value}. Expected {len(closure_arg_type_idxs)}, got {len(call_arg_regs)}"
+                            )
+                        casted_args_str_list = [
+                            rcast(code, reg, target_type_idx, function)
+                            for reg, target_type_idx in zip(call_arg_regs, closure_arg_type_idxs)
+                        ]
+                        static_fun_ptr = cast_fun(code, f"{closure_reg_str}->fun", ret_type_idx, closure_arg_type_idxs)
+                        static_call = f"{static_fun_ptr}({', '.join(casted_args_str_list)})"
+                        dyn_type_idx = code.find_prim_type(Type.Kind.DYN)
+                        instance_arg_types = [dyn_type_idx] + closure_arg_type_idxs
+                        instance_fun_ptr = cast_fun(code, f"{closure_reg_str}->fun", ret_type_idx, instance_arg_types)
+                        instance_call = f"{instance_fun_ptr}({', '.join([f'(vdynamic*){closure_reg_str}->value'] + casted_args_str_list)})"
+                        rhs = f"({closure_reg_str}->hasValue ? {instance_call} : {static_call})"
+                    case "StaticClosure":
+                        rhs = f"&cl_s_{closure_id}"
+                        target_fun = df["fun"].resolve(code)
+                        assert isinstance(target_fun, (Function, Native))
+                        typ = target_fun.type.resolve(code)
+                        assert isinstance(typ.definition, Fun), (
+                            f"Expected function type to be Fun, got {type(typ.definition).__name__}. This should never happen."
+                        )
+                        res.insert(
+                            fn_start,
+                            f"    static vclosure cl_s_{closure_id} = {{ &t_s_{target_fun.type}, f_s_{target_fun.findex}, 0 }};",
+                        )
+                        closure_id += 1
+                    case "InstanceClosure":
+                        target_fun = df["fun"].resolve(code)
+                        assert isinstance(target_fun, (Function, Native))
+                        typ = target_fun.type.resolve(code)
+                        assert isinstance(typ.definition, Fun), (
+                            f"Expected function type to be Fun, got {type(typ.definition).__name__}. This should never happen."
+                        )
+                        rhs = f"hl_alloc_closure_ptr(&t_s_{target_fun.type.value}, f_s_{target_fun.findex.value}, r{df['obj']})"
+                    case "VirtualClosure":
+                        obj_t = function.regs[df["obj"].value].resolve(code)
+                        assert isinstance(obj_t, Type)
+                        objdef = obj_t.definition
+                        assert isinstance(objdef, (Obj, Struct)), (
+                            f"VirtualClosure on non-Obj/Struct type: {objdef} at op {i} in function {function.findex}"
+                        )
+                        fid = df["field"].value
+                        func_ptr = f"r{df['obj']}->_s_type->vobj_proto[{fid}]"
+                        # `fid` indexes the vtable by proto pindex, not the dst register's
+                        # (already-bound, this-dropped) type -- hl_alloc_closure_ptr needs the
+                        # method's own full/unbound signature to know how to drop `this`.
+                        proto = code.proto_by_pindex(objdef, fid)
+                        assert proto is not None, (
+                            f"VirtualClosure: no proto with pindex {fid} on {objdef} at op {i} in function {function.findex}"
+                        )
+                        method_type = proto.findex.resolve(code).type
+                        assert isinstance(method_type.resolve(code).definition, Fun), (
+                            f"VirtualClosure target is not a function type at op {i} in function {function.findex}"
+                        )
+                        rhs = f"hl_alloc_closure_ptr(&t_s_{method_type.value}, {func_ptr}, r{df['obj']})"
+                    case "GetGlobal":
+                        dst_reg = df["dst"].value
+                        dst = ctype(code, function.regs[dst_reg].resolve(code), function.regs[dst_reg].value)
+                        rhs = f"({dst})g_s_{df['global'].value}"
+                    case "SetGlobal":
+                        src_reg = df["src"].value
+                        has_dst = False
+                        global_type_idx = code.global_types[df["global"].value]
+                        global_ctype = ctype(code, global_type_idx.resolve(code), global_type_idx.value)
+                        rhs = f"g_s_{df['global'].value} = ({global_ctype})r{src_reg}"
+                    case "Ret":
+                        has_dst = False
+                        if fun.ret.resolve(code).kind.value == Type.Kind.VOID.value:
+                            rhs = "return"
+                        else:
+                            dst_reg = df["ret"].value
+                            rhs = f"return {rcast(code, Reg(dst_reg), fun.ret, function)}"
+                    case "JTrue":
+                        has_dst, no_semi = False, True
+                        rhs = f"if (r{df['cond']}) goto Op_{df['offset'].value + i + 1};"
+                    case "JFalse":
+                        has_dst, no_semi = False, True
+                        rhs = f"if (!r{df['cond']}) goto Op_{df['offset'].value + i + 1};"
+                    case "JNull":
+                        has_dst, no_semi = False, True
+                        rhs = f"if (!r{df['reg']}) goto Op_{df['offset'].value + i + 1};"
+                    case "JNotNull":
+                        has_dst, no_semi = False, True
+                        rhs = f"if (r{df['reg']}) goto Op_{df['offset'].value + i + 1};"
+                    case "JSLt" | "JSGte" | "JSGt" | "JSLte" | "JEq" | "JNotEq":
+                        has_dst, no_semi, rhs = compare_op(op.op, df, function, code, i)
+                    case "JULt":
+                        has_dst, no_semi = False, True
+                        rhs = f"if( ((unsigned)r{df['a']}) < ((unsigned)r{df['b']}) ) goto Op_{df['offset'].value + i + 1};"
+                    case "JUGte":
+                        has_dst, no_semi = False, True
+                        rhs = f"if( ((unsigned)r{df['a']}) >= ((unsigned)r{df['b']}) ) goto Op_{df['offset'].value + i + 1};"
+                    case "JNotLt":
+                        has_dst, no_semi = False, True
+                        rhs = f"if( !(r{df['a']} < r{df['b']}) ) goto Op_{df['offset'].value + i + 1};"
+                    case "JNotGte":
+                        has_dst, no_semi = False, True
+                        rhs = f"if( !(r{df['a']} >= r{df['b']}) ) goto Op_{df['offset'].value + i + 1};"
+                    case "JAlways":
+                        has_dst, no_semi = False, True
+                        rhs = f"goto Op_{df['offset'].value + i + 1};"
+                    case "Label":
+                        opline(i, "")
+                        continue
+                    case "Nop":
+                        continue
+                    case "ToDyn":
+                        if function.regs[df["src"].value].resolve(code).kind.value == Type.Kind.BOOL.value:
+                            rhs = f"hl_alloc_dynbool(r{df['src']})"
+                        else:
+                            has_dst, no_semi = False, True
+                            typ = function.regs[df["src"].value].resolve(code)
+                            field = dyn_value_field(typ)
+                            rhs = f"r{df['dst']} = hl_alloc_dynamic(&t_s_{function.regs[df['src'].value].value}); "
+                            rhs += f"r{df['dst']}->{field} = r{df['src']};"
+                            if is_ptr(typ.kind.value):
+                                rhs = f"if( r{df['src']} == NULL ) r{df['dst']} = NULL; else {{{rhs}}}"
+                    case "ToSFloat":
+                        has_dst = False
+                        typ = function.regs[df["dst"].value].resolve(code)
+                        rhs = f"r{df['dst']} = ({ctype(code, typ, function.regs[df['dst'].value].value)})r{df['src']}"
+                    case "ToUFloat":
+                        has_dst = False
+                        typ = function.regs[df["dst"].value].resolve(code)
+                        rhs = f"r{df['dst']} = ({ctype(code, typ, function.regs[df['dst'].value].value)})(unsigned)r{df['src']}"
+                    case "ToInt":
+                        dst_type_idx = function.regs[df["dst"].value]
+                        dst_kind = dst_type_idx.resolve(code).kind.value
+                        if dst_kind == Type.Kind.I64.value:
+                            rhs = f"(int64)r{df['src']}"
+                        else:
+                            rhs = f"(int)r{df['src']}"
+                    case "New":
+                        dst_reg = df["dst"].value
+                        dst_t = function.regs[dst_reg]
+                        dst_type = dst_t.resolve(code)
+                        match dst_type.kind.value:
+                            case Type.Kind.OBJ.value | Type.Kind.STRUCT.value:
+                                tname = ctype(code, dst_type, dst_t.value)
+                                rhs = f"({tname})hl_alloc_obj(&t_s_{dst_t.value})"
+                            case Type.Kind.DYNOBJ.value:
+                                rhs = "hl_alloc_dynobj()"
+                            case Type.Kind.VIRTUAL.value:
+                                rhs = f"hl_alloc_virtual(&t_s_{dst_t.value})"
+                    case "Field" | "GetThis":
+                        if op.op == "Field":
+                            obj_reg = df["obj"].value
+                        else:
+                            obj_reg = 0
+                        obj_tres = function.regs[obj_reg].resolve(code)
+                        assert isinstance(obj_tres, Type), (
+                            f"Expected obj type to be Type, got {type(obj_tres).__name__}. This should never happen."
+                        )
+                        field_idx: int = df["field"].value
+                        match obj_tres.kind.value:
+                            case Type.Kind.OBJ.value | Type.Kind.STRUCT.value:
+                                dfn = obj_tres.definition
+                                assert isinstance(dfn, (Obj, Struct)), (
+                                    f"Expected obj type definition to be Obj or Struct, got {type(dfn).__name__}. This should never happen."
+                                )
+                                field_name = dfn.resolve_fields(code)[field_idx].name.resolve(code)
+                                rhs = f"r{obj_reg}->{sanitize_field_ident(field_name, f'_fld_{field_idx}')}"
+                            case Type.Kind.VIRTUAL.value:
+                                dfn = obj_tres.definition
+                                assert isinstance(dfn, Virtual), "This check should pass."
+                                field_info = dfn.fields[field_idx]
+                                field_name = field_info.name.resolve(code)
+                                field_hash = hl_hash_utf8(field_name)
+                                field_type_idx = field_info.type
+                                field_type = field_type_idx.resolve(code)
+                                field_ctype = ctype(code, field_type, field_type_idx.value)
+
+                                prefix = dyn_prefix(field_type)
+                                type_arg = ""
+                                if field_type.kind.value not in {
+                                    Type.Kind.F32.value,
+                                    Type.Kind.F64.value,
+                                    Type.Kind.I64.value,
+                                }:
+                                    type_arg = f", &t_s_{field_type_idx.value}"
+
+                                dyn_get_call = f"(({field_ctype})hl_dyn_get{prefix}(r{obj_reg}->value, {field_hash}/*{field_name}*/{type_arg}))"
+
+                                direct_access = f"(*(({field_ctype}*)hl_vfields(r{obj_reg})[{field_idx}]))"
+
+                                rhs = f"(hl_vfields(r{obj_reg})[{field_idx}] ? {direct_access} : {dyn_get_call})"
+                    case "SetField" | "SetThis":
+                        if op.op == "SetField":
+                            obj_reg_idx = df["obj"].value
+                            val_reg_idx = df["src"].value
+                        else:
+                            obj_reg_idx = 0
+                            val_reg_idx = df["src"].value
+
+                        obj_regs = f"r{obj_reg_idx}"
+                        val_regs = f"r{val_reg_idx}"
+                        obj_tres = function.regs[obj_reg_idx].resolve(code)
+                        field_idx = df["field"].value
+                        has_dst = False
+
+                        assert obj_tres is not None
+                        match obj_tres.kind.value:
+                            case Type.Kind.OBJ.value | Type.Kind.STRUCT.value:
+                                dfn = obj_tres.definition
+                                assert isinstance(dfn, (Obj, Struct)), "This check should pass."
+
+                                class_field = dfn.resolve_fields(code)[field_idx]
+                                field_name = sanitize_field_ident(class_field.name.resolve(code), f"_fld_{field_idx}")
+                                field_type_idx = class_field.type
+                                val_cast = rcast(code, Reg(val_reg_idx), field_type_idx, function)
+
+                                rhs = f"{obj_regs}->{field_name} = {val_cast}"
+
+                            case Type.Kind.VIRTUAL.value:
+                                dfn = obj_tres.definition
+                                assert isinstance(dfn, Virtual), "This check should pass."
+
+                                field_info = dfn.fields[field_idx]
+                                field_name = field_info.name.resolve(code)
+                                field_hash = hl_hash_utf8(field_name)
+                                field_type_idx = field_info.type
+                                field_type = field_type_idx.resolve(code)
+                                field_ctype = ctype(code, field_type, field_type_idx.value)
+
+                                value_type = function.regs[val_reg_idx].resolve(code)
+
+                                prefix = dyn_prefix(value_type)
+                                type_arg = ""
+                                if value_type.kind.value not in {
+                                    Type.Kind.F32.value,
+                                    Type.Kind.F64.value,
+                                    Type.Kind.I64.value,
+                                }:
+                                    type_arg = f", &t_s_{function.regs[val_reg_idx].value}"
+
+                                dyn_set_call = f"hl_dyn_set{prefix}({obj_regs}->value, {field_hash}/*{field_name}*/{type_arg}, {val_regs})"
+                                val_cast = f"({field_ctype}){val_regs}"
+                                direct_set = f"*({field_ctype}*)(hl_vfields(r{obj_reg_idx})[{field_idx}]) = {val_cast}"
+                                rhs = f"if (hl_vfields(r{obj_reg_idx})[{field_idx}]) {direct_set}; else {dyn_set_call}"
+                            case _:
+                                unknown_ops.add(f"SetField on {obj_tres.kind}")
+                                continue
+                    case "Throw" | "Rethrow":
+                        # Opcodes: Throw: {"exc": Reg}, Rethrow: {"exc": Reg}
+                        rhs = f"hl_{op.op.lower()}((vdynamic*)r{df['exc'].value})"
+                        has_dst = False
+                    case "GetUI8" | "GetI8":
+                        # Opcode: GetI8: {"dst": Reg, "bytes": Reg, "index": Reg}
+                        rhs = f"*(unsigned char*)(r{df['bytes'].value} + r{df['index'].value})"
+                    case "GetUI16" | "GetI16":
+                        # Opcode: GetI16: {"dst": Reg, "bytes": Reg, "index": Reg}
+                        rhs = f"*(unsigned short*)(r{df['bytes'].value} + r{df['index'].value})"
+                    case "GetMem":
+                        # Opcode: GetMem: {"dst": Reg, "bytes": Reg, "index": Reg}
+                        dst_type_idx = function.regs[df["dst"].value]
+                        dst_ctype = ctype(code, dst_type_idx.resolve(code), dst_type_idx.value)
+                        rhs = f"*({dst_ctype}*)(r{df['bytes'].value} + r{df['index'].value})"
+                    case "GetArray":
+                        arr_type = function.regs[df["array"].value].resolve(code)
+                        dst_type_idx = function.regs[df["dst"].value]
+                        dst_ctype = ctype(code, dst_type_idx.resolve(code), dst_type_idx.value)
+                        dst_def = dst_type_idx.resolve(code).definition
+
+                        if isinstance(arr_type.definition, Abstract):
+                            if isinstance(dst_def, (Obj, Struct)):
+                                rhs = f"(({dst_ctype})r{df['array'].value}) + r{df['index'].value}"
+                            else:
+                                rhs = f"(({dst_ctype}*)r{df['array'].value})[r{df['index'].value}]"
+                        else:
+                            rhs = f"(({dst_ctype}*)(r{df['array'].value} + 1))[r{df['index'].value}]"
+                    case "SetUI8" | "SetI8":
+                        # Opcode: SetI8: {"bytes": Reg, "index": Reg, "src": Reg}
+                        rhs = f"*(unsigned char*)(r{df['bytes'].value} + r{df['index'].value}) = (unsigned char)r{df['src'].value}"
+                        has_dst = False
+                    case "SetUI16" | "SetI16":
+                        # Opcode: SetI16: {"bytes": Reg, "index": Reg, "src": Reg}
+                        rhs = f"*(unsigned short*)(r{df['bytes'].value} + r{df['index'].value}) = (unsigned short)r{df['src'].value}"
+                        has_dst = False
+                    case "SetMem":
+                        # Opcode: SetMem: {"bytes": Reg, "index": Reg, "src": Reg}
+                        val_type_idx = function.regs[df["src"].value]
+                        val_ctype = ctype(code, val_type_idx.resolve(code), val_type_idx.value)
+                        rhs = f"*({val_ctype}*)(r{df['bytes'].value} + r{df['index'].value}) = r{df['src'].value}"
+                        has_dst = False
+                    case "SetArray":
+                        arr_type = function.regs[df["array"].value].resolve(code)
+                        val_type_idx = function.regs[df["src"].value]
+                        val_ctype = ctype(code, val_type_idx.resolve(code), val_type_idx.value)
+                        val_def = val_type_idx.resolve(code).definition
+
+                        if isinstance(arr_type.definition, Abstract):
+                            if isinstance(val_def, (Obj, Struct)):
+                                rhs = f"(({val_ctype})r{df['array'].value})[r{df['index'].value}] = *r{df['src'].value}"
+                            else:
+                                rhs = f"(({val_ctype}*)r{df['array'].value})[r{df['index'].value}] = r{df['src'].value}"
+                        else:
+                            rhs = (
+                                f"(({val_ctype}*)(r{df['array'].value} + 1))[r{df['index'].value}] = r{df['src'].value}"
+                            )
+                        has_dst = False
+                    case "SafeCast":
+                        # Opcode: SafeCast: {"dst": Reg, "src": Reg}
+                        src_reg, dst_reg = df["src"].value, df["dst"].value
+                        src_type = function.regs[src_reg].resolve(code)
+                        dst_type_idx = function.regs[dst_reg]
+                        dst_type = dst_type_idx.resolve(code)
+                        dst_ctype = ctype(code, dst_type, dst_type_idx.value)
+
+                        if isinstance(src_type.definition, Null):
+                            assert isinstance(src_type.definition.type, tIndex)
+                            field = dyn_value_field(dst_type)
+                            zero = "NULL" if is_ptr(dst_type.kind.value) else "0"
+                            rhs = f"r{src_reg} ? r{src_reg}->{field} : {zero}"
+                        else:
+                            prefix = dyn_prefix(dst_type)
+                            type_arg = ""
+                            if dst_type.kind.value not in {
+                                Type.Kind.F32.value,
+                                Type.Kind.F64.value,
+                                Type.Kind.I64.value,
+                            }:
+                                type_arg = f", &t_s_{dst_type_idx.value}"
+
+                            src_type_idx = function.regs[src_reg].value
+                            if src_type.kind.value == Type.Kind.DYN.value and dst_type.kind.value in {
+                                Type.Kind.U8.value,
+                                Type.Kind.U16.value,
+                                Type.Kind.I32.value,
+                                Type.Kind.I64.value,
+                                Type.Kind.F32.value,
+                                Type.Kind.F64.value,
+                            }:
+                                enum_check = (
+                                    f"(r{src_reg} && r{src_reg}->t->kind == HENUM && "
+                                    f"r{src_reg}->t->tenum->constructs[((venum*)r{src_reg})->index].nparams == 0)"
+                                )
+                                if dst_type.kind.value == Type.Kind.I64.value:
+                                    enum_value = f"((int64)((venum*)r{src_reg})->index)"
+                                elif dst_type.kind.value == Type.Kind.F32.value:
+                                    enum_value = f"((float)((venum*)r{src_reg})->index)"
+                                elif dst_type.kind.value == Type.Kind.F64.value:
+                                    enum_value = f"((double)((venum*)r{src_reg})->index)"
+                                else:
+                                    enum_value = f"((venum*)r{src_reg})->index"
+                                cast_value = (
+                                    f"({dst_ctype})hl_dyn_cast{prefix}(&r{src_reg}, &t_s_{src_type_idx}{type_arg})"
+                                )
+                                rhs = f"{enum_check} ? {enum_value} : {cast_value}"
+                            else:
+                                rhs = f"({dst_ctype})hl_dyn_cast{prefix}(&r{src_reg}, &t_s_{src_type_idx}{type_arg})"
+                    case "UnsafeCast":
+                        # Opcode: {"dst": Reg, "src": Reg}
+                        # OCaml: sexpr "%s = (%s)%s" (reg r) (ctype (rtype r)) (reg v)
+                        dst_type_idx = function.regs[df["dst"].value]
+                        dst_ctype = ctype(code, dst_type_idx.resolve(code), dst_type_idx.value)
+                        rhs = f"({dst_ctype})r{df['src'].value}"
+                    case "ToVirtual":
+                        # Opcode: {"dst": Reg, "src": "Reg"}
+                        # OCaml: sexpr "%s = hl_to_virtual(%s,(vdynamic*)%s)" (reg r) (type_value ctx (rtype r)) (reg v)
+                        dst_type_idx = function.regs[df["dst"].value]
+                        rhs = f"hl_to_virtual(&t_s_{dst_type_idx.value}, (vdynamic*)r{df['src'].value})"
+                    case "ArraySize":
+                        # Opcode: {"dst": Reg, "array": Reg}
+                        # OCaml: sexpr "%s = %s->size" (reg r) (reg a)
+                        rhs = f"r{df['array'].value}->size"
+                    case "Type":
+                        # Opcode: {"dst": Reg, "ty": RefType}
+                        # OCaml: sexpr "%s = %s" (reg r) (type_value ctx t)
+                        rhs = f"&t_s_{df['ty'].value}"
+                    case "GetType":
+                        # Opcode: {"dst": Reg, "src": Reg}
+                        # OCaml: sexpr "%s = %s ? ((vdynamic*)%s)->t : &hlt_void" (reg r) (reg v) (reg v)
+                        rhs = f"r{df['src'].value} ? ((vdynamic*)r{df['src'].value})->t : &hlt_void"
+                    case "GetTID":
+                        # Opcode: {"dst": Reg, "src": Reg}
+                        # OCaml: sexpr "%s = %s->kind" (reg r) (reg v)
+                        rhs = f"r{df['src'].value}->kind"
+                    case "DynGet":
+                        # Opcode: {"dst": Reg, "obj": Reg, "field": RefString}
+                        # OCaml: sexpr "%s = (%s)hl_dyn_get%s((vdynamic*)%s,%ld/*%s*/%s)" (reg r) (ctype t) (dyn_prefix t) (reg o) h code.strings.(sid) (type_value_opt t)
+                        dst_type_idx = function.regs[df["dst"].value]
+                        dst_type = dst_type_idx.resolve(code)
+                        dst_ctype = ctype(code, dst_type, dst_type_idx.value)
+
+                        field_name = df["field"].resolve(code)
+                        field_hash = hl_hash_utf8(field_name)
+                        prefix = dyn_prefix(dst_type)
+
+                        type_arg = ""
+                        if dst_type.kind.value not in {Type.Kind.F32.value, Type.Kind.F64.value, Type.Kind.I64.value}:
+                            type_arg = f", &t_s_{dst_type_idx.value}"
+
+                        rhs = f"({dst_ctype})hl_dyn_get{prefix}((vdynamic*)r{df['obj'].value}, {field_hash}/*{field_name}*/{type_arg})"
+                    case "DynSet":
+                        # Opcode: {"obj": Reg, "field": RefString, "src": Reg}
+                        # OCaml: sexpr "hl_dyn_set%s((vdynamic*)%s,%ld/*%s*/%s,%s)" (dyn_prefix (rtype v)) (reg o) h code.strings.(sid) (type_value_opt (rtype v)) (reg v)
+                        has_dst = False
+                        src_reg = df["src"].value
+                        src_type_idx = function.regs[src_reg]
+                        src_type = src_type_idx.resolve(code)
+
+                        field_name = df["field"].resolve(code)
+                        field_hash = hl_hash_utf8(field_name)
+                        prefix = dyn_prefix(src_type)
+
+                        type_arg = ""
+                        if src_type.kind.value not in {Type.Kind.F32.value, Type.Kind.F64.value, Type.Kind.I64.value}:
+                            type_arg = f", &t_s_{src_type_idx.value}"
+
+                        rhs = f"hl_dyn_set{prefix}((vdynamic*)r{df['obj'].value}, {field_hash}/*{field_name}*/{type_arg}, r{src_reg})"
+                    case "MakeEnum":
+                        has_dst, no_semi = False, True
+
+                        dst_reg_idx = df["dst"].value
+                        cid = df["construct"].value
+                        arg_regs = df["args"].value
+                        param_reg_indices = [r.value for r in arg_regs]
+                        need_tmp = dst_reg_idx in param_reg_indices
+
+                        enum_def = function.regs[dst_reg_idx].resolve(code).definition
+                        assert isinstance(enum_def, Enum)
+
+                        line(f"Op_{i}:")
+
+                        with indent:
+                            if need_tmp:
+                                line("{")
+                                with indent:
+                                    line("venum *tmp;")
+                                    target_var = "tmp"
+
+                                    dst_type_tindex = function.regs[dst_reg_idx].value
+                                    line(f"{target_var} = hl_alloc_enum(&t_s_{dst_type_tindex}, {cid});")
+
+                                    constr_ctype = enum_constr_type(code, enum_def, cid)
+                                    param_types = enum_def.constructs[cid].params
+                                    for idx, param_reg in enumerate(arg_regs):
+                                        param_type_idx = param_types[idx]
+                                        val_cast = rcast(code, param_reg, param_type_idx, function)
+                                        line(f"(({constr_ctype}*){target_var})->p{idx} = {val_cast};")
+
+                                    line(f"r{dst_reg_idx} = {target_var};")
+                                line("}")
+                            else:
+                                target_var = f"r{dst_reg_idx}"
+                                dst_type_tindex = function.regs[dst_reg_idx].value
+                                line(f"{target_var} = hl_alloc_enum(&t_s_{dst_type_tindex}, {cid});")
+
+                                constr_ctype = enum_constr_type(code, enum_def, cid)
+                                param_types = enum_def.constructs[cid].params
+                                for idx, param_reg in enumerate(arg_regs):
+                                    param_type_idx = param_types[idx]
+                                    val_cast = rcast(code, param_reg, param_type_idx, function)
+                                    line(f"(({constr_ctype}*){target_var})->p{idx} = {val_cast};")
+                        continue
+                    case "EnumAlloc":
+                        dst_type_idx = function.regs[df["dst"].value]
+                        cid = df["construct"].value
+                        rhs = f"hl_alloc_enum(&t_s_{dst_type_idx.value}, {cid})"
+                    case "EnumIndex":
+                        # Opcode: {"dst": Reg, "value": Reg}
+                        # OCaml: sexpr "%s = HL__ENUM_INDEX__(%s)" (reg r) (reg v)
+                        rhs = f"HL__ENUM_INDEX__(r{df['value'].value})"
+                    case "EnumField":
+                        # Opcode: {"dst": Reg, "value": Reg, "construct": RefEnumConstruct, "field": RefField}
+                        # OCaml: sexpr "%s((%s*)%s)->p%d" (rassign r tl.(pid)) tname (reg e) pid
+                        dst_reg_idx = df["dst"].value
+                        enum_reg_idx = df["value"].value
+                        cid = df["construct"].value
+                        pid = df["field"].value
+                        enum_type = function.regs[enum_reg_idx].resolve(code)
+                        enum_def = enum_type.definition
+                        assert isinstance(enum_def, Enum), "EnumField source must be an Enum type."
+                        constr_ctype = enum_constr_type(code, enum_def, cid)
+                        param_types = enum_def.constructs[cid].params
+                        field_type_idx = param_types[pid]
+
+                        rhs = f"(({constr_ctype}*)r{enum_reg_idx})->p{pid}"
+                        dst_type = function.regs[dst_reg_idx]
+                        if field_type_idx.value != dst_type.value:
+                            rhs = f"({ctype(code, dst_type.resolve(code), dst_type.value)})({rhs})"
+                    case "SetEnumField":
+                        # Opcode: {"value": Reg, "field": RefField, "src": Reg}
+                        # OCaml: sexpr "((%s*)%s)->p%d = (%s)%s" tname (reg e) pid (ctype tl.(pid)) (reg r)
+                        has_dst = False
+                        enum_reg_idx = df["value"].value
+                        pid = df["field"].value
+                        src_reg_idx = df["src"].value
+
+                        enum_type = function.regs[enum_reg_idx].resolve(code)
+                        enum_def = enum_type.definition
+                        assert isinstance(enum_def, Enum), "SetEnumField target must be an Enum type."
+                        cid_for_type = 0  # OCaml always uses constructor 0 for SetEnumField type info
+
+                        constr_ctype = enum_constr_type(code, enum_def, cid_for_type)
+                        field_type_idx = enum_def.constructs[cid_for_type].params[pid]
+
+                        val_cast = rcast(code, Reg(src_reg_idx), field_type_idx, function)
+                        rhs = f"(({constr_ctype}*)r{enum_reg_idx})->p{pid} = {val_cast}"
+                    case "Switch":
+                        has_dst, no_semi = False, True
+
+                        reg_to_switch = df["reg"].value
+                        offsets = df["offsets"].value
+                        end_offset = df["end"].value
+                        line(f"Op_{i}:")
+                        with indent:
+                            line(f"switch(r{reg_to_switch}) {{")
+                            with indent:
+                                for case_idx, offset_varint in enumerate(offsets):
+                                    target_op_idx = i + 1 + offset_varint.value
+                                    line(f"case {case_idx}: goto Op_{target_op_idx};")
+
+                                default_target_op_idx = i + 1
+                                line(f"default: goto Op_{default_target_op_idx};")
+                            line("}")
+                        continue
+                    case "NullCheck":
+                        has_dst = False
+                        rhs = f"if( r{df['reg']} == NULL ) hl_null_access_op({i})"
+                    case "Trap":
+                        opline(i, f"hl_trap(trap_s_{trap_depth}, {regstr(df['exc'])}, Op_{i + 1 + df['offset'].value});")
+                        trap_depth += 1
+                        continue
+                    case "EndTrap":
+                        opline(i, f"hl_endtrap(trap_s_{trap_depth - 1});")
+                        if df["exc"].value != 0:
+                            trap_depth -= 1
+                        continue
+                    case "Assert":
+                        has_dst = False
+                        rhs = "hl_assert()"
+                    case "Ref":
+                        rhs = f"&r{df['src']}"
+                    case "Unref":
+                        rhs = f"*r{df['src']}"
+                    case "Setref":
+                        has_dst = False
+                        rhs = f"*r{df['dst']} = r{df['value']}"
+                    case "RefData":
+                        dst_reg = df["dst"].value
+                        src_reg = df["src"].value
+                        src_type = function.regs[src_reg.value].resolve(code)
+
+                        if isinstance(src_type.definition, Array):
+                            dst_type_idx = function.regs[dst_reg.value]
+                            dst_ctype = ctype(code, dst_type_idx.resolve(code), dst_type_idx.value)
+                            rhs = f"({dst_ctype})hl_aptr({regstr(src_reg)}, void*)"
+                        else:
+                            raise MalformedBytecode(
+                                f"RefData at op {i} in function {function.findex} expects an Array type in source register, but got {src_type.definition.__class__.__name__}"
+                            )
+                    case "RefOffset":
+                        # Opcode: {"dst": "Reg", "reg": "Reg", "offset": "Reg"}
+                        rhs = f"r{df['reg'].value} + r{df['offset'].value}"
+                    case "Prefetch":
+                        has_dst = False
+
+                        obj_r = df["value"]
+                        field_id = df["field"].value
+                        mode = df["mode"].value
+
+                        if not (0 <= mode <= 3):
+                            raise MalformedBytecode(
+                                f"Invalid prefetch mode {mode} at op {i} in function {function.findex}"
+                            )
+
+                        prefetch_expr = ""
+                        if field_id == 0:
+                            prefetch_expr = regstr(obj_r)
+                        else:
+                            obj_typ = function.regs[obj_r.value].resolve(code)
+                            obj_def = obj_typ.definition
+
+                            if isinstance(obj_def, (Obj, Struct)):
+                                field_index = field_id - 1
+                                try:
+                                    resolved_fields = obj_def.resolve_fields(code)
+                                    field = resolved_fields[field_index]
+                                    field_c_name = sanitize_field_ident(field.name.resolve(code), f"_fld_{field_index}")
+                                    prefetch_expr = f"&{regstr(obj_r)}->{field_c_name}"
+                                except IndexError:
+                                    raise MalformedBytecode(
+                                        f"Prefetch field index {field_id} is out of bounds for object {obj_def.name.resolve(code)} at op {i}"
+                                    )
+                            else:
+                                raise MalformedBytecode(
+                                    f"Prefetch with non-zero field_id used on a non-object type ({obj_typ.resolve(code).definition.__class__.__name__}) at op {i}"
+                                )
+
+                        rhs = f"__hl_prefetch_m{mode}({prefetch_expr})"
+                    case "Asm":
+                        raise MalformedBytecode(
+                            "Asm is not supported by either the official HL/C compiler or crashlink. This is done intentionally for feature parity."
+                        )
+                    case "Catch":
+                        raise MalformedBytecode("Catch is not yet supported by crashlink HL/C code generation.")
+                    case _:
+                        unknown_ops.add(op.op if op.op else "unknown?????")
+                        continue
+
+                if has_dst:
+                    dst_type = function.regs[df["dst"].value].resolve(code)
+                    if dst_type.kind.value == Type.Kind.VOID.value:
+                        opline(i, f"{rhs}; // void dst")
+                    else:
+                        opline(i, f"r{df['dst']} = {rhs};")
+                elif no_semi:
+                    opline(i, f"{rhs}")  # no semicolon for some ops
+                else:
+                    opline(i, f"{rhs};")
+        line("}")
+
+    return res
+
+
+def generate_hashes(code: Bytecode) -> List[str]:
+    res_h = []
+    indent_h = Indenter()
+
+    def line_h(*args: Any) -> None:
+        res_h.append(indent_h.current_indent + " ".join(str(arg) for arg in args))
+
+    hashed_strings = set()
+    for func in code.functions:
+        for op in func.ops:
+            if op.op in {"DynGet", "DynSet"}:
+                hashed_strings.add(op.df["field"].resolve(code))
+            elif op.op in {"SetField", "Field"} and isinstance(
+                func.regs[op.df["obj"].value].resolve(code).definition, Virtual
+            ):
+                vdef = func.regs[op.df["obj"].value].resolve(code).definition
+                assert isinstance(vdef, Virtual)
+                hashed_strings.add(vdef.fields[op.df["field"].value].name.resolve(code))
+    line_h("void hlc_init_hashes() {")
+    with indent_h:
+        for s in sorted(list(hashed_strings)):
+            line_h(f'hl_hash((vbyte*)USTRN("{c_escape_string(s)}"));')
+    line_h("}")
+    return res_h
+
+
+def code_to_c(
+    code: Bytecode,
+    progress_cb: Optional[ProgressCallback] = None,
+    hlboot_path: Optional[str] = None,
+    split_files: bool = False,
+    body_chunk_size: int = 5_000_000,
+) -> str | Dict[str, str]:
+    """
+    Translates a loaded Bytecode object into C source.
+
+    progress_cb, if provided, is called as ``progress_cb(fraction, status)`` at each
+    generation phase, where fraction is in [0, 1].
+
+    hlboot_path, if provided, is the path to the hlboot library file whose SHA384
+    hash will be embedded via the ``hlc_hlboot_sha384()`` function.
+
+    When *split_files* is ``True`` the return value is a ``dict`` mapping file names
+    (``str``) to file contents (``str``).  The dict always contains at least
+    ``"build.c"``.  Function bodies are split into chunks whose text size is roughly
+    *body_chunk_size* bytes (default 5 MiB), yielding ``"hlc_body_000.c"``, ... files.
+
+    When *split_files* is ``False`` (the default), a single joined C source string is
+    returned for backward compatibility.
+    """
+    # ------------------------------------------------------------------
+    #  File buckets
+    # ------------------------------------------------------------------
+    extern_lines: list[str] = []
+    types_lines: list[str] = []
+    funcs_h_lines: list[str] = []
+    misc_lines: list[str] = []
+    body_lines_all: list[str] = []
+
+    # ------------------------------------------------------------------
+    #  Helpers
+    # ------------------------------------------------------------------
+
+    def _p(frac: float, status: str) -> None:
+        if progress_cb is not None:
+            progress_cb(frac, status)
+
+    def _sec(target: list[str], section: str) -> None:
+        target.append(f"\n\n/*---------- {section} ----------*/\n")
+
+    # ---- Header ----
+    header_lines: list[str] = []
+    header_lines.append(f"// Generated by crashlink {VERSION}{' (debug)' if DEBUG else ''}")
+    header_lines.append(
+        "// Compile with `$(CC) <this_file.c> path/to/hashlink/bin/include/hlc_main.c "
+        "-Wno-incompatible-pointer-types -Ipath/to/hashlink/bin/include "
+        "-Lpath/to/hashlink/bin -lhl -ldbghelp` ;)"
+    )
+
+    # ---- External refs ----
+    _sec(extern_lines, "Runtime Resolution Wrappers")
+    _p(0.01, "generating runtime resolution wrappers")
+    extern_lines += generate_runtime_resolution()
+
+    # ---- Types ----
+    _sec(types_lines, "Abstract Forward Declarations")
+    _p(0.02, "generating abstract forward declarations")
+    types_lines += generate_abstract_forwards(code)
+
+    _sec(types_lines, "Structs")
+    _p(0.03, "generating structs")
+    types_lines += generate_structs(code)
+
+    _sec(types_lines, "Types")
+    _p(0.07, "generating types")
+    types_lines += generate_types(code, progress_cb=_scaled_cb(progress_cb, 0.07, 0.30))
+
+    # ---- Function forward declarations ----
+    _sec(funcs_h_lines, "Function Forward Declarations")
+    funcs_h_lines.append("void hl_entry_point();")
+    if len(code.global_types) > 0:
+        funcs_h_lines.append(f"extern void *hlc_global_data[{len(code.global_types)}];")
+
+    # ---- Natives (body has definitions, funcs_h gets forward decls) ----
+    native_output = generate_natives(code)
+    _sec(funcs_h_lines, "Native Forward Declarations")
+    _p(0.30, "generating natives")
+    body_lines_all.append(f"\n\n/*---------- Natives ----------*/\n")
+    for nl in native_output:
+        body_lines_all.append(nl)
+        s = nl.strip()
+        # "ret_type f_s_NNN(args){"  →  forward decl  "ret_type f_s_NNN(args);"
+        if s.endswith("{") and "f_s_" in s:
+            funcs_h_lines.append(s[:-1].rstrip() + ";")
+
+    # ---- Functions (declarations -> funcs_h, bodies -> chunked body) ----
+    _p(0.33, "generating functions")
+    func_output = generate_functions(code, progress_cb=_scaled_cb(progress_cb, 0.33, 0.87))
+
+    # Split forward declarations from bodies.
+    # Forward decls look like:  "int f_s_42(int arg0); /* t_s_5 */"
+    # Bodies start with:        "int f_s_42(int r0) {"
+    decl_split = len(func_output)
+    for idx, fline in enumerate(func_output):
+        s = fline.strip()
+        if s.endswith("{") and "f_s_" in s:
+            decl_split = idx
+            break
+    funcs_h_lines += func_output[:decl_split]
+    body_lines_all.append(f"\n\n/*---------- Functions ----------*/\n")
+    body_lines_all += func_output[decl_split:]
+
+    # ---- Split body into ~body_chunk_size chunks ----
+    # Splits are aligned to function boundaries: a chunk never cuts through
+    # a function body (i.e. we split only *after* a closing "}" line).
+    body_files: list[list[str]] = []
+    cur_chunk: list[str] = []
+    cur_size = 0
+    last_brace_idx: int = -1  # index within cur_chunk of the last "}" line
+
+    def _flush_chunk(split_idx: int) -> None:
+        """Move lines up to *split_idx* (exclusive) into a finished chunk."""
+        nonlocal cur_chunk, cur_size, last_brace_idx
+        if split_idx <= 0:
+            return
+        kept = cur_chunk[split_idx:]
+        body_files.append(cur_chunk[:split_idx])
+        cur_chunk = kept
+        cur_size = sum(len(s) + 1 for s in cur_chunk)
+        # Re-scan for the last brace in the remaining lines
+        last_brace_idx = -1
+        for i, s in enumerate(cur_chunk):
+            if s.strip() == "}":
+                last_brace_idx = i
+
+    for bline in body_lines_all:
+        lsize = len(bline) + 1  # +1 for newline
+        cur_chunk.append(bline)
+        cur_size += lsize
+
+        stripped = bline.strip()
+        if stripped == "}":
+            last_brace_idx = len(cur_chunk) - 1
+
+        if cur_size > body_chunk_size and last_brace_idx >= 0:
+            # Split right *after* the last complete function (the "}" line)
+            _flush_chunk(last_brace_idx + 1)
+
+    if cur_chunk:
+        body_files.append(cur_chunk)
+    if not body_files:
+        body_files = [[]]
+
+    # ---- Misc ----
+    _sec(misc_lines, "Globals & Strings")
+    _p(0.90, "generating globals")
+    misc_lines += generate_globals(code)
+
+    _sec(misc_lines, "Reflection")
+    _p(0.92, "generating reflection")
+    misc_lines += generate_reflection(code)
+
+    _sec(misc_lines, "Function Tables")
+    _p(0.94, "generating function tables")
+    misc_lines += generate_function_tables(code)
+
+    _sec(misc_lines, "Hashes")
+    _p(0.96, "generating hashes")
+    misc_lines += generate_hashes(code)
+
+    _sec(misc_lines, "Entrypoint")
+    _p(0.98, "generating entrypoint")
+    misc_lines += generate_entry(code)
+
+    if hlboot_path is not None:
+        _sec(misc_lines, "HLBoot SHA384")
+        _p(0.99, "generating hlboot sha384")
+        with open(hlboot_path, "rb") as f:
+            hlboot_hash = hashlib.sha384(f.read()).hexdigest()
+        misc_lines.append("const char *hlc_hlboot_sha384(void) {")
+        misc_lines.append(f'    return "{hlboot_hash}";')
+        misc_lines.append("}")
+
+    if unknown_ops:
+        print(f"Warning: {len(unknown_ops)} unknown operations encountered during function generation.")
+        print(unknown_ops)
+
+    _p(1.0, "done")
+
+    # ------------------------------------------------------------------
+    #  Assemble output
+    # ------------------------------------------------------------------
+
+    def _join(lines: list[str]) -> str:
+        return "\n".join(lines)
+
+    files: Dict[str, str] = {}
+    for idx, bf_lines in enumerate(body_files):
+        files[f"hlc_body_{idx:03d}.c"] = _join(bf_lines)
+    files["hlc_extern.c"] = _join(extern_lines)
+    files["hlc_types.c"] = _join(types_lines)
+    files["hlc_funcs.h"] = _join(funcs_h_lines)
+    files["hlc_misc.c"] = _join(misc_lines)
+
+    build_lines: list[str] = list(header_lines)
+    build_lines.append("#include <core_hlc_inc.h>")
+    build_lines.append("")
+    build_lines.append('#include "hlc_extern.c"')
+    build_lines.append('#include "hlc_types.c"')
+    build_lines.append('#include "hlc_funcs.h"')
+    build_lines.append('#include "hlc_misc.c"')
+    for idx in range(len(body_files)):
+        build_lines.append(f'#include "hlc_body_{idx:03d}.c"')
+    files["build.c"] = "\n".join(build_lines)
+
+    if split_files:
+        return files
+
+    # Backward-compatible single string
+    parts: list[str] = list(header_lines)
+    parts.append("#include <core_hlc_inc.h>")
+    parts += extern_lines
+    parts += types_lines
+    parts += funcs_h_lines
+    parts += misc_lines
+    for body in body_files:
+        parts += body
+    return "\n".join(parts)
+

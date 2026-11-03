@@ -1,0 +1,111 @@
+"""
+Global configuration.
+"""
+
+from __future__ import annotations
+
+import os
+from importlib.metadata import PackageNotFoundError, version
+from io import BytesIO
+from typing import Any, BinaryIO, Callable, Optional
+
+
+def _is_debug() -> bool:
+    """
+    Determine whether or not to enable debug mode.
+    """
+    return (
+        bool(os.getenv("CRASHLINK_DEBUG", False))
+        or bool(os.getenv("DEBUG", False))
+        or os.path.exists(".crashlink_debug")
+    )
+
+
+try:
+    VERSION: str = "v" + version("crashlink")
+except PackageNotFoundError:
+    # Running from a source checkout without an install (editable or otherwise).
+    VERSION = "v0.0.0-dev"
+"""
+The version of crashlink.
+"""
+
+LONG_VERSION: str = "crashlink - Pure-Python HashLink bytecode Swiss Army knife - " + VERSION
+"""
+String displayed in the help message for the CLI.
+"""
+
+DEBUG: bool = False or _is_debug()
+"""
+Whether to enable certain features meant only for development or debugging of crashlink.
+"""
+
+
+_dbg_callback: Optional[Callable[[str], None]] = None
+
+
+def set_dbg_callback(cb: Optional[Callable[[str], None]]) -> None:
+    """Route dbg_print output to *cb* instead of stdout (pass None to clear)."""
+    global _dbg_callback
+    _dbg_callback = cb
+
+
+def dbg_print(*args: Any, **kwargs: Any) -> None:
+    """Print if DEBUG is True; always forward to the GUI callback when one is registered."""
+    msg = " ".join(str(a) for a in args)
+    if _dbg_callback is not None:
+        _dbg_callback(msg)
+    elif DEBUG:
+        print(msg, **kwargs)
+
+
+def tell(f: BinaryIO | BytesIO) -> str:
+    """
+    Hex-formatted tell of a file.
+    """
+    return hex(f.tell())
+
+
+def fmt_bytes(bytes: int | float) -> str:
+    """
+    Format bytes into a human-readable string.
+    """
+    if bytes < 0:
+        raise ValueError("Bytes cannot be negative.")
+
+    size_units = ["B", "Kb", "Mb", "Gb", "Tb"]
+    index = 0
+
+    while bytes >= 1000 and index < len(size_units) - 1:
+        bytes /= 1000
+        index += 1
+
+    return f"{bytes:.1f}{size_units[index]}"
+
+
+# https://stackoverflow.com/a/287944
+class bcolors:
+    """
+    ANSI color escape sequences.
+    """
+
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
+
+__all__ = [
+    "VERSION",
+    "LONG_VERSION",
+    "DEBUG",
+    "dbg_print",
+    "tell",
+    "fmt_bytes",
+    "bcolors",
+]

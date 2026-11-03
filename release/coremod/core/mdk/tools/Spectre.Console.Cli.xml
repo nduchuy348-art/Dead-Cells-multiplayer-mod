@@ -1,0 +1,3460 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Spectre.Console.Cli</name>
+    </assembly>
+    <members>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.Boolean">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.NullableBoolean">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ArgumentJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ArityJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.CommandJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ContactJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ConventionsJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.DocumentJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ExitCodeJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.InfoJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.LicenseJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.MetadataJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.OptionJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ListArgumentJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ListCommandJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ListExitCodeJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ListMetadataJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ListOptionJson">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.ListString">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.Int32">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.NullableInt32">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.Object">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.String">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.Default">
+            <summary>
+            The default <see cref="T:System.Text.Json.Serialization.JsonSerializerContext"/> associated with a default <see cref="T:System.Text.Json.JsonSerializerOptions"/> instance.
+            </summary>
+        </member>
+        <member name="P:OpenCli.Internal.OpenCliJsonContext.GeneratedSerializerOptions">
+            <summary>
+            The source-generated options associated with this context.
+            </summary>
+        </member>
+        <member name="M:OpenCli.Internal.OpenCliJsonContext.#ctor">
+            <inheritdoc/>
+        </member>
+        <member name="M:OpenCli.Internal.OpenCliJsonContext.#ctor(System.Text.Json.JsonSerializerOptions)">
+            <inheritdoc/>
+        </member>
+        <member name="M:OpenCli.Internal.OpenCliJsonContext.GetTypeInfo(System.Type)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Jetbrains.Annotations.CanBeNullAttribute">
+             <summary>
+             Indicates that the value of the marked element could be <c>null</c> sometimes,
+             so checking for <c>null</c> is required before its usage.
+             </summary>
+             <example><code>
+             [CanBeNull] object Test() => null;
+            
+             void UseTest() {
+               var p = Test();
+               var s = p.ToString(); // Warning: Possible 'System.NullReferenceException'
+             }
+             </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.NotNullAttribute">
+            <summary>
+            Indicates that the value of the marked element can never be <c>null</c>.
+            </summary>
+            <example><code>
+            [NotNull] object Foo() {
+              return null; // Warning: Possible 'null' assignment
+            }
+            </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.ItemNotNullAttribute">
+            <summary>
+            Can be applied to symbols of types derived from <c>IEnumerable</c> as well as to symbols of <c>Task</c>
+            and <c>Lazy</c> classes to indicate that the value of a collection item, of the <c>Task.Result</c> property,
+            or of the <c>Lazy.Value</c> property can never be null.
+            </summary>
+            <example><code>
+            public void Foo([ItemNotNull]List&lt;string&gt; books)
+            {
+              foreach (var book in books) {
+                if (book != null) // Warning: Expression is always true
+                 Console.WriteLine(book.ToUpper());
+              }
+            }
+            </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.ItemCanBeNullAttribute">
+            <summary>
+            Can be applied to symbols of types derived from <c>IEnumerable</c> as well as to symbols of <c>Task</c>
+            and <c>Lazy</c> classes to indicate that the value of a collection item, of the <c>Task.Result</c> property,
+            or of the <c>Lazy.Value</c> property can be null.
+            </summary>
+            <example><code>
+            public void Foo([ItemCanBeNull]List&lt;string&gt; books)
+            {
+              foreach (var book in books)
+              {
+                // Warning: Possible 'System.NullReferenceException'
+                Console.WriteLine(book.ToUpper());
+              }
+            }
+            </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.StringFormatMethodAttribute">
+             <summary>
+             Indicates that the marked method builds a string by the format pattern and (optional) arguments.
+             The parameter that accepts the format string should be specified in the constructor. The format string
+             should be in the <see cref="M:System.String.Format(System.IFormatProvider,System.String,System.Object[])"/>-like form.
+             </summary>
+             <example><code>
+             [StringFormatMethod("message")]
+             void ShowError(string message, params object[] args) { /* do something */ }
+            
+             void Foo() {
+               ShowError("Failed: {0}"); // Warning: Non-existing argument in format string
+             }
+             </code></example>
+             <seealso cref="T:Jetbrains.Annotations.StructuredMessageTemplateAttribute"/>
+        </member>
+        <member name="M:Jetbrains.Annotations.StringFormatMethodAttribute.#ctor(System.String)">
+            <param name="formatParameterName">
+            Specifies which parameter of an annotated method should be treated as the format string.
+            </param>
+        </member>
+        <member name="T:Jetbrains.Annotations.StructuredMessageTemplateAttribute">
+             <summary>
+             Indicates that the marked parameter is a message template where placeholders are to be replaced by
+             the following arguments in the order in which they appear.
+             </summary>
+             <example><code>
+             void LogInfo([StructuredMessageTemplate]string message, params object[] args) { /* do something */ }
+            
+             void Foo() {
+               LogInfo("User created: {username}"); // Warning: Non-existing argument in format string
+             }
+             </code></example>
+             <seealso cref="T:Jetbrains.Annotations.StringFormatMethodAttribute"/>
+        </member>
+        <member name="T:Jetbrains.Annotations.ValueProviderAttribute">
+             <summary>
+             Use this annotation to specify a type that contains static or const fields
+             with values for the annotated property/field/parameter.
+             The specified type will be used to improve completion suggestions.
+             </summary>
+             <example><code>
+             namespace TestNamespace
+             {
+               public class Constants
+               {
+                 public static int INT_CONST = 1;
+                 public const string STRING_CONST = "1";
+               }
+            
+               public class Class1
+               {
+                 [ValueProvider("TestNamespace.Constants")] public int myField;
+                 public void Foo([ValueProvider("TestNamespace.Constants")] string str) { }
+            
+                 public void Test()
+                 {
+                   Foo(/*try completion here*/);//
+                   myField = /*try completion here*/
+                 }
+               }
+             }
+             </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.ValueRangeAttribute">
+            <summary>
+            Indicates that the integral value falls into the specified interval.
+            It is allowed to specify multiple non-intersecting intervals.
+            Values of interval boundaries are included in the interval.
+            </summary>
+            <example><code>
+            void Foo([ValueRange(0, 100)] int value) {
+              if (value == -1) { // Warning: Expression is always 'false'
+                ...
+              }
+            }
+            </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.NonNegativeValueAttribute">
+            <summary>
+            Indicates that the integral value never falls below zero.
+            </summary>
+            <example><code>
+            void Foo([NonNegativeValue] int value) {
+              if (value == -1) { // Warning: Expression is always 'false'
+                ...
+              }
+            }
+            </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.InvokerParameterNameAttribute">
+            <summary>
+            Indicates that the function argument should be a string literal and match
+            one of the parameters of the caller function. This annotation is used for parameters
+            like <c>string paramName</c> parameter of the <see cref="T:System.ArgumentNullException"/> constructor.
+            </summary>
+            <example><code>
+            void Foo(string param) {
+              if (param == null)
+                throw new ArgumentNullException("par"); // Warning: Cannot resolve symbol
+            }
+            </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.NotifyPropertyChangedInvocatorAttribute">
+             <summary>
+             Indicates that the method is contained in a type that implements the
+             <c>System.ComponentModel.INotifyPropertyChanged</c> interface and this method
+             is used to notify that some property value changed.
+             </summary>
+             <remarks>
+             The method should be non-static and conform to one of the supported signatures:
+             <list>
+             <item><c>NotifyChanged(string)</c></item>
+             <item><c>NotifyChanged(params string[])</c></item>
+             <item><c>NotifyChanged{T}(Expression{Func{T}})</c></item>
+             <item><c>NotifyChanged{T,U}(Expression{Func{T,U}})</c></item>
+             <item><c>SetProperty{T}(ref T, T, string)</c></item>
+             </list>
+             </remarks>
+             <example><code>
+             public class Foo : INotifyPropertyChanged {
+               public event PropertyChangedEventHandler PropertyChanged;
+            
+               [NotifyPropertyChangedInvocator]
+               protected virtual void NotifyChanged(string propertyName) { ... }
+            
+               string _name;
+            
+               public string Name {
+                 get { return _name; }
+                 set { _name = value; NotifyChanged("LastName"); /* Warning */ }
+               }
+             }
+             </code>
+             Examples of generated notifications:
+             <list>
+             <item><c>NotifyChanged("Property")</c></item>
+             <item><c>NotifyChanged(() =&gt; Property)</c></item>
+             <item><c>NotifyChanged((VM x) =&gt; x.Property)</c></item>
+             <item><c>SetProperty(ref myField, value, "Property")</c></item>
+             </list>
+             </example>
+        </member>
+        <member name="T:Jetbrains.Annotations.ContractAnnotationAttribute">
+            <summary>
+            Describes dependence between the input and output of a method.
+            </summary>
+            <syntax>
+            <p>Function Definition Table syntax:</p>
+            <list>
+            <item>FDT      ::= FDTRow [;FDTRow]*</item>
+            <item>FDTRow   ::= Input =&gt; Output | Output &lt;= Input</item>
+            <item>Input    ::= ParameterName: Value [, Input]*</item>
+            <item>Output   ::= [ParameterName: Value]* {halt|stop|void|nothing|Value}</item>
+            <item>Value    ::= true | false | null | notnull | canbenull</item>
+            </list>
+            If the method has a single input parameter, its name could be omitted.<br/>
+            Using <c>halt</c> (or <c>void</c>/<c>nothing</c>, which is the same) for the method output
+            means that the method doesn't return normally (throws or terminates the process).<br/>
+            The <c>canbenull</c> value is only applicable to output parameters.<br/>
+            You can use multiple <c>[ContractAnnotation]</c> for each FDT row, or use a single attribute
+            with rows separated by the semicolon. The order of rows doesn't matter, all rows are checked
+            for applicability and applied per each program state tracked by the analysis engine.<br/>
+            </syntax>
+            <examples><list>
+            <item><code>
+            [ContractAnnotation("=&gt; halt")]
+            public void TerminationMethod()
+            </code></item>
+            <item><code>
+            [ContractAnnotation("null &lt;= param:null")] // reverse condition syntax
+            public string GetName(string surname)
+            </code></item>
+            <item><code>
+            [ContractAnnotation("s:null =&gt; true")]
+            public bool IsNullOrEmpty(string s) // string.IsNullOrEmpty()
+            </code></item>
+            <item><code>
+            // A method that returns null if the parameter is null,
+            // and not null if the parameter is not null
+            [ContractAnnotation("null =&gt; null; notnull =&gt; notnull")]
+            public object Transform(object data)
+            </code></item>
+            <item><code>
+            [ContractAnnotation("=&gt; true, result: notnull; =&gt; false, result: null")]
+            public bool TryParse(string s, out Person result)
+            </code></item>
+            </list></examples>
+        </member>
+        <member name="T:Jetbrains.Annotations.LocalizationRequiredAttribute">
+            <summary>
+            Indicates whether the marked element should be localized.
+            </summary>
+            <example><code>
+            [LocalizationRequiredAttribute(true)]
+            class Foo {
+              string str = "my string"; // Warning: Localizable string
+            }
+            </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.CannotApplyEqualityOperatorAttribute">
+             <summary>
+             Indicates that the value of the marked type (or its derivatives)
+             cannot be compared using <c>==</c> or <c>!=</c> operators, and <c>Equals()</c>
+             should be used instead. However, using <c>==</c> or <c>!=</c> for comparison
+             with <c>null</c> is always permitted.
+             </summary>
+             <example><code>
+             [CannotApplyEqualityOperator]
+             class NoEquality { }
+            
+             class UsesNoEquality {
+               void Test() {
+                 var ca1 = new NoEquality();
+                 var ca2 = new NoEquality();
+                 if (ca1 != null) { // OK
+                   bool condition = ca1 == ca2; // Warning
+                 }
+               }
+             }
+             </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.DefaultEqualityUsageAttribute">
+             <summary>
+             Indicates that the method or type uses equality members of the annotated element.
+             </summary>
+             <remarks>
+             When applied to the method's generic parameter, indicates that the equality of the annotated type is used,
+             unless a custom equality comparer is passed when calling this method. The attribute can also be applied
+             directly to the method's parameter or return type to specify equality usage for it.
+             When applied to the type's generic parameter, indicates that type equality usage can happen anywhere
+             inside this type, so the instantiation of this type is treated as equality usage, unless a custom
+             equality comparer is passed to the constructor.
+             </remarks>
+             <example><code>
+             struct StructWithDefaultEquality { }
+            
+             class MySet&lt;[DefaultEqualityUsage] T&gt; { }
+            
+             static class Extensions {
+                 public static MySet&lt;T&gt; ToMySet&lt;[DefaultEqualityUsage] T&gt;(this IEnumerable&lt;T&gt; items) =&gt; new();
+             }
+            
+             class MyList&lt;T&gt; { public int IndexOf([DefaultEqualityUsage] T item) =&gt; 0; }
+            
+             class UsesDefaultEquality {
+                 void Test() {
+                     var list = new MyList&lt;StructWithDefaultEquality&gt;();
+                     list.IndexOf(new StructWithDefaultEquality()); // Warning: Default equality of struct 'StructWithDefaultEquality' is used
+            
+                     var set = new MySet&lt;StructWithDefaultEquality&gt;(); // Warning: Default equality of struct 'StructWithDefaultEquality' is used
+                     var set2 = new StructWithDefaultEquality[1].ToMySet(); // Warning: Default equality of struct 'StructWithDefaultEquality' is used
+                 }
+             }
+             </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.BaseTypeRequiredAttribute">
+             <summary>
+             When applied to a target attribute, specifies a requirement for any type marked
+             with the target attribute to implement or inherit the specific type or types.
+             </summary>
+             <example><code>
+             [BaseTypeRequired(typeof(IComponent)] // Specify requirement
+             class ComponentAttribute : Attribute { }
+            
+             [Component] // ComponentAttribute requires implementing IComponent interface
+             class MyComponent : IComponent { }
+             </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.UsedImplicitlyAttribute">
+             <summary>
+             Indicates that the marked symbol is used implicitly (via reflection, in an external library, and so on),
+             so this symbol will be ignored by usage-checking inspections. <br/>
+             You can use <see cref="T:Jetbrains.Annotations.ImplicitUseKindFlags"/> and <see cref="T:Jetbrains.Annotations.ImplicitUseTargetFlags"/>
+             to configure how this attribute is applied.
+             </summary>
+             <example><code>
+             [UsedImplicitly]
+             public class TypeConverter {}
+            
+             public class SummaryData
+             {
+               [UsedImplicitly(ImplicitUseKindFlags.InstantiatedWithFixedConstructorSignature)]
+               public SummaryData() {}
+             }
+            
+             [UsedImplicitly(ImplicitUseTargetFlags.WithInheritors | ImplicitUseTargetFlags.Default)]
+             public interface IService {}
+             </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.MeansImplicitUseAttribute">
+            <summary>
+            Can be applied to attributes, type parameters, and parameters of a type assignable from <see cref="T:System.Type"/>.
+            When applied to an attribute, the decorated attribute behaves the same as <see cref="T:Jetbrains.Annotations.UsedImplicitlyAttribute"/>.
+            When applied to a type parameter or to a parameter of type <see cref="T:System.Type"/>,
+            indicates that the corresponding type is used implicitly.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.ImplicitUseKindFlags">
+            <summary>
+            Specifies the details of an implicitly used symbol when it is marked
+            with <see cref="T:Jetbrains.Annotations.MeansImplicitUseAttribute"/> or <see cref="T:Jetbrains.Annotations.UsedImplicitlyAttribute"/>.
+            </summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.ImplicitUseKindFlags.Access">
+            <summary>Only entity marked with attribute considered used.</summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.ImplicitUseKindFlags.Assign">
+            <summary>Indicates implicit assignment to a member.</summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.ImplicitUseKindFlags.InstantiatedWithFixedConstructorSignature">
+            <summary>
+            Indicates implicit instantiation of a type with fixed constructor signature.
+            That means any unused constructor parameters will not be reported as such.
+            </summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.ImplicitUseKindFlags.InstantiatedNoFixedConstructorSignature">
+            <summary>Indicates implicit instantiation of a type.</summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.ImplicitUseTargetFlags">
+            <summary>
+            Specifies what is considered to be used implicitly when marked
+            with <see cref="T:Jetbrains.Annotations.MeansImplicitUseAttribute"/> or <see cref="T:Jetbrains.Annotations.UsedImplicitlyAttribute"/>.
+            </summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.ImplicitUseTargetFlags.Members">
+            <summary>Members of the type marked with the attribute are considered used.</summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.ImplicitUseTargetFlags.WithInheritors">
+            <summary> Inherited entities are considered used. </summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.ImplicitUseTargetFlags.WithMembers">
+            <summary>Entity marked with the attribute and all its members considered used.</summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.PublicAPIAttribute">
+            <summary>
+            This attribute is intended to mark publicly available APIs
+            that should not be removed and therefore should never be reported as unused.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.InstantHandleAttribute">
+            <summary>
+            Tells the code analysis engine if the parameter is completely handled when the invoked method is on stack.
+            If the parameter is a delegate, indicates that the delegate can only be invoked during method execution
+            (the delegate can be invoked zero or multiple times, but not stored to some field and invoked later,
+            when the containing method is no longer on the execution stack).
+            If the parameter is an enumerable, indicates that it is enumerated while the method is executed.
+            If <see cref="P:Jetbrains.Annotations.InstantHandleAttribute.RequireAwait"/> is true, the attribute will only take effect
+            if the method invocation is located under the <c>await</c> expression.
+            </summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.InstantHandleAttribute.RequireAwait">
+            <summary>
+            Requires the method invocation to be used under the <c>await</c> expression for this attribute to take effect.
+            Can be used for delegate/enumerable parameters of <c>async</c> methods.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.PureAttribute">
+             <summary>
+             Indicates that the method does not make any observable state changes.
+             The same as <see cref="T:System.Diagnostics.Contracts.PureAttribute"/>.
+             </summary>
+             <example><code>
+             [Pure] int Multiply(int x, int y) => x * y;
+            
+             void M() {
+               Multiply(123, 42); // Warning: Return value of pure method is not used
+             }
+             </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.MustUseReturnValueAttribute">
+            <summary>
+            Indicates that the return value of the method invocation must be used.
+            </summary>
+            <remarks>
+            Methods decorated with this attribute (in contrast to pure methods) might change state,
+            but make no sense without using their return value. <br/>
+            Similarly to <see cref="T:Jetbrains.Annotations.PureAttribute"/>, this attribute
+            will help detect usages of the method when the return value is not used.
+            Optionally, you can specify a message to use when showing warnings, e.g.
+            <code>[MustUseReturnValue("Use the return value to...")]</code>.
+            </remarks>
+        </member>
+        <member name="P:Jetbrains.Annotations.MustUseReturnValueAttribute.IsFluentBuilderMethod">
+            <summary>
+            Enables the special handling of the "fluent" APIs that perform mutations and return 'this' object.
+            In this case the analysis checks the fluent invocations chain and only warns if the initial receiver value
+            is probably a temporary value - in this case the very last fluent method return assumed to be temporary as well,
+            therefore is a subject of warning if unused. If the initial receiver is a local variable or 'this' reference
+            the analysis assumes that fluent invocations were used to mutate the existing value and warning will not be shown.
+            </summary>
+            <remarks>
+            This property must only be used for methods with the return type matching the receiver type.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.MustDisposeResourceAttribute">
+            <summary>
+            Indicates that the resource disposal must be handled at the use site,
+            meaning that the resource ownership is transferred to the caller.
+            This annotation can be used to annotate disposable types or their constructors individually to enable
+            the IDE code analysis for resource disposal in every context where the new instance of this type is created.
+            Factory methods and <c>out</c> parameters can also be annotated to indicate that the return value
+            of the disposable type needs handling.
+            </summary>
+            <remarks>
+            Annotation of input parameters with this attribute is meaningless.<br/>
+            Constructors inherit this attribute from their type if it is annotated,
+            but not from the base constructors they delegate to (if any).<br/>
+            Resource disposal is expected via <c>using (resource)</c> statement,
+            <c>using var</c> declaration, explicit <c>Dispose()</c> call, or passing the resource as an argument
+            to a parameter annotated with the <see cref="T:Jetbrains.Annotations.HandlesResourceDisposalAttribute"/> attribute.
+            </remarks>
+        </member>
+        <member name="P:Jetbrains.Annotations.MustDisposeResourceAttribute.Value">
+            <summary>
+            When set to <c>false</c>, disposing of the resource is not obligatory.
+            The main use-case for explicit <c>[MustDisposeResource(false)]</c> annotation
+            is to loosen the annotation for inheritors.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.HandlesResourceDisposalAttribute">
+            <summary>
+            Indicates that method or class instance acquires resource ownership and will dispose it after use.
+            </summary>
+            <remarks>
+            Annotation of <c>out</c> parameters with this attribute is meaningless.<br/>
+            When an instance method is annotated with this attribute,
+            it means that it is handling the resource disposal of the corresponding resource instance.<br/>
+            When a field or a property is annotated with this attribute, it means that this type owns the resource
+            and will handle the resource disposal properly (e.g. in own <c>IDisposable</c> implementation).
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.RequireStaticDelegateAttribute">
+            <summary>
+            This annotation allows enforcing allocation-less usage patterns of delegates for performance-critical APIs.
+            When this annotation is applied to the parameter of a delegate type,
+            the IDE checks the input argument of this parameter:
+            * When a lambda expression or anonymous method is passed as an argument, the IDE verifies that the passed closure
+              has no captures of the containing local variables and the compiler is able to cache the delegate instance
+              to avoid heap allocations. Otherwise, a warning is produced.
+            * The IDE warns when the method name or local function name is passed as an argument because this always results
+              in heap allocation of the delegate instance.
+            </summary>
+            <remarks>
+            In C# 9.0+ code, the IDE will also suggest annotating the anonymous functions with the <c>static</c> modifier
+            to make use of the similar analysis provided by the language/compiler.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.ProvidesContextAttribute">
+             <summary>
+             Indicates the type member or parameter of some type that should be used instead of all other ways
+             to get the value of that type. This annotation is useful when you have some 'context' value evaluated
+             and stored somewhere, meaning that all other ways to get this value must be consolidated with the existing one.
+             </summary>
+             <example><code>
+             class Foo {
+               [ProvidesContext] IBarService _barService = ...;
+            
+               void ProcessNode(INode node) {
+                 DoSomething(node, node.GetGlobalServices().Bar);
+                 //              ^ Warning: use value of '_barService' field
+               }
+             }
+             </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.PathReferenceAttribute">
+            <summary>
+            Indicates that a parameter is a path to a file or a folder within a web project.
+            Path can be relative or absolute, starting from web root (~).
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.SourceTemplateAttribute">
+            <summary>
+            An extension method marked with this attribute is processed by code completion
+            as a 'Source Template'. When the extension method is completed over some expression, its source code
+            is automatically expanded like a template at the call site.
+            </summary>
+            <remarks>
+            Template method bodies can contain valid source code and/or special comments starting with '$'.
+            Text inside these comments is added as source code when the template is applied. Template parameters
+            can be used either as additional method parameters or as identifiers wrapped in two '$' signs.
+            Use the <see cref="T:Jetbrains.Annotations.MacroAttribute"/> attribute to specify macros for parameters.
+            The expression to be used in the expansion can be adjusted
+            by the <see cref="P:Jetbrains.Annotations.SourceTemplateAttribute.Target"/> parameter.
+            </remarks>
+            <example>
+            In this example, the <c>forEach</c> method is a source template available over all values
+            of enumerable types, producing an ordinary C# <c>foreach</c> statement and placing the caret inside the block:
+            <code>
+            [SourceTemplate]
+            public static void forEach&lt;T&gt;(this IEnumerable&lt;T&gt; xs) {
+              foreach (var x in xs) {
+                 //$ $END$
+              }
+            }
+            </code>
+            </example>
+        </member>
+        <member name="P:Jetbrains.Annotations.SourceTemplateAttribute.Target">
+            <summary>
+            Allows specifying the expression to capture for template execution if more than one expression
+            is available at the expansion point.
+            If not specified, <see cref="F:Jetbrains.Annotations.SourceTemplateTargetExpression.Inner"/> is assumed.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.SourceTemplateTargetExpression">
+            <summary>
+            Provides a value for the <see cref="T:Jetbrains.Annotations.SourceTemplateAttribute"/> to define how to capture
+            the expression at the point of expansion
+            </summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.SourceTemplateTargetExpression.Inner">
+            <summary>Selects inner expression</summary>
+            <example><c>value > 42.{caret}</c> captures <c>42</c></example>
+            <example><c>_args = args.{caret}</c> captures <c>args</c></example>
+        </member>
+        <member name="F:Jetbrains.Annotations.SourceTemplateTargetExpression.Outer">
+            <summary>Selects outer expression</summary>
+            <example><c>value > 42.{caret}</c> captures <c>value > 42</c></example>
+            <example><c>_args = args.{caret}</c> captures whole assignment</example>
+        </member>
+        <member name="T:Jetbrains.Annotations.MacroAttribute">
+            <summary>
+            Allows specifying a macro for a parameter of a <see cref="T:Jetbrains.Annotations.SourceTemplateAttribute">source template</see>.
+            </summary>
+            <remarks>
+            You can apply the attribute to the whole method or to any of its additional parameters. The macro expression
+            is defined in the <see cref="P:Jetbrains.Annotations.MacroAttribute.Expression"/> property. When applied to a method, the target
+            template parameter is defined in the <see cref="P:Jetbrains.Annotations.MacroAttribute.Target"/> property. To apply the macro silently
+            for the parameter, set the <see cref="P:Jetbrains.Annotations.MacroAttribute.Editable"/> property value to -1.
+            </remarks>
+            <example>
+            Applying the attribute to a source template method:
+            <code>
+            [SourceTemplate, Macro(Target = "item", Expression = "suggestVariableName()")]
+            public static void forEach&lt;T&gt;(this IEnumerable&lt;T&gt; collection) {
+              foreach (var item in collection) {
+                //$ $END$
+              }
+            }
+            </code>
+            Applying the attribute to a template method parameter:
+            <code>
+            [SourceTemplate]
+            public static void something(this Entity x, [Macro(Expression = "guid()", Editable = -1)] string newguid) {
+              /*$ var $x$Id = "$newguid$" + x.ToString();
+              x.DoSomething($x$Id); */
+            }
+            </code>
+            </example>
+        </member>
+        <member name="P:Jetbrains.Annotations.MacroAttribute.Expression">
+            <summary>
+            Allows specifying a macro that will be executed for a <see cref="T:Jetbrains.Annotations.SourceTemplateAttribute">source template</see>
+            parameter when the template is expanded.
+            </summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.MacroAttribute.Editable">
+            <summary>
+            Allows specifying the occurrence of the target parameter that becomes editable when the template is deployed.
+            </summary>
+            <remarks>
+            If the target parameter is used several times in the template, only one occurrence becomes editable;
+            other occurrences are changed synchronously. To specify the zero-based index of the editable occurrence,
+            use values >= 0. To make the parameter non-editable when the template is expanded, use -1.
+            </remarks>
+        </member>
+        <member name="P:Jetbrains.Annotations.MacroAttribute.Target">
+            <summary>
+            Identifies the target parameter of a <see cref="T:Jetbrains.Annotations.SourceTemplateAttribute">source template</see> if the
+            <see cref="T:Jetbrains.Annotations.MacroAttribute"/> is applied to a template method.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.CollectionAccessAttribute">
+            <summary>
+            Indicates how a method, constructor invocation, or property access
+            over a collection type affects the contents of the collection.
+            When applied to a return value of a method, indicates whether the returned collection
+            is created exclusively for the caller (<c>CollectionAccessType.UpdatedContent</c>) or
+            can be read/updated from outside (<c>CollectionAccessType.Read</c>/<c>CollectionAccessType.UpdatedContent</c>).
+            Use <see cref="P:Jetbrains.Annotations.CollectionAccessAttribute.CollectionAccessType"/> to specify the access type.
+            </summary>
+            <remarks>
+            Using this attribute only makes sense if all collection methods are marked with this attribute.
+            </remarks>
+            <example><code>
+            public class MyStringCollection : List&lt;string&gt;
+            {
+              [CollectionAccess(CollectionAccessType.Read)]
+              public string GetFirstString()
+              {
+                return this.ElementAt(0);
+              }
+            }
+            class Test
+            {
+              public void Foo()
+              {
+                // Warning: Contents of the collection is never updated
+                var col = new MyStringCollection();
+                string x = col.GetFirstString();
+              }
+            }
+            </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.CollectionAccessType">
+            <summary>
+            Provides a value for the <see cref="T:Jetbrains.Annotations.CollectionAccessAttribute"/> to define
+            how the collection method invocation affects the contents of the collection.
+            </summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.CollectionAccessType.None">
+            <summary>Method does not use or modify content of the collection.</summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.CollectionAccessType.Read">
+            <summary>Method only reads content of the collection but does not modify it.</summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.CollectionAccessType.ModifyExistingContent">
+            <summary>Method can change content of the collection but does not add new elements.</summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.CollectionAccessType.UpdatedContent">
+            <summary>Method can add new elements to the collection.</summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AssertionMethodAttribute">
+            <summary>
+            Indicates that the marked method is an assertion method, i.e. it halts the control flow if
+            one of the conditions is satisfied. To set the condition, mark one of the parameters with
+            <see cref="T:Jetbrains.Annotations.AssertionConditionAttribute"/> attribute.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AssertionConditionAttribute">
+            <summary>
+            Indicates the condition parameter of the assertion method. The method itself should be
+            marked by the <see cref="T:Jetbrains.Annotations.AssertionMethodAttribute"/> attribute. The mandatory argument of
+            the attribute is the assertion type.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AssertionConditionType">
+            <summary>
+            Specifies the assertion type. If the assertion method argument satisfies the condition,
+            then the execution continues. Otherwise, execution is assumed to be halted.
+            </summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.AssertionConditionType.IS_TRUE">
+            <summary>Marked parameter should be evaluated to true.</summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.AssertionConditionType.IS_FALSE">
+            <summary>Marked parameter should be evaluated to false.</summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.AssertionConditionType.IS_NULL">
+            <summary>Marked parameter should be evaluated to null value.</summary>
+        </member>
+        <member name="F:Jetbrains.Annotations.AssertionConditionType.IS_NOT_NULL">
+            <summary>Marked parameter should be evaluated to not null value.</summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.TerminatesProgramAttribute">
+            <summary>
+            Indicates that the marked method unconditionally terminates control flow execution.
+            For example, it could unconditionally throw an exception.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.LinqTunnelAttribute">
+            <summary>
+            Indicates that the method is a pure LINQ method with postponed enumeration (like <c>Enumerable.Select</c> or
+            <c>Enumerable.Where</c>). This annotation allows inference of the <c>[InstantHandle]</c> annotation for parameters
+            of delegate type by analyzing LINQ method chains.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.NoEnumerationAttribute">
+             <summary>
+             Indicates that an <c>IEnumerable</c> passed as a parameter is not enumerated.
+             Use this annotation to suppress the 'Possible multiple enumeration of IEnumerable' inspection.
+             </summary>
+             <example><code>
+             static void ThrowIfNull&lt;T&gt;([NoEnumeration] T v, string n) where T : class
+             {
+               // custom check for null but no enumeration
+             }
+            
+             void Foo(IEnumerable&lt;string&gt; values)
+             {
+               ThrowIfNull(values, nameof(values));
+               var x = values.ToList(); // No warnings about multiple enumeration
+             }
+             </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.RegexPatternAttribute">
+            <summary>
+            Indicates that the marked parameter, field, or property is a regular expression pattern.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.InjectedLanguage">
+            <summary>
+            Language of the injected code fragment inside a string literal marked by the <see cref="T:Jetbrains.Annotations.LanguageInjectionAttribute"/>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.LanguageInjectionAttribute">
+            <summary>
+            Indicates that the marked parameter, field, or property accepts string literals
+            containing code fragments in a specified language.
+            </summary>
+            <example><code>
+            void Foo([LanguageInjection(InjectedLanguage.CSS, Prefix = "body{", Suffix = "}")] string cssProps)
+            {
+              // cssProps should only contain a list of CSS properties
+            }
+            </code></example>
+            <example><code>
+            void Bar([LanguageInjection("json")] string json)
+            {
+            }
+            </code></example>
+        </member>
+        <member name="P:Jetbrains.Annotations.LanguageInjectionAttribute.InjectedLanguage">
+            <summary>Specifies a language of the injected code fragment.</summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.LanguageInjectionAttribute.InjectedLanguageName">
+            <summary>Specifies a language name of the injected code fragment.</summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.LanguageInjectionAttribute.Prefix">
+            <summary>Specifies a string that 'precedes' the injected string literal.</summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.LanguageInjectionAttribute.Suffix">
+            <summary>Specifies a string that 'follows' the injected string literal.</summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.NoReorderAttribute">
+            <summary>
+            Prevents the Member Reordering feature in the IDE from tossing members of the marked class.
+            </summary>
+            <remarks>
+            The attribute must be mentioned in your member reordering patterns.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.CodeTemplateAttribute">
+            <summary>
+            Defines a code search pattern using the Structural Search and Replace syntax.
+            It allows you to find and, if necessary, replace blocks of code that match a specific pattern.
+            </summary>
+            <remarks>
+            Search and replace patterns consist of a textual part and placeholders.
+            Textural part must contain only identifiers allowed in the target language and will be matched exactly
+            (whitespaces, tabulation characters, and line breaks are ignored).
+            Placeholders allow matching variable parts of the target code blocks.
+            <br/>
+            A placeholder has the following format:
+            <c>$placeholder_name$</c> - where <c>placeholder_name</c> is an arbitrary identifier.
+            Predefined placeholders:
+            <list type="bullet">
+            <item><c>$this$</c> - expression of containing type</item>
+            <item><c>$thisType$</c> - containing type</item>
+            <item><c>$member$</c> - current member placeholder</item>
+            <item><c>$qualifier$</c> - this placeholder is available in the replace pattern and can be used
+            to insert a qualifier expression matched by the <c>$member$</c> placeholder.
+            (Note that if <c>$qualifier$</c> placeholder is used,
+            then <c>$member$</c> placeholder will match only qualified references)</item>
+            <item><c>$expression$</c> - expression of any type</item>
+            <item><c>$identifier$</c> - identifier placeholder</item>
+            <item><c>$args$</c> - any number of arguments</item>
+            <item><c>$arg$</c> - single argument</item>
+            <item><c>$arg1$ ... $arg10$</c> - single argument</item>
+            <item><c>$stmts$</c> - any number of statements</item>
+            <item><c>$stmt$</c> - single statement</item>
+            <item><c>$stmt1$ ... $stmt10$</c> - single statement</item>
+            <item><c>$name{Expression, 'Namespace.FooType'}$</c> - expression with the <c>Namespace.FooType</c> type</item>
+            <item><c>$expression{'Namespace.FooType'}$</c> - expression with the <c>Namespace.FooType</c> type</item>
+            <item><c>$name{Type, 'Namespace.FooType'}$</c> - <c>Namespace.FooType</c> type</item>
+            <item><c>$type{'Namespace.FooType'}$</c> - <c>Namespace.FooType</c> type</item>
+            <item><c>$statement{1,2}$</c> - 1 or 2 statements</item>
+            </list>
+            You can also define your own placeholders of the supported types and specify arguments for each placeholder type.
+            This can be done using the following format: <c>$name{type, arguments}$</c>. Where
+            <c>name</c> - is the name of your placeholder,
+            <c>type</c> - is the type of your placeholder
+            (one of the following: Expression, Type, Identifier, Statement, Argument, Member),
+            <c>arguments</c> - a list of arguments for your placeholder. Each placeholder type supports its own arguments.
+            Check the examples below for more details.
+            The placeholder type may be omitted and determined from the placeholder name,
+            if the name has one of the following prefixes:
+            <list type="bullet">
+            <item>expr, expression - expression placeholder, e.g. <c>$exprPlaceholder{}$</c>, <c>$expressionFoo{}$</c></item>
+            <item>arg, argument - argument placeholder, e.g. <c>$argPlaceholder{}$</c>, <c>$argumentFoo{}$</c></item>
+            <item>ident, identifier - identifier placeholder, e.g. <c>$identPlaceholder{}$</c>, <c>$identifierFoo{}$</c></item>
+            <item>stmt, statement - statement placeholder, e.g. <c>$stmtPlaceholder{}$</c>, <c>$statementFoo{}$</c></item>
+            <item>type - type placeholder, e.g. <c>$typePlaceholder{}$</c>, <c>$typeFoo{}$</c></item>
+            <item>member - member placeholder, e.g. <c>$memberPlaceholder{}$</c>, <c>$memberFoo{}$</c></item>
+            </list>
+            </remarks>
+            <para>
+            Expression placeholder arguments:
+            <list type="bullet">
+            <item>expressionType - string value in single quotes, specifies full type name to match
+            (empty string by default)</item>
+            <item>exactType - boolean value, specifies if expression should have exact type match (false by default)</item>
+            </list>
+            Examples:
+            <list type="bullet">
+            <item><c>$myExpr{Expression, 'Namespace.FooType', true}$</c> - defines an expression placeholder
+            matching expressions of the <c>Namespace.FooType</c> type with exact matching.</item>
+            <item><c>$myExpr{Expression, 'Namespace.FooType'}$</c> - defines an expression placeholder
+            matching expressions of the <c>Namespace.FooType</c> type or expressions that can be
+            implicitly converted to <c>Namespace.FooType</c>.</item>
+            <item><c>$myExpr{Expression}$</c> - defines an expression placeholder matching expressions of any type.</item>
+            <item><c>$exprFoo{'Namespace.FooType', true}$</c> - defines an expression placeholder
+            matching expressions of the <c>Namespace.FooType</c> type with exact matching.</item>
+            </list>
+            </para>
+            <para>
+            Type placeholder arguments:
+            <list type="bullet">
+            <item>type - string value in single quotes, specifies the full type name to match (empty string by default)</item>
+            <item>exactType - boolean value, specifies whether the expression should have the exact type match
+            (false by default)</item>
+            </list>
+            Examples:
+            <list type="bullet">
+            <item><c>$myType{Type, 'Namespace.FooType', true}$</c> - defines a type placeholder
+            matching <c>Namespace.FooType</c> types with exact matching.</item>
+            <item><c>$myType{Type, 'Namespace.FooType'}$</c> - defines a type placeholder matching <c>Namespace.FooType</c>
+            types or types that can be implicitly converted to <c>Namespace.FooType</c>.</item>
+            <item><c>$myType{Type}$</c> - defines a type placeholder matching any type.</item>
+            <item><c>$typeFoo{'Namespace.FooType', true}$</c> - defines a type placeholder matching <c>Namespace.FooType</c>
+            types with exact matching.</item>
+            </list>
+            </para>
+            <para>
+            Identifier placeholder arguments:
+            <list type="bullet">
+            <item>nameRegex - string value in single quotes, specifies regex to use for matching (empty string by default)</item>
+            <item>nameRegexCaseSensitive - boolean value, specifies if name regex is case-sensitive (true by default)</item>
+            <item>type - string value in single quotes, specifies full type name to match (empty string by default)</item>
+            <item>exactType - boolean value, specifies if expression should have exact type match (false by default)</item>
+            </list>
+            Examples:
+            <list type="bullet">
+            <item><c>$myIdentifier{Identifier, 'my.*', false, 'Namespace.FooType', true}$</c> -
+            defines an identifier placeholder matching identifiers (ignoring case) starting with <c>my</c> prefix with
+            <c>Namespace.FooType</c> type.</item>
+            <item><c>$myIdentifier{Identifier, 'my.*', true, 'Namespace.FooType', true}$</c> -
+            defines an identifier placeholder matching identifiers (case sensitively) starting with <c>my</c> prefix with
+            <c>Namespace.FooType</c> type.</item>
+            <item><c>$identFoo{'my.*'}$</c> - defines an identifier placeholder matching identifiers (case sensitively)
+            starting with <c>my</c> prefix.</item>
+            </list>
+            </para>
+            <para>
+            Statement placeholder arguments:
+            <list type="bullet">
+            <item>minimalOccurrences - minimal number of statements to match (-1 by default)</item>
+            <item>maximalOccurrences - maximal number of statements to match (-1 by default)</item>
+            </list>
+            Examples:
+            <list type="bullet">
+            <item><c>$myStmt{Statement, 1, 2}$</c> - defines a statement placeholder matching 1 or 2 statements.</item>
+            <item><c>$myStmt{Statement}$</c> - defines a statement placeholder matching any number of statements.</item>
+            <item><c>$stmtFoo{1, 2}$</c> - defines a statement placeholder matching 1 or 2 statements.</item>
+            </list>
+            </para>
+            <para>
+            Argument placeholder arguments:
+            <list type="bullet">
+            <item>minimalOccurrences - minimal number of arguments to match (-1 by default)</item>
+            <item>maximalOccurrences - maximal number of arguments to match (-1 by default)</item>
+            </list>
+            Examples:
+            <list type="bullet">
+            <item><c>$myArg{Argument, 1, 2}$</c> - defines an argument placeholder matching 1 or 2 arguments.</item>
+            <item><c>$myArg{Argument}$</c> - defines an argument placeholder matching any number of arguments.</item>
+            <item><c>$argFoo{1, 2}$</c> - defines an argument placeholder matching 1 or 2 arguments.</item>
+            </list>
+            </para>
+            <para>
+            Member placeholder arguments:
+            <list type="bullet">
+            <item>docId - string value in single quotes, specifies XML documentation ID of the member to match (empty by default)</item>
+            </list>
+            Examples:
+            <list type="bullet">
+            <item><c>$myMember{Member, 'M:System.String.IsNullOrEmpty(System.String)'}$</c> -
+            defines a member placeholder matching <c>IsNullOrEmpty</c> member of the <c>System.String</c> type.</item>
+            <item><c>$memberFoo{'M:System.String.IsNullOrEmpty(System.String)'}$</c> -
+            defines a member placeholder matching <c>IsNullOrEmpty</c> member of the <c>System.String</c> type.</item>
+            </list>
+            </para>
+            <seealso href="https://www.jetbrains.com/help/resharper/Navigation_and_Search__Structural_Search_and_Replace.html">
+            Structural Search and Replace</seealso>
+            <seealso href="https://www.jetbrains.com/help/resharper/Code_Analysis__Find_and_Update_Obsolete_APIs.html">
+            Find and update deprecated APIs</seealso>
+        </member>
+        <member name="P:Jetbrains.Annotations.CodeTemplateAttribute.SearchTemplate">
+            <summary>
+            Structural search pattern.
+            </summary>
+            <remarks>
+            The pattern includes a textual part, which must only contain identifiers allowed in the target language
+            and placeholders to match variable parts of the target code blocks.
+            </remarks>
+        </member>
+        <member name="P:Jetbrains.Annotations.CodeTemplateAttribute.Message">
+             <summary>
+             Message to show when a code block matching the search pattern was found.
+             </summary>
+             <remarks>
+             You can also prepend the message text with 'Error:', 'Warning:', 'Suggestion:' or 'Hint:' prefix
+             to specify the pattern severity.
+             Code patterns with replace templates have the 'Suggestion' severity by default.
+             If a replace pattern is not provided, the pattern will have the 'Warning' severity.
+            </remarks>
+        </member>
+        <member name="P:Jetbrains.Annotations.CodeTemplateAttribute.ReplaceTemplate">
+            <summary>
+            Replace pattern to use for replacing a matched pattern.
+            </summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.CodeTemplateAttribute.ReplaceMessage">
+            <summary>
+            Replace message to show in the light bulb.
+            </summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.CodeTemplateAttribute.FormatAfterReplace">
+            <summary>
+            Apply code formatting after code replacement.
+            </summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.CodeTemplateAttribute.MatchSimilarConstructs">
+            <summary>
+            Whether similar code blocks should be matched.
+            </summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.CodeTemplateAttribute.ShortenReferences">
+            <summary>
+            Automatically insert namespace import directives or remove qualifiers
+            that become redundant after the template is applied.
+            </summary>
+        </member>
+        <member name="P:Jetbrains.Annotations.CodeTemplateAttribute.SuppressionKey">
+            <summary>
+            The string to use as a suppression key.
+            By default, the following suppression key is used: <c>CodeTemplate_SomeType_SomeMember</c>,
+            where 'SomeType' and 'SomeMember' are names of the associated containing type and member,
+            to which this attribute is applied.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.IgnoreSpellingAndGrammarErrorsAttribute">
+            <summary>
+            Indicates that the string literal passed as an argument to this parameter
+            should not be checked for spelling or grammar errors.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcActionAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter
+            is an MVC action. If applied to a method, the MVC action name is calculated
+            implicitly from the context. Use this attribute for custom wrappers similar to
+            <c>System.Web.Mvc.Html.ChildActionExtensions.RenderAction(HtmlHelper, String)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcAreaAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that the marked parameter is an MVC area.
+            Use this attribute for custom wrappers similar to
+            <c>System.Web.Mvc.Html.ChildActionExtensions.RenderAction(HtmlHelper, String)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcControllerAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter is
+            an MVC controller. If applied to a method, the MVC controller name is calculated
+            implicitly from the context. Use this attribute for custom wrappers similar to
+            <c>System.Web.Mvc.Html.ChildActionExtensions.RenderAction(HtmlHelper, String, String)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcMasterAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that the marked parameter is an MVC Master. Use this attribute
+            for custom wrappers similar to <c>System.Web.Mvc.Controller.View(String, String)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcModelTypeAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that the marked parameter is an MVC model type. Use this attribute
+            for custom wrappers similar to <c>System.Web.Mvc.Controller.View(String, Object)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcPartialViewAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter is an MVC
+            partial view. If applied to a method, the MVC partial view name is calculated implicitly
+            from the context. Use this attribute for custom wrappers similar to
+            <c>System.Web.Mvc.Html.RenderPartialExtensions.RenderPartial(HtmlHelper, String)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcSuppressViewErrorAttribute">
+            <summary>
+            ASP.NET MVC attribute. Allows disabling inspections for MVC views within a class or a method.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcDisplayTemplateAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that a parameter is an MVC display template.
+            Use this attribute for custom wrappers similar to
+            <c>System.Web.Mvc.Html.DisplayExtensions.DisplayForModel(HtmlHelper, String)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcEditorTemplateAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that the marked parameter is an MVC editor template.
+            Use this attribute for custom wrappers similar to
+            <c>System.Web.Mvc.Html.EditorExtensions.EditorForModel(HtmlHelper, String)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcTemplateAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that the marked parameter is an MVC template.
+            Use this attribute for custom wrappers similar to
+            <c>System.ComponentModel.DataAnnotations.UIHintAttribute(System.String)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcViewAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter
+            is an MVC view component. If applied to a method, the MVC view name is calculated implicitly
+            from the context. Use this attribute for custom wrappers similar to
+            <c>System.Web.Mvc.Controller.View(Object)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcViewComponentAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter
+            is an MVC view component name.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcViewComponentViewAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter
+            is an MVC view component view. If applied to a method, the MVC view component view name is default.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMvcActionSelectorAttribute">
+            <summary>
+            ASP.NET MVC attribute. When applied to a parameter of an attribute,
+            indicates that this parameter is an MVC action name.
+            </summary>
+            <example><code>
+            [ActionName("Foo")]
+            public ActionResult Login(string returnUrl) {
+              ViewBag.ReturnUrl = Url.Action("Foo"); // OK
+              return RedirectToAction("Bar"); // Error: Cannot resolve action
+            }
+            </code></example>
+        </member>
+        <member name="T:Jetbrains.Annotations.RouteTemplateAttribute">
+            <summary>
+            Indicates that the marked parameter, field, or property is a route template.
+            </summary>
+            <remarks>
+            This attribute allows IDE to recognize the use of web frameworks' route templates
+            to enable syntax highlighting, code completion, navigation, rename and other features in string literals.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.RouteParameterConstraintAttribute">
+            <summary>
+            Indicates that the marked type is custom route parameter constraint,
+            which is registered in the application's Startup with the name <c>ConstraintName</c>.
+            </summary>
+            <remarks>
+            You can specify <c>ProposedType</c> if target constraint matches only route parameters of specific type,
+            it will allow IDE to create method's parameter from usage in route template
+            with specified type instead of default <c>System.String</c>
+            and check if constraint's proposed type conflicts with matched parameter's type.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.UriStringAttribute">
+            <summary>
+            Indicates that the marked parameter, field, or property is a URI string.
+            </summary>
+            <remarks>
+            This attribute enables code completion, navigation, renaming, and other features
+            in URI string literals assigned to annotated parameters, fields, or properties.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspRouteConventionAttribute">
+            <summary>
+            Indicates that the marked method declares routing convention for ASP.NET.
+            </summary>
+            <remarks>
+            The IDE will analyze all usages of methods marked with this attribute,
+            and will add all routes to completion, navigation, and other features over URI strings.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspDefaultRouteValuesAttribute">
+            <summary>
+            Indicates that the marked method parameter contains default route values of routing convention for ASP.NET.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspRouteValuesConstraintsAttribute">
+            <summary>
+            Indicates that the marked method parameter contains constraints on route values of routing convention for ASP.NET.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspRouteOrderAttribute">
+            <summary>
+            Indicates that the marked parameter or property contains routing order provided by ASP.NET routing attribute.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspRouteVerbsAttribute">
+            <summary>
+            Indicates that the marked parameter or property contains HTTP verbs provided by ASP.NET routing attribute.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspAttributeRoutingAttribute">
+            <summary>
+            Indicates that the marked attribute is used for attribute routing in ASP.NET.
+            </summary>
+            <remarks>
+            The IDE will analyze all usages of attributes marked with this attribute,
+            and will add all routes to completion, navigation and other features over URI strings.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMinimalApiDeclarationAttribute">
+            <summary>
+            Indicates that the marked method declares an ASP.NET Minimal API endpoint.
+            </summary>
+            <remarks>
+            The IDE will analyze all usages of methods marked with this attribute,
+            and will add all routes to completion, navigation and other features over URI strings.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMinimalApiGroupAttribute">
+            <summary>
+            Indicates that the marked method declares an ASP.NET Minimal API endpoints group.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMinimalApiHandlerAttribute">
+            <summary>
+            Indicates that the marked parameter contains an ASP.NET Minimal API endpoint handler.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.AspMinimalApiImplicitEndpointDeclarationAttribute">
+            <summary>
+            Indicates that the marked method contains Minimal API endpoint declaration.
+            </summary>
+            <remarks>
+            The IDE will analyze all usages of methods marked with this attribute,
+            and will add all declared in attributes routes to completion, navigation and other features over URI strings.
+            </remarks>
+        </member>
+        <member name="P:Jetbrains.Annotations.AspMinimalApiImplicitEndpointDeclarationAttribute.QueryParameters">
+            <summary>
+            Comma-separated list of query parameters defined for endpoint
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.RazorSectionAttribute">
+            <summary>
+            Razor attribute. Indicates that the marked parameter or method is a Razor section.
+            Use this attribute for custom wrappers similar to
+            <c>System.Web.WebPages.WebPageBase.RenderSection(String)</c>.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.XamlItemsControlAttribute">
+            <summary>
+            XAML attribute. Indicates the type that has an <c>ItemsSource</c> property and should be treated
+            as an <c>ItemsControl</c>-derived type, to enable inner items <c>DataContext</c> type resolution.
+            </summary>
+        </member>
+        <member name="T:Jetbrains.Annotations.XamlItemBindingOfItemsControlAttribute">
+            <summary>
+            XAML attribute. Indicates the property of some <c>BindingBase</c>-derived type, that
+            is used to bind some item of an <c>ItemsControl</c>-derived type. This annotation will
+            enable the <c>DataContext</c> type resolution for XAML bindings for such properties.
+            </summary>
+            <remarks>
+            The property should have a tree ancestor of the <c>ItemsControl</c> type or
+            marked with the <see cref="T:Jetbrains.Annotations.XamlItemsControlAttribute"/> attribute.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.XamlItemStyleOfItemsControlAttribute">
+            <summary>
+            XAML attribute. Indicates the property of some <c>Style</c>-derived type that
+            is used to style items of an <c>ItemsControl</c>-derived type. This annotation will
+            enable the <c>DataContext</c> type resolution in XAML bindings for such properties.
+            </summary>
+            <remarks>
+            Property should have a tree ancestor of the <c>ItemsControl</c> type or
+            marked with the <see cref="T:Jetbrains.Annotations.XamlItemsControlAttribute"/> attribute.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.XamlOneWayBindingModeByDefaultAttribute">
+            <summary>
+            XAML attribute. Indicates that DependencyProperty has <c>OneWay</c> binding mode by default.
+            </summary>
+            <remarks>
+            This attribute must be applied to DependencyProperty's CLR accessor property if it is present, or to a DependencyProperty descriptor field otherwise.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.XamlTwoWayBindingModeByDefaultAttribute">
+            <summary>
+            XAML attribute. Indicates that DependencyProperty has <c>TwoWay</c> binding mode by default.
+            </summary>
+            <remarks>
+            This attribute must be applied to DependencyProperty's CLR accessor property if it is present, or to a DependencyProperty descriptor field otherwise.
+            </remarks>
+        </member>
+        <member name="T:Jetbrains.Annotations.TestSubjectAttribute">
+            <summary>
+            Specifies a type being tested by a test class or a test method.
+            </summary>
+            <remarks>
+            This information can be used by the IDE to navigate between tests and tested types,
+            or by test runners to group tests by subject and to provide better test reports.
+            </remarks>
+        </member>
+        <member name="P:Jetbrains.Annotations.TestSubjectAttribute.Subject">
+            <summary>
+            Gets the type being tested.
+            </summary>
+        </member>
+        <member name="M:Jetbrains.Annotations.TestSubjectAttribute.#ctor(System.Type)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Jetbrains.Annotations.TestSubjectAttribute"/> class with the specified tested type.
+            </summary>
+            <param name="subject">The type being tested.</param>
+        </member>
+        <member name="T:Jetbrains.Annotations.MeansTestSubjectAttribute">
+             <summary>
+             Marks a generic argument as the test subject for a test class.
+             </summary>
+             <remarks>
+             Can be applied to a generic parameter of a base test class to indicate that
+             the type passed as the argument is the class being tested. This information can be used by the IDE
+             to navigate between tests and tested types,
+             or by test runners to group tests by subject and to provide better test reports.
+             </remarks>
+             <example><code>
+             public class BaseTestClass&lt;[MeansTestSubject] T&gt;
+             {
+               protected T Component { get; }
+             }
+            
+             public class CalculatorAdditionTests : BaseTestClass&lt;Calculator&gt;
+             {
+               [Test]
+               public void Should_add_two_numbers()
+               {
+                  Assert.That(Component.Add(2, 3), Is.EqualTo(5));
+               }
+             }
+             </code></example>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandArgumentAttribute">
+            <summary>
+            An attribute representing a command argument.
+            </summary>
+            <seealso cref="T:System.Attribute" />
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandArgumentAttribute.Position">
+            <summary>
+            Gets the argument position.
+            </summary>
+            <value>The argument position.</value>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandArgumentAttribute.ValueName">
+            <summary>
+            Gets the value name of the argument.
+            </summary>
+            <value>The value name of the argument.</value>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandArgumentAttribute.IsRequired">
+            <summary>
+            Gets a value indicating whether the argument is required.
+            </summary>
+            <value>
+              <c>true</c> if the argument is required; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandArgumentAttribute.#ctor(System.Int32,System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Spectre.Console.Cli.CommandArgumentAttribute"/> class.
+            </summary>
+            <param name="position">The argument position.</param>
+            <param name="template">The argument template. Wrap in &lt;&gt; for required arguments, [] for optional ones. For example "[MyArgument]".</param>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandOptionAttribute">
+            <summary>
+            An attribute representing a command option.
+            </summary>
+            <seealso cref="T:System.Attribute" />
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandOptionAttribute.LongNames">
+            <summary>
+            Gets the long names of the option.
+            </summary>
+            <value>The option's long names.</value>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandOptionAttribute.ShortNames">
+            <summary>
+            Gets the short names of the option.
+            </summary>
+            <value>The option's short names.</value>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandOptionAttribute.ValueName">
+            <summary>
+            Gets the value name of the option.
+            </summary>
+            <value>The option's value name.</value>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandOptionAttribute.ValueIsOptional">
+            <summary>
+            Gets a value indicating whether the value is optional.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandOptionAttribute.IsRequired">
+            <summary>
+            Gets a value indicating whether the value is required.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandOptionAttribute.IsHidden">
+            <summary>
+            Gets or sets a value indicating whether this option is hidden from the help text.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandOptionAttribute.#ctor(System.String,System.Boolean)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Spectre.Console.Cli.CommandOptionAttribute"/> class.
+            </summary>
+            <param name="template">The option template.</param>
+            <param name="isRequired">Indicates whether the option is required or not.</param>
+        </member>
+        <member name="T:Spectre.Console.Cli.PairDeconstructorAttribute">
+            <summary>
+            Specifies what type to use as a pair deconstructor for
+            the property this attribute is bound to.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.PairDeconstructorAttribute.Type">
+            <summary>
+            Gets the <see cref="T:System.String"/> that represents the type of the
+            pair deconstructor class to use for data conversion for the
+            object this attribute is bound to.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.PairDeconstructorAttribute.#ctor(System.Type)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Spectre.Console.Cli.PairDeconstructorAttribute"/> class.
+            </summary>
+            <param name="type">
+                A System.Type that represents the type of the pair deconstructor
+                class to use for data conversion for the object this attribute is bound to.
+            </param>
+        </member>
+        <member name="T:Spectre.Console.Cli.ParameterValidationAttribute">
+            <summary>
+            A base class attribute used for parameter validation.
+            </summary>
+            <seealso cref="T:System.Attribute" />
+        </member>
+        <member name="P:Spectre.Console.Cli.ParameterValidationAttribute.ErrorMessage">
+            <summary>
+            Gets the validation error message.
+            </summary>
+            <value>The validation error message.</value>
+        </member>
+        <member name="M:Spectre.Console.Cli.ParameterValidationAttribute.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Spectre.Console.Cli.ParameterValidationAttribute"/> class.
+            </summary>
+            <param name="errorMessage">The validation error message.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.ParameterValidationAttribute.Validate(Spectre.Console.Cli.CommandParameterContext)">
+            <summary>
+            Validates the parameter value.
+            </summary>
+            <param name="context">The parameter context.</param>
+            <returns>The validation result.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.ParameterValueProviderAttribute">
+            <summary>
+            A base class attribute used for parameter completion.
+            </summary>
+            <seealso cref="T:System.Attribute" />
+        </member>
+        <member name="M:Spectre.Console.Cli.ParameterValueProviderAttribute.TryGetValue(Spectre.Console.Cli.CommandParameterContext,System.Object@)">
+            <summary>
+            Gets a value for the parameter.
+            </summary>
+            <param name="context">The parameter context.</param>
+            <param name="result">The resulting value.</param>
+            <returns><c>true</c> if a value was provided; otherwise, <c>false</c>.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.AsyncCommand">
+            <summary>
+            Base class for an asynchronous command with no settings.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.AsyncCommand.ExecuteAsync(Spectre.Console.Cli.CommandContext,System.Threading.CancellationToken)">
+            <summary>
+            Executes the command.
+            </summary>
+            <param name="context">The command context.</param>
+            <param name="cancellationToken">A <see cref="T:System.Threading.CancellationToken"/> that can be used to abort the command.</param>
+            <returns>An integer indicating whether the command executed successfully.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.AsyncCommand.Spectre#Console#Cli#ICommand{Spectre#Console#Cli#EmptyCommandSettings}#ExecuteAsync(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.EmptyCommandSettings,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.AsyncCommand.Spectre#Console#Cli#ICommand#ExecuteAsync(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.AsyncCommand.Spectre#Console#Cli#ICommand#Validate(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Spectre.Console.Cli.AsyncCommand`1">
+            <summary>
+            Base class for an asynchronous command.
+            </summary>
+            <typeparam name="TSettings">The settings type.</typeparam>
+        </member>
+        <member name="M:Spectre.Console.Cli.AsyncCommand`1.Validate(Spectre.Console.Cli.CommandContext,`0)">
+            <summary>
+            Validates the specified settings and remaining arguments.
+            </summary>
+            <param name="context">The command context.</param>
+            <param name="settings">The settings.</param>
+            <returns>The validation result.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.AsyncCommand`1.ExecuteAsync(Spectre.Console.Cli.CommandContext,`0,System.Threading.CancellationToken)">
+            <summary>
+            Executes the command.
+            </summary>
+            <param name="context">The command context.</param>
+            <param name="settings">The settings.</param>
+            <param name="cancellationToken">A <see cref="T:System.Threading.CancellationToken"/> that can be used to abort the command.</param>
+            <returns>An integer indicating whether or not the command executed successfully.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.AsyncCommand`1.Spectre#Console#Cli#ICommand#Validate(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.AsyncCommand`1.Spectre#Console#Cli#ICommand#ExecuteAsync(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.AsyncCommand`1.Spectre#Console#Cli#ICommand{TSettings}#ExecuteAsync(Spectre.Console.Cli.CommandContext,`0,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Spectre.Console.Cli.CaseSensitivity">
+            <summary>
+            Represents case sensitivity.
+            </summary>
+        </member>
+        <member name="F:Spectre.Console.Cli.CaseSensitivity.None">
+            <summary>
+            Nothing is case-sensitive.
+            </summary>
+        </member>
+        <member name="F:Spectre.Console.Cli.CaseSensitivity.LongOptions">
+            <summary>
+            Long options are case-sensitive.
+            </summary>
+        </member>
+        <member name="F:Spectre.Console.Cli.CaseSensitivity.Commands">
+            <summary>
+            Commands are case-sensitive.
+            </summary>
+        </member>
+        <member name="F:Spectre.Console.Cli.CaseSensitivity.All">
+            <summary>
+            Everything is case-sensitive.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Command">
+            <summary>
+            Base class for a command without settings.
+            </summary>
+            <seealso cref="T:Spectre.Console.Cli.AsyncCommand"/>
+        </member>
+        <member name="M:Spectre.Console.Cli.Command.Execute(Spectre.Console.Cli.CommandContext,System.Threading.CancellationToken)">
+            <summary>
+            Executes the command.
+            </summary>
+            <param name="context">The command context.</param>
+            <param name="cancellationToken">A <see cref="T:System.Threading.CancellationToken"/> that can be used to abort the command.</param>
+            <returns>An integer indicating whether the command executed successfully.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Command.Spectre#Console#Cli#ICommand{Spectre#Console#Cli#EmptyCommandSettings}#ExecuteAsync(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.EmptyCommandSettings,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.Command.Spectre#Console#Cli#ICommand#ExecuteAsync(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.Command.Spectre#Console#Cli#ICommand#Validate(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandApp">
+            <summary>
+            The entry point for a command line application.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp.#ctor(Spectre.Console.Cli.ITypeRegistrar)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Spectre.Console.Cli.CommandApp"/> class.
+            </summary>
+            <param name="registrar">The registrar.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp.Configure(System.Action{Spectre.Console.Cli.IConfigurator})">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp.SetDefaultCommand``1">
+            <summary>
+            Sets the default command.
+            </summary>
+            <typeparam name="TCommand">The command type.</typeparam>
+            <returns>A <see cref="T:Spectre.Console.Cli.Internal.Configuration.DefaultCommandConfigurator"/> that can be used to configure the default command.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp.Run(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp.RunAsync(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandAppException">
+            <summary>
+            Represents errors that occur during application execution.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandAppException.Pretty">
+            <summary>
+            Gets the pretty formatted exception message.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandApp`1">
+            <summary>
+            The entry point for a command line application with a default command.
+            </summary>
+            <typeparam name="TDefaultCommand">The type of the default command.</typeparam>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp`1.#ctor(Spectre.Console.Cli.ITypeRegistrar)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Spectre.Console.Cli.CommandApp`1"/> class.
+            </summary>
+            <param name="registrar">The registrar.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp`1.Configure(System.Action{Spectre.Console.Cli.IConfigurator})">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp`1.Run(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp`1.RunAsync(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp`1.WithDescription(System.String)">
+            <summary>
+            Sets the description of the default command.
+            </summary>
+            <param name="description">The default command description.</param>
+            <returns>The same <see cref="T:Spectre.Console.Cli.CommandApp`1"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandApp`1.WithData(System.Object)">
+            <summary>
+            Sets data that will be passed to the command via the <see cref="T:Spectre.Console.Cli.CommandContext"/>.
+            </summary>
+            <param name="data">The data to pass to the default command.</param>
+            <returns>The same <see cref="T:Spectre.Console.Cli.CommandApp`1"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandConfigurationException">
+            <summary>
+            Represents errors that occur during configuration.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandContext">
+            <summary>
+            Represents a command context.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandContext.Remaining">
+            <summary>
+            Gets the remaining arguments.
+            </summary>
+            <value>
+            The remaining arguments.
+            </value>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandContext.Arguments">
+            <summary>
+            Gets all the arguments that were passed to the application.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandContext.Name">
+            <summary>
+            Gets the name of the command.
+            </summary>
+            <value>
+            The name of the command.
+            </value>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandContext.Data">
+            <summary>
+            Gets the data that was passed to the command during registration (if any).
+            </summary>
+            <value>
+            The command data.
+            </value>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandContext.#ctor(System.Collections.Generic.IEnumerable{System.String},Spectre.Console.Cli.IRemainingArguments,System.String,System.Object)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Spectre.Console.Cli.CommandContext"/> class.
+            </summary>
+            <param name="arguments">All arguments that were passed to the application.</param>
+            <param name="remaining">The remaining arguments.</param>
+            <param name="name">The command name.</param>
+            <param name="data">The command data.</param>
+        </member>
+        <member name="T:Spectre.Console.Cli.Command`1">
+            <summary>
+            Base class for a command.
+            </summary>
+            <typeparam name="TSettings">The settings type.</typeparam>
+            <seealso cref="T:Spectre.Console.Cli.AsyncCommand`1"/>
+        </member>
+        <member name="M:Spectre.Console.Cli.Command`1.Validate(Spectre.Console.Cli.CommandContext,`0)">
+            <summary>
+            Validates the specified settings and remaining arguments.
+            </summary>
+            <param name="context">The command context.</param>
+            <param name="settings">The settings.</param>
+            <returns>The validation result.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Command`1.Execute(Spectre.Console.Cli.CommandContext,`0,System.Threading.CancellationToken)">
+            <summary>
+            Executes the command.
+            </summary>
+            <param name="context">The command context.</param>
+            <param name="settings">The settings.</param>
+            <param name="cancellationToken">A <see cref="T:System.Threading.CancellationToken"/> that can be used to abort the command.</param>
+            <returns>An integer indicating whether the command executed successfully.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Command`1.Spectre#Console#Cli#ICommand#Validate(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.Command`1.Spectre#Console#Cli#ICommand#ExecuteAsync(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.Command`1.Spectre#Console#Cli#ICommand{TSettings}#ExecuteAsync(Spectre.Console.Cli.CommandContext,`0,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandParameterContext">
+            <summary>
+            Represents a context for <see cref="T:Spectre.Console.Cli.ICommandParameterInfo"/> related operations.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandParameterContext.Parameter">
+            <summary>
+            Gets the parameter.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandParameterContext.Resolver">
+            <summary>
+            Gets the type resolver.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandParameterContext.Value">
+            <summary>
+            Gets tje parameter value.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandParameterContext.#ctor(Spectre.Console.Cli.ICommandParameterInfo,Spectre.Console.Cli.ITypeResolver,System.Object)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Spectre.Console.Cli.CommandParameterContext"/> class.
+            </summary>
+            <param name="parameter">The parameter.</param>
+            <param name="resolver">The type resolver.</param>
+            <param name="value">The parameter value.</param>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandParseException">
+            <summary>
+            Represents errors that occur during parsing.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandRuntimeException">
+            <summary>
+            Represents errors that occur during runtime.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandSettings">
+            <summary>
+            Base class for command settings.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandSettings.Validate">
+            <summary>
+            Performs validation of the settings.
+            </summary>
+            <returns>The validation result.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandTemplateException">
+            <summary>
+            Represents errors related to parameter templates.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandTemplateException.Template">
+            <summary>
+            Gets the template that contains the error.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.ConfiguratorExtensions">
+            <summary>
+            Contains extensions for <see cref="T:Spectre.Console.Cli.IConfigurator"/>
+            and <see cref="T:Spectre.Console.Cli.IConfigurator`1"/>.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.SetHelpProvider(Spectre.Console.Cli.IConfigurator,Spectre.Console.Cli.Help.IHelpProvider)">
+            <summary>
+            Sets the help provider for the application.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="helpProvider">The help provider to use.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.SetHelpProvider``1(Spectre.Console.Cli.IConfigurator)">
+            <summary>
+            Sets the help provider for the application.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <typeparam name="T">The type of the help provider to instantiate at runtime and use.</typeparam>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.SetApplicationCulture(Spectre.Console.Cli.IConfigurator,System.Globalization.CultureInfo)">
+            <summary>
+            Sets the culture for the application.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="culture">The culture.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+            <remarks>
+            Text displayed by <see cref="T:Spectre.Console.Cli.Help.HelpProvider"/> can be localised, but defaults to English.
+            Setting the application culture informs the resource manager which culture to use when fetching strings.
+            English will be used when a culture has not been specified
+            or a string has not been localised for the specified culture.
+            </remarks>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.SetApplicationName(Spectre.Console.Cli.IConfigurator,System.String)">
+            <summary>
+            Sets the name of the application.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="name">The name of the application.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.SetApplicationVersion(Spectre.Console.Cli.IConfigurator,System.String)">
+            <summary>
+            Sets the version of the application.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="version">The version of application.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.UseAssemblyInformationalVersion(Spectre.Console.Cli.IConfigurator)">
+            <summary>
+            Uses the version retrieved from the <see cref="T:System.Reflection.AssemblyInformationalVersionAttribute"/>
+            as the application's version.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.HideOptionDefaultValues(Spectre.Console.Cli.IConfigurator)">
+            <summary>
+            Hides the <c>DEFAULT</c> column that lists default values coming from the
+            <see cref="T:System.ComponentModel.DefaultValueAttribute"/> in the options help text.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.ConfigureConsole(Spectre.Console.Cli.IConfigurator,Spectre.Console.IAnsiConsole)">
+            <summary>
+            Configures the console.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="console">The console.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.UseStrictParsing(Spectre.Console.Cli.IConfigurator)">
+            <summary>
+            Sets the parsing mode to strict.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.TrimTrailingPeriods(Spectre.Console.Cli.IConfigurator,System.Boolean)">
+            <summary>
+            Tells the help provider whether or not to trim trailing period.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="trimTrailingPeriods">True to trim trailing period (default), false to not.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.PropagateExceptions(Spectre.Console.Cli.IConfigurator)">
+            <summary>
+            Tells the command line application to propagate all
+            exceptions to the user.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.CancellationExitCode(Spectre.Console.Cli.IConfigurator,System.Int32)">
+            <summary>
+            Tells the command line application to return the specified exit code when it's aborted through the <see cref="T:System.Threading.CancellationToken"/>.
+            The default cancellation exit code is 130.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="exitCode">The exit code to return in case of cancellation.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.CaseSensitivity(Spectre.Console.Cli.IConfigurator,Spectre.Console.Cli.CaseSensitivity)">
+            <summary>
+            Configures case sensitivity.
+            </summary>
+            <param name="configurator">The configuration.</param>
+            <param name="sensitivity">The case sensitivity.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.ValidateExamples(Spectre.Console.Cli.IConfigurator)">
+            <summary>
+            Tells the command line application to validate all
+            examples before running the application.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.SetInterceptor(Spectre.Console.Cli.IConfigurator,Spectre.Console.Cli.ICommandInterceptor)">
+            <summary>
+            Sets the command interceptor to be used.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="interceptor">A <see cref="T:Spectre.Console.Cli.ICommandInterceptor"/>.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.AddBranch(Spectre.Console.Cli.IConfigurator,System.String,System.Action{Spectre.Console.Cli.IConfigurator{Spectre.Console.Cli.CommandSettings}})">
+            <summary>
+            Adds a command branch.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="name">The name of the command branch.</param>
+            <param name="action">The command branch configuration.</param>
+            <returns>A branch configurator that can be used to configure the branch further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.AddBranch``1(Spectre.Console.Cli.IConfigurator{``0},System.String,System.Action{Spectre.Console.Cli.IConfigurator{``0}})">
+            <summary>
+            Adds a command branch.
+            </summary>
+            <typeparam name="TSettings">The command setting type.</typeparam>
+            <param name="configurator">The configurator.</param>
+            <param name="name">The name of the command branch.</param>
+            <param name="action">The command branch configuration.</param>
+            <returns>A branch configurator that can be used to configure the branch further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.AddDelegate(Spectre.Console.Cli.IConfigurator,System.String,System.Func{Spectre.Console.Cli.CommandContext,System.Threading.CancellationToken,System.Int32})">
+            <summary>
+            Adds a command without settings that executes a delegate.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="name">The name of the command.</param>
+            <param name="func">The delegate to execute as part of command execution.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.AddAsyncDelegate(Spectre.Console.Cli.IConfigurator,System.String,System.Func{Spectre.Console.Cli.CommandContext,System.Threading.CancellationToken,System.Threading.Tasks.Task{System.Int32}})">
+            <summary>
+            Adds a command without settings that executes an async delegate.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="name">The name of the command.</param>
+            <param name="func">The delegate to execute as part of command execution.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.AddDelegate``1(Spectre.Console.Cli.IConfigurator{``0},System.String,System.Func{Spectre.Console.Cli.CommandContext,System.Threading.CancellationToken,System.Int32})">
+            <summary>
+            Adds a command without settings that executes a delegate.
+            </summary>
+            <typeparam name="TSettings">The command setting type.</typeparam>
+            <param name="configurator">The configurator.</param>
+            <param name="name">The name of the command.</param>
+            <param name="func">The delegate to execute as part of command execution.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.AddAsyncDelegate``1(Spectre.Console.Cli.IConfigurator{``0},System.String,System.Func{Spectre.Console.Cli.CommandContext,System.Threading.CancellationToken,System.Threading.Tasks.Task{System.Int32}})">
+            <summary>
+            Adds a command without settings that executes an async delegate.
+            </summary>
+            <typeparam name="TSettings">The command setting type.</typeparam>
+            <param name="configurator">The configurator.</param>
+            <param name="name">The name of the command.</param>
+            <param name="func">The delegate to execute as part of command execution.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.SetExceptionHandler(Spectre.Console.Cli.IConfigurator,System.Action{System.Exception,Spectre.Console.Cli.ITypeResolver})">
+            <summary>
+            Sets the ExceptionsHandler.
+            <para>Setting <see cref="P:Spectre.Console.Cli.ICommandAppSettings.ExceptionHandler"/> this way will use the
+            default exit code of -1.</para>
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="exceptionHandler">The Action that handles the exception.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ConfiguratorExtensions.SetExceptionHandler(Spectre.Console.Cli.IConfigurator,System.Func{System.Exception,Spectre.Console.Cli.ITypeResolver,System.Int32})">
+            <summary>
+            Sets the ExceptionsHandler.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <param name="exceptionHandler">The Action that handles the exception.</param>
+            <returns>A configurator that can be used to configure the application further.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.Internal.Configuration.DefaultCommandConfigurator">
+            <summary>
+            Fluent configurator for the default command.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.Internal.Configuration.DefaultCommandConfigurator.WithDescription(System.String)">
+            <summary>
+            Sets the description of the default command.
+            </summary>
+            <param name="description">The default command description.</param>
+            <returns>The same <see cref="T:Spectre.Console.Cli.Internal.Configuration.DefaultCommandConfigurator"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Internal.Configuration.DefaultCommandConfigurator.WithData(System.Object)">
+            <summary>
+            Sets data that will be passed to the command via the <see cref="T:Spectre.Console.Cli.CommandContext"/>.
+            </summary>
+            <param name="data">The data to pass to the default command.</param>
+            <returns>The same <see cref="T:Spectre.Console.Cli.Internal.Configuration.DefaultCommandConfigurator"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.EmptyCommandSettings">
+            <summary>
+            Represents empty settings.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.FlagValue`1">
+            <summary>
+            Implementation of a flag with an optional value.
+            </summary>
+            <typeparam name="T">The flag's element type.</typeparam>
+        </member>
+        <member name="P:Spectre.Console.Cli.FlagValue`1.IsSet">
+            <summary>
+            Gets or sets a value indicating whether the flag was set or not.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.FlagValue`1.Value">
+            <summary>
+            Gets or sets the flag's value.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.FlagValue`1.Spectre#Console#Cli#IFlagValue#Type">
+            <inheritdoc/>
+        </member>
+        <member name="P:Spectre.Console.Cli.FlagValue`1.Spectre#Console#Cli#IFlagValue#Value">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.FlagValue`1.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.HelpProvider">
+            <summary>
+            The help provider for Spectre.Console.
+            </summary>
+            <remarks>
+            Other IHelpProvider implementations can be injected into the CommandApp, if desired.
+            </remarks>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProvider.MaximumIndirectExamples">
+            <summary>
+            Gets a value indicating how many examples from direct children to show in the help text.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProvider.ShowOptionDefaultValues">
+            <summary>
+            Gets a value indicating whether any default values for command options are shown in the help text.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProvider.TrimTrailingPeriod">
+            <summary>
+            Gets a value indicating whether a trailing period of a description is trimmed in the help text.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProvider.RenderMarkupInline">
+            <summary>
+            Gets a value indicating whether to emit the markup styles, inline, when rendering the help text.
+            </summary>
+            <remarks>
+            Useful for unit testing different styling of the same help text.
+            </remarks>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.#ctor(Spectre.Console.Cli.ICommandAppSettings)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Spectre.Console.Cli.Help.HelpProvider"/> class.
+            </summary>
+            <param name="settings">The command line application settings used for configuration.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.Write(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.GetHeader(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Gets the header for the help information.
+            </summary>
+            <param name="model">The command model to write help for.</param>
+            <param name="command">The command for which to write help information (optional).</param>
+            <returns>An enumerable collection of <see cref="T:Spectre.Console.Rendering.IRenderable"/> objects.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.GetDescription(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Gets the description section of the help information.
+            </summary>
+            <param name="model">The command model to write help for.</param>
+            <param name="command">The command for which to write help information (optional).</param>
+            <returns>An enumerable collection of <see cref="T:Spectre.Console.Rendering.IRenderable"/> objects.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.GetUsage(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Gets the usage section of the help information.
+            </summary>
+            <param name="model">The command model to write help for.</param>
+            <param name="command">The command for which to write help information (optional).</param>
+            <returns>An enumerable collection of <see cref="T:Spectre.Console.Rendering.IRenderable"/> objects.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.GetExamples(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Gets the examples section of the help information.
+            </summary>
+            <param name="model">The command model to write help for.</param>
+            <param name="command">The command for which to write help information (optional).</param>
+            <returns>An enumerable collection of <see cref="T:Spectre.Console.Rendering.IRenderable"/> objects.</returns>
+            <remarks>
+            Examples from the command's direct children are used
+            if no examples have been set on the specified command or model.
+            </remarks>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.GetArguments(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Gets the arguments section of the help information.
+            </summary>
+            <param name="model">The command model to write help for.</param>
+            <param name="command">The command for which to write help information (optional).</param>
+            <returns>An enumerable collection of <see cref="T:Spectre.Console.Rendering.IRenderable"/> objects.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.GetOptions(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Gets the options section of the help information.
+            </summary>
+            <param name="model">The command model to write help for.</param>
+            <param name="command">The command for which to write help information (optional).</param>
+            <returns>An enumerable collection of <see cref="T:Spectre.Console.Rendering.IRenderable"/> objects.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.GetCommands(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Gets the commands section of the help information.
+            </summary>
+            <param name="model">The command model to write help for.</param>
+            <param name="command">The command for which to write help information (optional).</param>
+            <returns>An enumerable collection of <see cref="T:Spectre.Console.Rendering.IRenderable"/> objects.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.HelpProvider.GetFooter(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Gets the footer for the help information.
+            </summary>
+            <param name="model">The command model to write help for.</param>
+            <param name="command">The command for which to write help information (optional).</param>
+            <returns>An enumerable collection of <see cref="T:Spectre.Console.Rendering.IRenderable"/> objects.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.HelpProviderResources">
+            <summary>
+            A strongly-typed resource class, for looking up localized strings, etc.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.Arguments">
+            <summary>
+            Gets the localized string for "ARGUMENTS".
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.Command">
+            <summary>
+            Gets the localized string for "COMMAND".
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.Commands">
+            <summary>
+            Gets the localized string for "COMMANDS".
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.Default">
+            <summary>
+            Gets the localized string for "DEFAULT".
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.Description">
+            <summary>
+            Gets the localized string for "DESCRIPTION".
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.Examples">
+            <summary>
+            Gets the localized string for "EXAMPLES".
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.Options">
+            <summary>
+            Gets the localized string for "OPTIONS".
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.PrintHelpDescription">
+            <summary>
+            Gets the localized string for "Prints help information".
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.PrintVersionDescription">
+            <summary>
+            Gets the localized string for "Prints version information".
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderResources.Usage">
+            <summary>
+            Gets the localized string for "USAGE".
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.HelpProviderStyle">
+            <summary>
+            Styles for the HelpProvider to use when rendering help text.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderStyle.Description">
+            <summary>
+            Gets or sets the style for describing the purpose or details of a command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderStyle.Usage">
+            <summary>
+            Gets or sets the style for specifying the usage format of a command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderStyle.Examples">
+            <summary>
+            Gets or sets the style for providing examples of command usage.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderStyle.Arguments">
+            <summary>
+            Gets or sets the style for specifying arguments in a command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderStyle.Options">
+            <summary>
+            Gets or sets the style for specifying options or flags in a command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderStyle.Commands">
+            <summary>
+            Gets or sets the style for specifying subcommands or nested commands.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.HelpProviderStyle.Default">
+            <summary>
+            Gets the default HelpProvider styles.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.DescriptionStyle">
+            <summary>
+            Defines styles for describing the purpose or details of a command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.DescriptionStyle.Header">
+            <summary>
+            Gets or sets the style for the header in the description.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.UsageStyle">
+            <summary>
+            Defines styles for specifying the usage format of a command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.UsageStyle.Header">
+            <summary>
+            Gets or sets the style for the header in the usage.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.UsageStyle.CurrentCommand">
+            <summary>
+            Gets or sets the style for the current command in the usage.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.UsageStyle.Command">
+            <summary>
+            Gets or sets the style for general commands in the usage.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.UsageStyle.Options">
+            <summary>
+            Gets or sets the style for options in the usage.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.UsageStyle.RequiredArgument">
+            <summary>
+            Gets or sets the style for required arguments in the usage.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.UsageStyle.OptionalArgument">
+            <summary>
+            Gets or sets the style for optional arguments in the usage.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.ExampleStyle">
+            <summary>
+            Defines styles for providing examples of command usage.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ExampleStyle.Header">
+            <summary>
+            Gets or sets the style for the header in the examples.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ExampleStyle.Arguments">
+            <summary>
+            Gets or sets the style for arguments in the examples.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.ArgumentStyle">
+            <summary>
+            Defines styles for specifying arguments in a command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ArgumentStyle.Header">
+            <summary>
+            Gets or sets the style for the header in the arguments.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ArgumentStyle.RequiredArgument">
+            <summary>
+            Gets or sets the style for required arguments.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ArgumentStyle.OptionalArgument">
+            <summary>
+            Gets or sets the style for optional arguments.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.CommandStyle">
+            <summary>
+            Defines styles for specifying subcommands or nested commands.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.CommandStyle.Header">
+            <summary>
+            Gets or sets the style for the header in the command section.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.CommandStyle.ChildCommand">
+            <summary>
+            Gets or sets the style for child commands in the command section.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.CommandStyle.RequiredArgument">
+            <summary>
+            Gets or sets the style for required arguments in the command section.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.OptionStyle">
+            <summary>
+            Defines styles for specifying options or flags in a command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.OptionStyle.Header">
+            <summary>
+            Gets or sets the style for the header in the options.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.OptionStyle.DefaultValueHeader">
+            <summary>
+            Gets or sets the style for the header of default values in the options.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.OptionStyle.DefaultValue">
+            <summary>
+            Gets or sets the style for default values in the options.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.OptionStyle.RequiredOption">
+            <summary>
+            Gets or sets the style for required options.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.OptionStyle.RequiredOptionValue">
+            <summary>
+            Gets or sets the style for required option values.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.OptionStyle.OptionalOptionValue">
+            <summary>
+            Gets or sets the style for optional options.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.ICommandArgument">
+            <summary>
+            Represents a command argument.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandArgument.Value">
+            <summary>
+            Gets the value of the argument.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandArgument.Position">
+            <summary>
+            Gets the position of the argument.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.ICommandContainer">
+            <summary>
+            Represents a command container.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandContainer.Examples">
+            <summary>
+            Gets all the examples for the container.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandContainer.Commands">
+            <summary>
+            Gets all commands in the container.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandContainer.DefaultCommand">
+            <summary>
+            Gets the default command for the container.
+            </summary>
+            <remarks>
+            Returns null if a default command has not been set.
+            </remarks>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.ICommandInfo">
+            <summary>
+            Represents an executable command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandInfo.Name">
+            <summary>
+            Gets the name of the command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandInfo.Description">
+            <summary>
+            Gets the description of the command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandInfo.IsBranch">
+            <summary>
+            Gets a value indicating whether the command is a branch.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandInfo.IsDefaultCommand">
+            <summary>
+            Gets a value indicating whether the command is the default command within its container.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandInfo.IsHidden">
+            <summary>
+            Gets a value indicating whether the command is hidden.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandInfo.Parameters">
+            <summary>
+            Gets the parameters associated with the command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandInfo.Parent">
+            <summary>
+            Gets the parent command, if any.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.ICommandInfoExtensions.Flatten(Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Walks up the command.Parent tree, adding each command into a list as it goes.
+            </summary>
+            <remarks>The first command added to the list is the current (ie. this one).</remarks>
+            <returns>The list of commands from current to root, as traversed by <see cref="P:Spectre.Console.Cli.CommandInfo.Parent"/>.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.ICommandModel">
+            <summary>
+            Represents a command model.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandModel.ApplicationName">
+            <summary>
+            Gets the name of the application.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandModel.ApplicationVersion">
+            <summary>
+            Gets the version of the application.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.ICommandOption">
+            <summary>
+            Represents a command option.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandOption.LongNames">
+            <summary>
+            Gets the long names of the option.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandOption.ShortNames">
+            <summary>
+            Gets the short names of the option.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandOption.ValueName">
+            <summary>
+            Gets the value name of the option, if applicable.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandOption.ValueIsOptional">
+            <summary>
+            Gets a value indicating whether the option value is optional.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.ICommandParameter">
+            <summary>
+            Represents a command parameter.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandParameter.IsFlag">
+            <summary>
+            Gets a value indicating whether the parameter is a flag.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandParameter.IsRequired">
+            <summary>
+            Gets a value indicating whether the parameter is required.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandParameter.Description">
+            <summary>
+            Gets the description of the parameter.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandParameter.DefaultValue">
+            <summary>
+            Gets the default value of the parameter, if specified.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Help.ICommandParameter.IsHidden">
+            <summary>
+            Gets a value indicating whether the parameter is hidden.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Help.IHelpProvider">
+            <summary>
+            The help provider interface for Spectre.Console.
+            </summary>
+            <remarks>
+            Implementations of this interface are responsible
+            for writing command help to the terminal when the
+            `-h` or `--help` has been specified on the command line.
+            </remarks>
+        </member>
+        <member name="M:Spectre.Console.Cli.Help.IHelpProvider.Write(Spectre.Console.Cli.Help.ICommandModel,Spectre.Console.Cli.Help.ICommandInfo)">
+            <summary>
+            Writes help information for the application.
+            </summary>
+            <param name="model">The command model to write help for.</param>
+            <param name="command">The command for which to write help information (optional).</param>
+            <returns>An enumerable collection of <see cref="T:Spectre.Console.Rendering.IRenderable"/> objects representing the help information.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.IBranchConfigurator">
+            <summary>
+            Represents a branch configurator.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.IBranchConfigurator.WithAlias(System.String)">
+            <summary>
+            Adds an alias (an alternative name) to the branch being configured.
+            </summary>
+            <param name="name">The alias to add to the branch being configured.</param>
+            <returns>The same <see cref="T:Spectre.Console.Cli.IBranchConfigurator"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.ICommand">
+            <summary>
+            Represents a command.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommand.Validate(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings)">
+            <summary>
+            Validates the specified settings and remaining arguments.
+            </summary>
+            <param name="context">The command context.</param>
+            <param name="settings">The settings.</param>
+            <returns>The validation result.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommand.ExecuteAsync(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings,System.Threading.CancellationToken)">
+            <summary>
+            Executes the command.
+            </summary>
+            <param name="context">The command context.</param>
+            <param name="settings">The settings.</param>
+            <param name="cancellationToken">A <see cref="T:System.Threading.CancellationToken"/> that can be used to abort the command.</param>
+            <returns>The validation result.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.ICommandApp">
+            <summary>
+            Represents a command line application.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandApp.Configure(System.Action{Spectre.Console.Cli.IConfigurator})">
+            <summary>
+            Configures the command line application.
+            </summary>
+            <param name="configuration">The configuration.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandApp.Run(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Runs the command line application with specified arguments.
+            </summary>
+            <param name="args">The arguments.</param>
+            <param name="cancellationToken">A <see cref="T:System.Threading.CancellationToken"/> that can be used to abort the application.</param>
+            <returns>The exit code from the executed command.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandApp.RunAsync(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Runs the command line application with specified arguments.
+            </summary>
+            <param name="args">The arguments.</param>
+            <param name="cancellationToken">A <see cref="T:System.Threading.CancellationToken"/> that can be used to abort the application.</param>
+            <returns>The exit code from the executed command.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.ICommandAppSettings">
+            <summary>
+            Represents a command line application settings.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.Culture">
+            <summary>
+            Gets or sets the culture.
+            </summary>
+            <remarks>
+            Text displayed by <see cref="T:Spectre.Console.Cli.Help.HelpProvider"/> can be localized, but defaults to English.
+            Setting this property informs the resource manager which culture to use when fetching strings.
+            English will be used when a culture has not been specified (i.e. this property is null)
+            or a string has not been localized for the specified culture.
+            </remarks>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.ApplicationName">
+            <summary>
+            Gets or sets the application name.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.ApplicationVersion">
+            <summary>
+            Gets or sets the application version (use it to override auto-detected value).
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.MaximumIndirectExamples">
+            <summary>
+            Gets or sets a value indicating how many examples from direct children to show in the help text.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.ShowOptionDefaultValues">
+            <summary>
+            Gets or sets a value indicating whether any default values for command options are shown in the help text.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.TrimTrailingPeriod">
+            <summary>
+            Gets or sets a value indicating whether a trailing period of a description is trimmed in the help text.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.HelpProviderStyles">
+            <summary>
+            Gets or sets the styles to used when rendering the help text.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.Console">
+            <summary>
+            Gets or sets the <see cref="T:Spectre.Console.IAnsiConsole"/>.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.Interceptor">
+            <summary>
+            Gets or sets the <see cref="T:Spectre.Console.Cli.ICommandInterceptor"/> used
+            to intercept settings before it's being sent to the command.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.Registrar">
+            <summary>
+            Gets the type registrar.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.CaseSensitivity">
+            <summary>
+            Gets or sets case sensitivity.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.StrictParsing">
+            <summary>
+            Gets or sets a value indicating whether parsing is strict.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.ConvertFlagsToRemainingArguments">
+            <summary>
+            Gets or sets a value indicating whether flags found on the command line
+            that would normally result in a <see cref="T:Spectre.Console.Cli.CommandParseException"/> being thrown
+            during parsing with the message "Flags cannot be assigned a value."
+            should instead be added to the remaining argument collection.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.PropagateExceptions">
+            <summary>
+            Gets or sets a value indicating whether exceptions should be propagated.
+            <para>Setting this to <c>true</c> will disable default Exception handling and
+            any <see cref="P:Spectre.Console.Cli.ICommandAppSettings.ExceptionHandler"/>, if set.</para>
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.CancellationExitCode">
+            <summary>
+            Gets or sets the value used as the application exit code when it's aborted through the <see cref="T:System.Threading.CancellationToken"/>.
+            The default cancellation exit code is 130.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.ValidateExamples">
+            <summary>
+            Gets or sets a value indicating whether examples should be validated.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandAppSettings.ExceptionHandler">
+            <summary>
+            Gets or sets a handler for Exceptions.
+            <para>This handler will not be called, if <see cref="P:Spectre.Console.Cli.ICommandAppSettings.PropagateExceptions"/> is set to <c>true</c>.</para>
+            The <see cref="T:Spectre.Console.Cli.ITypeResolver"/> argument will only be not-null, when the exception occurs during execution of
+            a command. I.e. only when the resolver is available.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.ICommandConfigurator">
+            <summary>
+            Represents a command configurator.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandConfigurator.WithExample(System.String[])">
+            <summary>
+            Adds an example of how to use the command.
+            </summary>
+            <param name="args">The example arguments.</param>
+            <returns>The same <see cref="T:Spectre.Console.Cli.ICommandConfigurator"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandConfigurator.WithAlias(System.String)">
+            <summary>
+            Adds an alias (an alternative name) to the command being configured.
+            </summary>
+            <param name="name">The alias to add to the command being configured.</param>
+            <returns>The same <see cref="T:Spectre.Console.Cli.ICommandConfigurator"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandConfigurator.WithDescription(System.String)">
+            <summary>
+            Sets the description of the command.
+            </summary>
+            <param name="description">The command description.</param>
+            <returns>The same <see cref="T:Spectre.Console.Cli.ICommandConfigurator"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandConfigurator.WithData(System.Object)">
+            <summary>
+            Sets data that will be passed to the command via the <see cref="T:Spectre.Console.Cli.CommandContext"/>.
+            </summary>
+            <param name="data">The data to pass to the command.</param>
+            <returns>The same <see cref="T:Spectre.Console.Cli.ICommandConfigurator"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandConfigurator.IsHidden">
+            <summary>
+            Marks the command as hidden.
+            Hidden commands do not show up in help documentation or
+            generated XML models.
+            </summary>
+            <returns>The same <see cref="T:Spectre.Console.Cli.ICommandConfigurator"/> instance so that multiple calls can be chained.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.ICommandInterceptor">
+            <summary>
+            Represents a command settings interceptor that
+            will intercept command settings before it's
+            passed to a command.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandInterceptor.Intercept(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings)">
+            <summary>
+            Intercepts command information before it's passed to a command.
+            </summary>
+            <param name="context">The intercepted <see cref="T:Spectre.Console.Cli.CommandContext"/>.</param>
+            <param name="settings">The intercepted <see cref="T:Spectre.Console.Cli.CommandSettings"/>.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommandInterceptor.InterceptResult(Spectre.Console.Cli.CommandContext,Spectre.Console.Cli.CommandSettings,System.Int32@)">
+            <summary>
+            Intercepts a command result before it's passed as the result.
+            </summary>
+            <param name="context">The intercepted <see cref="T:Spectre.Console.Cli.CommandContext"/>.</param>
+            <param name="settings">The intercepted <see cref="T:Spectre.Console.Cli.CommandSettings"/>.</param>
+            <param name="result">The result from the command execution.</param>
+        </member>
+        <member name="T:Spectre.Console.Cli.ICommandLimiter`1">
+            <summary>
+            Represents a command limiter.
+            </summary>
+            <typeparam name="TSettings">The type of the settings to limit to.</typeparam>
+            <seealso cref="T:Spectre.Console.Cli.ICommand" />
+        </member>
+        <member name="T:Spectre.Console.Cli.ICommand`1">
+            <summary>
+            Represents a command.
+            </summary>
+            <typeparam name="TSettings">The settings type.</typeparam>
+        </member>
+        <member name="M:Spectre.Console.Cli.ICommand`1.ExecuteAsync(Spectre.Console.Cli.CommandContext,`0,System.Threading.CancellationToken)">
+            <summary>
+            Executes the command.
+            </summary>
+            <param name="context">The command context.</param>
+            <param name="settings">The settings.</param>
+            <param name="cancellationToken">A <see cref="T:System.Threading.CancellationToken"/> that can be used to abort the command.</param>
+            <returns>An integer indicating whether the command executed successfully.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.ICommandParameterInfo">
+            <summary>
+            Represents a command parameter.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandParameterInfo.PropertyName">
+            <summary>
+            Gets the property name.
+            </summary>
+            <value>The property name.</value>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandParameterInfo.ParameterType">
+            <summary>
+            Gets the parameter type.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandParameterInfo.Description">
+            <summary>
+            Gets the description.
+            </summary>
+            <value>The description.</value>
+        </member>
+        <member name="T:Spectre.Console.Cli.IConfigurator">
+            <summary>
+            Represents a configurator.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator.SetHelpProvider(Spectre.Console.Cli.Help.IHelpProvider)">
+            <summary>
+            Sets the help provider for the application.
+            </summary>
+            <param name="helpProvider">The help provider to use.</param>
+            <returns>A configurator that can be used for further configuration.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator.SetHelpProvider``1">
+            <summary>
+            Sets the help provider for the application.
+            </summary>
+            <typeparam name="T">The type of the help provider to instantiate at runtime and use.</typeparam>
+            <returns>A configurator that can be used for further configuration.</returns>
+        </member>
+        <member name="P:Spectre.Console.Cli.IConfigurator.Settings">
+            <summary>
+            Gets the command app settings.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator.AddExample(System.String[])">
+            <summary>
+            Adds an example of how to use the application.
+            </summary>
+            <param name="args">The example arguments.</param>
+            <returns>A configurator that can be used for further configuration.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator.AddCommand``1(System.String)">
+            <summary>
+            Adds a command.
+            </summary>
+            <typeparam name="TCommand">The command type.</typeparam>
+            <param name="name">The name of the command.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator.AddDelegate``1(System.String,System.Func{Spectre.Console.Cli.CommandContext,``0,System.Threading.CancellationToken,System.Int32})">
+            <summary>
+            Adds a command that executes a delegate.
+            </summary>
+            <typeparam name="TSettings">The command setting type.</typeparam>
+            <param name="name">The name of the command.</param>
+            <param name="func">The delegate to execute as part of command execution.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator.AddAsyncDelegate``1(System.String,System.Func{Spectre.Console.Cli.CommandContext,``0,System.Threading.CancellationToken,System.Threading.Tasks.Task{System.Int32}})">
+            <summary>
+            Adds a command that executes an async delegate.
+            </summary>
+            <typeparam name="TSettings">The command setting type.</typeparam>
+            <param name="name">The name of the command.</param>
+            <param name="func">The delegate to execute as part of command execution.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator.AddBranch``1(System.String,System.Action{Spectre.Console.Cli.IConfigurator{``0}})">
+            <summary>
+            Adds a command branch.
+            </summary>
+            <typeparam name="TSettings">The command setting type.</typeparam>
+            <param name="name">The name of the command branch.</param>
+            <param name="action">The command branch configurator.</param>
+            <returns>A branch configurator that can be used to configure the branch further.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.IConfigurator`1">
+            <summary>
+            Represents a configurator for specific settings.
+            </summary>
+            <typeparam name="TSettings">The command setting type.</typeparam>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator`1.SetDescription(System.String)">
+            <summary>
+            Sets the description of the branch.
+            </summary>
+            <param name="description">The description of the branch.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator`1.AddExample(System.String[])">
+            <summary>
+            Adds an example of how to use the branch.
+            </summary>
+            <param name="args">The example arguments.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator`1.SetDefaultCommand``1">
+            <summary>
+            Adds a default command.
+            </summary>
+            <remarks>
+            This is the command that will run if the user doesn't specify one on the command line.
+            It must be able to execute successfully by itself i.e. without requiring any command line
+            arguments, flags or option values.
+            </remarks>
+            <typeparam name="TDefaultCommand">The default command type.</typeparam>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator`1.HideBranch">
+            <summary>
+            Marks the branch as hidden.
+            Hidden branches do not show up in help documentation or
+            generated XML models.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator`1.AddCommand``1(System.String)">
+            <summary>
+            Adds a command.
+            </summary>
+            <typeparam name="TCommand">The command type.</typeparam>
+            <param name="name">The name of the command.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator`1.AddDelegate``1(System.String,System.Func{Spectre.Console.Cli.CommandContext,``0,System.Threading.CancellationToken,System.Int32})">
+            <summary>
+            Adds a command that executes a delegate.
+            </summary>
+            <typeparam name="TDerivedSettings">The derived command setting type.</typeparam>
+            <param name="name">The name of the command.</param>
+            <param name="func">The delegate to execute as part of command execution.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator`1.AddAsyncDelegate``1(System.String,System.Func{Spectre.Console.Cli.CommandContext,``0,System.Threading.CancellationToken,System.Threading.Tasks.Task{System.Int32}})">
+            <summary>
+            Adds a command that executes an async delegate.
+            </summary>
+            <typeparam name="TDerivedSettings">The derived command setting type.</typeparam>
+            <param name="name">The name of the command.</param>
+            <param name="func">The delegate to execute as part of command execution.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.IConfigurator`1.AddBranch``1(System.String,System.Action{Spectre.Console.Cli.IConfigurator{``0}})">
+            <summary>
+            Adds a command branch.
+            </summary>
+            <typeparam name="TDerivedSettings">The derived command setting type.</typeparam>
+            <param name="name">The name of the command branch.</param>
+            <param name="action">The command branch configuration.</param>
+            <returns>A branch configurator that can be used to configure the branch further.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.IFlagValue">
+            <summary>
+            Represents a flag with an optional value.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.IFlagValue.IsSet">
+            <summary>
+            Gets or sets a value indicating whether the flag was set or not.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.IFlagValue.Type">
+            <summary>
+            Gets the flag's element type.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.IFlagValue.Value">
+            <summary>
+            Gets or sets the flag's value.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.CommandValueResolver.SmartConverter">
+            <summary>
+            Convert inputs using the given <see cref="P:Spectre.Console.Cli.CommandValueResolver.SmartConverter.TypeConverter"/> and fallback to finding a constructor taking a single argument of the input type.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandExecutor.InternalParseCommandLineArguments(Spectre.Console.Cli.CommandModel,Spectre.Console.Cli.CommandAppSettings,System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>
+            Parse the command line arguments using the specified <see cref="T:Spectre.Console.Cli.CommandModel"/> and <see cref="T:Spectre.Console.Cli.CommandAppSettings"/>,
+            returning the parser and tokenizer results.
+            </summary>
+            <returns>The parser and tokenizer results as a tuple.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.IBuiltInCommand">
+            <summary>
+            Represents a built-in command.
+            Used as a marker interface.
+            </summary>
+        </member>
+        <member name="F:Spectre.Console.Cli.Composer._renderMarkup">
+            <summary>
+            Whether to emit the markup styles, inline, when rendering the content.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.IConfiguration">
+            <summary>
+            Represents a configuration.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.IConfiguration.Commands">
+            <summary>
+            Gets the configured commands.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.IConfiguration.Settings">
+            <summary>
+            Gets the settings for the configuration.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.IConfiguration.DefaultCommand">
+            <summary>
+            Gets the default command for the configuration.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.IConfiguration.Examples">
+            <summary>
+            Gets all examples for the configuration.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.DefaultPairDeconstructor.Spectre#Console#Cli#IPairDeconstructor#Deconstruct(Spectre.Console.Cli.ITypeResolver,System.Type,System.Type,System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Spectre.Console.Cli.IPairDeconstructor">
+            <summary>
+            Represents a pair deconstructor.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.IPairDeconstructor.Deconstruct(Spectre.Console.Cli.ITypeResolver,System.Type,System.Type,System.String)">
+            <summary>
+            Deconstructs the specified value into its components.
+            </summary>
+            <param name="resolver">The type resolver to use.</param>
+            <param name="keyType">The key type.</param>
+            <param name="valueType">The value type.</param>
+            <param name="value">The value to deconstruct.</param>
+            <returns>A deconstructed value.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.CommandModel.GetApplicationName(System.String)">
+            <summary>
+            Gets the name of the application.
+            If the provided <paramref name="applicationName"/> is not null or empty,
+            it is returned. Otherwise, the name of the current application
+            is determined based on the executable file's name.
+            </summary>
+            <param name="applicationName">The optional name of the application.</param>
+            <returns>
+            The name of the application, or a default value of "?" if no valid application name can be determined.
+            </returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.ICommandContainer">
+            <summary>
+            Represents a command container.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandContainer.Commands">
+            <summary>
+            Gets all commands in the container.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.ICommandContainer.DefaultCommand">
+            <summary>
+            Gets the default command for the container.
+            </summary>
+            <remarks>
+            Returns null if a default command has not been set.
+            </remarks>
+        </member>
+        <member name="T:Spectre.Console.Cli.IMultiMap">
+            <summary>
+            Representation of a multi map.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.IMultiMap.Add(System.ValueTuple{System.Object,System.Object})">
+            <summary>
+            Adds a key and a value to the multimap.
+            </summary>
+            <param name="pair">The pair to add.</param>
+        </member>
+        <member name="P:Spectre.Console.Cli.CommandTreeToken.HadSeparator">
+            <summary>
+            Gets or sets a value indicating whether a separater was encountered immediately before the <see cref="P:Spectre.Console.Cli.CommandTreeToken.Value"/>.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.IRemainingArguments">
+            <summary>
+            Represents the remaining arguments.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.IRemainingArguments.Parsed">
+            <summary>
+            Gets the parsed remaining arguments.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.IRemainingArguments.Raw">
+            <summary>
+            Gets the raw, non-parsed remaining arguments.
+            This is normally everything after the `--` delimiter.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.ITypeRegistrar">
+            <summary>
+            Represents a type registrar.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.ITypeRegistrar.Register(System.Type,System.Type)">
+            <summary>
+            Registers the specified service.
+            </summary>
+            <param name="service">The service.</param>
+            <param name="implementation">The implementation.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.ITypeRegistrar.RegisterInstance(System.Type,System.Object)">
+            <summary>
+            Registers the specified instance.
+            </summary>
+            <param name="service">The service.</param>
+            <param name="implementation">The implementation.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.ITypeRegistrar.RegisterLazy(System.Type,System.Func{System.Object})">
+            <summary>
+            Registers the specified instance lazily.
+            </summary>
+            <param name="service">The service.</param>
+            <param name="factory">The factory that creates the implementation.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.ITypeRegistrar.Build">
+            <summary>
+            Builds the type resolver representing the registrations
+            specified in the current instance.
+            </summary>
+            <returns>A type resolver.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.ITypeRegistrarFrontend">
+            <summary>
+            Represents a user-friendly frontend for a <see cref="T:Spectre.Console.Cli.ITypeRegistrar"/>.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.ITypeRegistrarFrontend.Register``2">
+            <summary>
+            Registers the type with the type registrar as a singleton.
+            </summary>
+            <typeparam name="TService">The exposed service type.</typeparam>
+            <typeparam name="TImplementation">The implementing type.</typeparam>
+        </member>
+        <member name="M:Spectre.Console.Cli.ITypeRegistrarFrontend.RegisterInstance``1(``0)">
+            <summary>
+            Registers the specified instance with the type registrar as a singleton.
+            </summary>
+            <typeparam name="TImplementation">The type of the instance.</typeparam>
+            <param name="instance">The instance to register.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.ITypeRegistrarFrontend.RegisterInstance``2(``1)">
+            <summary>
+            Registers the specified instance with the type registrar as a singleton.
+            </summary>
+            <typeparam name="TService">The exposed service type.</typeparam>
+            <typeparam name="TImplementation"> implementing type.</typeparam>
+            <param name="instance">The instance to register.</param>
+        </member>
+        <member name="T:Spectre.Console.Cli.ITypeResolver">
+            <summary>
+            Represents a type resolver.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.ITypeResolver.Resolve(System.Type)">
+            <summary>
+            Resolves an instance of the specified type.
+            </summary>
+            <param name="type">The type to resolve.</param>
+            <returns>An instance of the specified type, or <c>null</c> if no registration for the specified type exists.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.PairDeconstructor`2">
+            <summary>
+            Base class for a pair deconstructor.
+            </summary>
+            <typeparam name="TKey">The key type.</typeparam>
+            <typeparam name="TValue">The value type.</typeparam>
+        </member>
+        <member name="M:Spectre.Console.Cli.PairDeconstructor`2.Deconstruct(System.String)">
+            <summary>
+            Deconstructs the provided <see cref="T:System.String"/> into a pair.
+            </summary>
+            <param name="value">The string to deconstruct into a pair.</param>
+            <returns>The deconstructed pair.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.PairDeconstructor`2.Spectre#Console#Cli#IPairDeconstructor#Deconstruct(Spectre.Console.Cli.ITypeResolver,System.Type,System.Type,System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Spectre.Console.Cli.Resources.HelpProvider">
+            <summary>
+              A strongly-typed resource class, for looking up localized strings, etc.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.ResourceManager">
+            <summary>
+              Returns the cached ResourceManager instance used by this class.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.Culture">
+            <summary>
+              Overrides the current thread's CurrentUICulture property for all
+              resource lookups using this strongly typed resource class.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.Arguments">
+            <summary>
+              Looks up a localized string similar to ARGUMENTS.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.Command">
+            <summary>
+              Looks up a localized string similar to COMMAND.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.Commands">
+            <summary>
+              Looks up a localized string similar to COMMANDS.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.Default">
+            <summary>
+              Looks up a localized string similar to DEFAULT.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.Description">
+            <summary>
+              Looks up a localized string similar to DESCRIPTION.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.Examples">
+            <summary>
+              Looks up a localized string similar to EXAMPLES.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.Options">
+            <summary>
+              Looks up a localized string similar to OPTIONS.
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.PrintHelpDescription">
+            <summary>
+              Looks up a localized string similar to Prints help information..
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.PrintVersionDescription">
+            <summary>
+              Looks up a localized string similar to Prints version information..
+            </summary>
+        </member>
+        <member name="P:Spectre.Console.Cli.Resources.HelpProvider.Usage">
+            <summary>
+              Looks up a localized string similar to USAGE.
+            </summary>
+        </member>
+        <member name="T:Spectre.Console.Cli.Unsafe.IUnsafeBranchConfigurator">
+            <summary>
+            Represents an unsafe configurator for a branch.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.Unsafe.IUnsafeBranchConfigurator.SetDescription(System.String)">
+            <summary>
+            Sets the description of the branch.
+            </summary>
+            <param name="description">The description of the branch.</param>
+        </member>
+        <member name="M:Spectre.Console.Cli.Unsafe.IUnsafeBranchConfigurator.AddExample(System.String[])">
+            <summary>
+            Adds an example of how to use the branch.
+            </summary>
+            <param name="args">The example arguments.</param>
+        </member>
+        <member name="T:Spectre.Console.Cli.Unsafe.IUnsafeConfigurator">
+            <summary>
+            Represents an unsafe configurator.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.Unsafe.IUnsafeConfigurator.AddCommand(System.String,System.Type)">
+            <summary>
+            Adds a command.
+            </summary>
+            <param name="name">The name of the command.</param>
+            <param name="command">The command type.</param>
+            <returns>A command configurator that can be used to configure the command further.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Unsafe.IUnsafeConfigurator.AddBranch(System.String,System.Type,System.Action{Spectre.Console.Cli.Unsafe.IUnsafeBranchConfigurator})">
+            <summary>
+            Adds a command branch.
+            </summary>
+            <param name="name">The name of the command branch.</param>
+            <param name="settings">The command setting type.</param>
+            <param name="action">The command branch configurator.</param>
+            <returns>A branch configurator that can be used to configure the branch further.</returns>
+        </member>
+        <member name="T:Spectre.Console.Cli.Unsafe.UnsafeConfiguratorExtensions">
+            <summary>
+            Contains unsafe extensions for <see cref="T:Spectre.Console.Cli.IConfigurator"/>.
+            </summary>
+        </member>
+        <member name="M:Spectre.Console.Cli.Unsafe.UnsafeConfiguratorExtensions.SafetyOff(Spectre.Console.Cli.IConfigurator)">
+            <summary>
+            Gets an <see cref="T:Spectre.Console.Cli.Unsafe.IUnsafeConfigurator"/> that allows
+            composition of commands without type safety.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <returns>An <see cref="T:Spectre.Console.Cli.Unsafe.IUnsafeConfigurator"/>.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Unsafe.UnsafeConfiguratorExtensions.SafetyOn(Spectre.Console.Cli.Unsafe.IUnsafeConfigurator)">
+            <summary>
+            Converts an <see cref="T:Spectre.Console.Cli.Unsafe.IUnsafeConfigurator"/> to
+            a configurator with type safety.
+            </summary>
+            <param name="configurator">The configurator.</param>
+            <returns>An <see cref="T:Spectre.Console.Cli.IConfigurator"/>.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Unsafe.UnsafeConfiguratorExtensions.SafetyOff``1(Spectre.Console.Cli.IConfigurator{``0})">
+            <summary>
+            Gets an <see cref="T:Spectre.Console.Cli.Unsafe.IUnsafeConfigurator"/> that allows
+            composition of commands without type safety.
+            </summary>
+            <typeparam name="TSettings">The command settings.</typeparam>
+            <param name="configurator">The configurator.</param>
+            <returns>An <see cref="T:Spectre.Console.Cli.Unsafe.IUnsafeConfigurator"/>.</returns>
+        </member>
+        <member name="M:Spectre.Console.Cli.Unsafe.UnsafeConfiguratorExtensions.SafetyOn``1(Spectre.Console.Cli.Unsafe.IUnsafeBranchConfigurator)">
+            <summary>
+            Converts an <see cref="T:Spectre.Console.Cli.Unsafe.IUnsafeConfigurator"/> to
+            a configurator with type safety.
+            </summary>
+            <typeparam name="TSettings">The command settings.</typeparam>
+            <param name="configurator">The configurator.</param>
+            <returns>An <see cref="T:Spectre.Console.Cli.IConfigurator`1"/>.</returns>
+        </member>
+    </members>
+</doc>
