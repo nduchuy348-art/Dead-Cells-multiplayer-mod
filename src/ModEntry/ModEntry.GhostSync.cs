@@ -414,6 +414,9 @@ namespace DeadCellsMultiplayerMod
 
         public static double[] rLastX = new double[NetNode.MaxClientSlots];
         public static double[] rLastY = new double[NetNode.MaxClientSlots];
+        public static double[] rTargetX = new double[NetNode.MaxClientSlots];
+        public static double[] rTargetY = new double[NetNode.MaxClientSlots];
+        public static bool[] rHasTarget = new bool[NetNode.MaxClientSlots];
 
         internal static bool TryGetClientIndex(int localId, int remoteId, out int index)
         {
@@ -652,12 +655,25 @@ namespace DeadCellsMultiplayerMod
                             wasUsingDownedOffset ? "snapshot-transition" : "snapshot-grace");
                     }
 
-                    // Always re-apply remote Y (and X). GhostKing physics can drift between
-                    // snapshots; skipping unchanged coords left peers floating/sinking.
+                    // Always track target remote coords and smooth movement between frames
                     var posChanged = rLastX[index] != drawX || rLastY[index] != drawY;
-                    client.setPosPixel(drawX, drawY);
-                    rLastX[index] = drawX;
-                    rLastY[index] = drawY;
+                    rTargetX[index] = drawX;
+                    rTargetY[index] = drawY;
+                    rHasTarget[index] = true;
+
+                    var currentX = client.spr?.x ?? rLastX[index];
+                    var currentY = client.spr?.y ?? rLastY[index];
+                    var dx = drawX - currentX;
+                    var dy = drawY - currentY;
+
+                    if (!hadClientBefore || wasUsingDownedOffset != useDownedOffset ||
+                        Math.Abs(dx) > 160.0 || Math.Abs(dy) > 160.0)
+                    {
+                        client.setPosPixel(drawX, drawY);
+                        rLastX[index] = drawX;
+                        rLastY[index] = drawY;
+                    }
+
                     if (posChanged)
                         headDirty = true;
 
@@ -693,7 +709,7 @@ namespace DeadCellsMultiplayerMod
                          clientLastBodyAnimGs[index] != remote.AnimG))
                     {
                         var animStart = RuntimeHitchWatch.Start();
-                        PlayGhostAnim(client, remote.Anim!, remote.AnimQueue, remote.AnimG);
+                        PlayGhostAnim(client, remote.Anim!, remote.AnimQueue, remote.AnimG, clientLastBodyAnims[index]);
                         clientLastBodyAnims[index] = remote.Anim;
                         clientLastBodyAnimQueues[index] = remote.AnimQueue;
                         clientLastBodyAnimGs[index] = remote.AnimG;
@@ -1353,6 +1369,9 @@ namespace DeadCellsMultiplayerMod
             clientLastDownedOffsets[slot] = false;
             rLastX[slot] = 0;
             rLastY[slot] = 0;
+            rTargetX[slot] = 0;
+            rTargetY[slot] = 0;
+            rHasTarget[slot] = false;
 
             if (!clearIdentity)
                 return;
@@ -1472,6 +1491,9 @@ namespace DeadCellsMultiplayerMod
             clientLastDownedOffsets[slot] = false;
             rLastX[slot] = 0;
             rLastY[slot] = 0;
+            rTargetX[slot] = 0;
+            rTargetY[slot] = 0;
+            rHasTarget[slot] = false;
 
             if (!clearIdentity)
                 return;
@@ -1609,11 +1631,11 @@ namespace DeadCellsMultiplayerMod
                     if (client?.kingWeaponsManager == null) continue;
                     if (attack.Action == RemoteAttackAction.Interrupt)
                     {
-                        client.kingWeaponsManager.queueInterrupt(attack.Slot);
+                        client.kingWeaponsManager.queueInterrupt(attack.Slot, attack.Kind);
                     }
                     else
                     {
-                        client.kingWeaponsManager.queueAttack(attack.Slot);
+                        client.kingWeaponsManager.queueAttack(attack.Slot, attack.Kind);
                     }
 
                     // Remote ATK changes GhostKing.spr outside the ANIM path. Drop the body-anim
@@ -1705,7 +1727,7 @@ namespace DeadCellsMultiplayerMod
             RuntimeHitchWatch.LogSlow(Logger, key, stepMs, details);
         }
 
-        private void PlayGhostAnim(GhostKing client, string anim, int? queueAnim, bool? g)
+        private void PlayGhostAnim(GhostKing client, string anim, int? queueAnim, bool? g, string? prevAnim = null)
         {
             if (client?.spr?._animManager == null) return;
             if (string.IsNullOrWhiteSpace(anim)) return;
@@ -1716,13 +1738,35 @@ namespace DeadCellsMultiplayerMod
                 return;
             }
 
+            if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsLandingTransition(prevAnim, anim))
+            {
+                try
+                {
+                    var fx = client._level?.fx ?? me?._level?.fx;
+                    if (fx != null && client.spr != null)
+                    {
+                        var lx = client.spr.x;
+                        var ly = client.spr.y;
+                        fx.dust(lx, ly, 12.0, 6, 0);
+                        fx.landSmoke(lx, ly, null);
+                        if (anim.IndexOf("land", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            fx.landHeavy(lx, ly, null, null);
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            }
+
             if (anim.IndexOf("hold", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 anim.IndexOf("shield", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 anim.IndexOf("parry", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 anim.IndexOf("block", StringComparison.OrdinalIgnoreCase) >= 0)
                 return;
 
-            var animManager = client.spr._animManager;
+            var animManager = client.spr!._animManager;
             var current = client.spr.groupName;
             if(!IsAttackAnim(anim) && current != null && string.Equals(current.ToString(), anim, StringComparison.Ordinal))
                 return;
@@ -1743,28 +1787,33 @@ namespace DeadCellsMultiplayerMod
 
         private static bool ShouldLoopRemoteAnim(string anim)
         {
-            if(string.IsNullOrWhiteSpace(anim)) return false;
-            var a = anim.Trim();
+            return DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.ShouldLoopRemoteAnim(anim);
+        }
 
-            // Don't ever force-loop weapon/hold-ish states; those should be driven by weapon replication.
-            if(IsAttackAnim(a)) return false;
-            if(a.IndexOf("guard", StringComparison.OrdinalIgnoreCase) >= 0) return false;
-            if(a.IndexOf("defend", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+        internal void InterpolateGhostPositions()
+        {
+            if (me == null) return;
+            for (int i = 0; i < clients.Length; i++)
+            {
+                var client = clients[i];
+                if (client == null || client.destroyed || !rHasTarget[i])
+                    continue;
 
-            if (a.StartsWith("idle", StringComparison.OrdinalIgnoreCase)) return true;
-            if (a.StartsWith("run", StringComparison.OrdinalIgnoreCase)) return true;
-            if (a.StartsWith("walk", StringComparison.OrdinalIgnoreCase)) return true;
-            if (a.IndexOf("move", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if (a.IndexOf("jump", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if (a.IndexOf("fall", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if (a.IndexOf("land", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if (a.IndexOf("climb", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if (a.IndexOf("ladder", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if (a.IndexOf("crouch", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if (a.IndexOf("volte", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if (a.IndexOf("remain", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                var currentX = client.spr?.x ?? rLastX[i];
+                var currentY = client.spr?.y ?? rLastY[i];
+                var targetX = rTargetX[i];
+                var targetY = rTargetY[i];
 
-            return false;
+                var newX = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.SmoothStepPosition(currentX, targetX);
+                var newY = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.SmoothStepPosition(currentY, targetY);
+
+                if (newX != currentX || newY != currentY)
+                {
+                    client.setPosPixel(newX, newY);
+                    rLastX[i] = newX;
+                    rLastY[i] = newY;
+                }
+            }
         }
 
         private void PlayGhostHeadAnim(GhostKing client, string anim)
@@ -1955,6 +2004,8 @@ namespace DeadCellsMultiplayerMod
                 }
             }
 
+            var targetPosId = slot >= 0 ? ((slot >= 2) ? (slot - 2) : slot) : -1;
+
             if (existing == null)
             {
                 var isSkill = slot >= 2;
@@ -1965,12 +2016,10 @@ namespace DeadCellsMultiplayerMod
                 if (permanentId != 0)
                     newItem.permanentId = permanentId;
                 if (slot >= 0)
-                    newItem.posID = isSkill ? (slot - 2) : slot;
+                    newItem.posID = targetPosId;
                 _inventorySyncGuard = true;
                 try
                 {
-                    if(currentSlotItem != null)
-                        currentSlotItem.posID = -1;
                     inv.add(newItem);
                 }
                 finally
@@ -1979,40 +2028,34 @@ namespace DeadCellsMultiplayerMod
                 }
                 existing = newItem;
             }
-            else if(currentSlotItem != null &&
-                    !ReferenceEquals(currentSlotItem, existing) &&
-                    (currentSlotItem.permanentId == 0 ||
-                     existing.permanentId == 0 ||
-                     currentSlotItem.permanentId != existing.permanentId))
+            else
             {
-                currentSlotItem.posID = -1;
+                if (slot >= 0)
+                    existing.posID = targetPosId;
             }
 
-            if (slot >= 0)
-                existing.posID = (slot >= 2) ? (slot - 2) : slot;
-
-            var needsEquip = slot < 0 || !ReferenceEquals(currentSlotItem, existing);
-            var needsAmmoUpdate = !DoesWeaponAmmoMatch(existing, ammo);
-            if (!needsEquip && !needsAmmoUpdate)
-                return;
-
-            _inventorySyncGuard = true;
-            try
+            // Ensure only the updated item occupies this slot in the detached inventory.
+            // Remove any other item previously occupying targetPosId so slots never collide.
+            if (slot >= 0 && inv.items != null)
             {
-                if (needsEquip)
-                    inv.equip(existing);
-                if (needsAmmoUpdate)
-                    ApplyRemoteWeaponAmmo(existing, ammo);
-            }
-            finally
-            {
-                _inventorySyncGuard = false;
+                var items = inv.items;
+                for (int i = items.length - 1; i >= 0; i--)
+                {
+                    if (items.array[i] is InventItem other && !ReferenceEquals(other, existing))
+                    {
+                        var otherIsSkill = other.kind is InventItemKind.Active;
+                        var targetIsSkill = slot >= 2;
+                        if (otherIsSkill == targetIsSkill && other.posID == targetPosId)
+                        {
+                            other.posID = -1;
+                            try { inv.remove(other); } catch { }
+                        }
+                    }
+                }
             }
 
-            // Detached ghost inventories are long-lived. Remove the item that was replaced in this
-            // slot once it is no longer equipped anywhere, otherwise every weapon swap leaks another
-            // InventItem into the ghost inventory for the rest of the run.
-            TryRemoveSupersededRemoteWeapon(inv, currentSlotItem, existing);
+            if (!DoesWeaponAmmoMatch(existing, ammo))
+                ApplyRemoteWeaponAmmo(existing, ammo);
 
             if (perfEnabled)
                 LogGhostRuntimeStepIfSlow(

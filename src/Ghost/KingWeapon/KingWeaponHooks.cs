@@ -2,6 +2,7 @@ using dc;
 using dc.en;
 using dc.en.loot;
 using dc.hl.types;
+using dc.hxd.res;
 using dc.tool;
 using dc.tool.atk;
 using dc.tool.weap;
@@ -79,6 +80,10 @@ internal static class KingWeaponHooks
         Hook_Weapon.dynOnAttackAnim += Hook_Weapon_dynOnAttackAnim;
         Hook_Weapon.dynOnFxFrame += Hook_Weapon_dynOnFxFrame;
         Hook_Weapon.updateAmmoHud += Hook_Weapon_updateAmmoHud;
+        Hook_Weapon.playReleaseSfx += Hook_Weapon_playReleaseSfx;
+        Hook_Weapon.playChargeSfx += Hook_Weapon_playChargeSfx;
+        Hook_Weapon.playHitSfx += Hook_Weapon_playHitSfx;
+        Hook_Weapon.customPlaySfx += Hook_Weapon_customPlaySfx;
 
         Hook_BaseBow.dynOnAttackAnim += Hook_BaseBow_dynOnAttackAnim;
         Hook_BaseBow.fixedUpdate += Hook_BaseBow_fixedUpdate;
@@ -540,14 +545,68 @@ internal static class KingWeaponHooks
     {
         if(KingWeaponSupport.IsKingWeapon(self))
         {
-            KingWeaponSupport.WithKingContext(self, () =>
+            if(KingWeaponSupport.TryGetSource(self, out var source) && source?.spr != null)
             {
-                try { orig(self, s, a); } catch { }
-            });
+                try
+                {
+                    var fx = source._level?.fx ?? self.owner?._level?.fx;
+                    if(fx != null && a != null)
+                    {
+                        var castSpeed = self.get_curSkill()?.getCastSpeed() ?? 1.0;
+                        var animSpr = fx.playWeaponAnimFromObject(source.spr, a, castSpeed, null, null, null, null, null);
+                        if(animSpr == null)
+                        {
+                            try { animSpr = fx.playWeaponAnim(source, a, castSpeed, null, null, null); } catch { }
+                        }
+                        if(animSpr != null)
+                            self.lastFx = animSpr;
+                    }
+                }
+                catch(Exception ex)
+                {
+                    LogKingWeaponHookEx(ex, "Weapon.dynOnAttackAnim.RemoteFx");
+                }
+            }
+
+            var prevDisable = self.disableSounds;
+            self.disableSounds = true;
+            try
+            {
+                KingWeaponSupport.WithKingContext(self, () =>
+                {
+                    try { orig(self, s, a); } catch { }
+                });
+            }
+            finally
+            {
+                self.disableSounds = prevDisable;
+            }
+
+            if(!self.disableSounds && !self.customSoundManagement)
+            {
+                try { self.playReleaseSfx(null, null, Ref<bool>.Null, null, null); } catch { }
+            }
             return;
         }
 
         orig(self, s, a);
+    }
+
+    private static double? CalculateSpatializedVolume(Weapon self, double? originalVolume)
+    {
+        var hero = ModEntry.me;
+        if(hero == null)
+            return originalVolume;
+
+        if(!KingWeaponSupport.TryGetSource(self, out var source) || source == null)
+            return originalVolume;
+
+        double heroX = hero.cx + hero.xr;
+        double heroY = hero.cy + hero.yr;
+        double srcX = source.cx + source.xr;
+        double srcY = source.cy + source.yr;
+
+        return CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, srcX, srcY, originalVolume);
     }
 
     private static void Hook_Weapon_dynOnFxFrame(
@@ -558,6 +617,34 @@ internal static class KingWeaponHooks
     {
         if(KingWeaponSupport.IsKingWeapon(self))
         {
+            if(KingWeaponSupport.TryGetSource(self, out var source) && source?.spr != null)
+            {
+                try
+                {
+                    var fx = source._level?.fx ?? self.owner?._level?.fx;
+                    if(fx != null && cinf != null && (self.lastFx == null || self.lastFx.destroyed))
+                    {
+                        var castSpeed = self.get_curSkill()?.getCastSpeed() ?? 1.0;
+                        var animSpr = fx.playWeaponAnimFromObject(source.spr, cinf, castSpeed, null, null, null, null, null);
+                        if(animSpr == null)
+                        {
+                            try { animSpr = fx.playWeaponAnim(source, cinf, castSpeed, null, null, null); } catch { }
+                        }
+                        if(animSpr != null)
+                            self.lastFx = animSpr;
+                    }
+                    if(!self.disableSounds && !self.customSoundManagement)
+                    {
+                        try { self.playReleaseSfx(null, null, Ref<bool>.Null, null, null); } catch { }
+                    }
+                }
+                catch(Exception ex)
+                {
+                    LogKingWeaponHookEx(ex, "Weapon.dynOnFxFrame.RemoteFx");
+                }
+                return;
+            }
+
             KingWeaponSupport.WithKingContext(self, () =>
             {
                 try { orig(self, s, cinf); } catch { }
@@ -566,6 +653,108 @@ internal static class KingWeaponHooks
         }
 
         orig(self, s, cinf);
+    }
+
+    private static void Hook_Weapon_playReleaseSfx(
+        Hook_Weapon.orig_playReleaseSfx orig,
+        Weapon self,
+        double? volume,
+        HlFunc<bool> holdCond,
+        Ref<bool> loop,
+        double? fadeOutTime,
+        double? pitch)
+    {
+        if(KingWeaponSupport.IsKingWeapon(self))
+        {
+            var spatialVolume = CalculateSpatializedVolume(self, volume);
+            if(!spatialVolume.HasValue)
+                return;
+
+            using(KingWeaponSupport.EnterKingContext(self))
+            {
+                try { orig(self, spatialVolume.Value, holdCond, loop, fadeOutTime, pitch); } catch { }
+            }
+            return;
+        }
+
+        orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+    }
+
+    private static void Hook_Weapon_playChargeSfx(
+        Hook_Weapon.orig_playChargeSfx orig,
+        Weapon self,
+        double? volume,
+        HlFunc<bool> holdCond,
+        Ref<bool> loop,
+        double? fadeOutTime,
+        double? pitch)
+    {
+        if(KingWeaponSupport.IsKingWeapon(self))
+        {
+            var spatialVolume = CalculateSpatializedVolume(self, volume);
+            if(!spatialVolume.HasValue)
+                return;
+
+            using(KingWeaponSupport.EnterKingContext(self))
+            {
+                try { orig(self, spatialVolume.Value, holdCond, loop, fadeOutTime, pitch); } catch { }
+            }
+            return;
+        }
+
+        orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+    }
+
+    private static void Hook_Weapon_playHitSfx(
+        Hook_Weapon.orig_playHitSfx orig,
+        Weapon self,
+        double? volume,
+        HlFunc<bool> holdCond,
+        Ref<bool> loop,
+        double? fadeOutTime,
+        double? pitch)
+    {
+        if(KingWeaponSupport.IsKingWeapon(self))
+        {
+            var spatialVolume = CalculateSpatializedVolume(self, volume);
+            if(!spatialVolume.HasValue)
+                return;
+
+            using(KingWeaponSupport.EnterKingContext(self))
+            {
+                try { orig(self, spatialVolume.Value, holdCond, loop, fadeOutTime, pitch); } catch { }
+            }
+            return;
+        }
+
+        orig(self, volume, holdCond, loop, fadeOutTime, pitch);
+    }
+
+    private static void Hook_Weapon_customPlaySfx(
+        Hook_Weapon.orig_customPlaySfx orig,
+        Weapon self,
+        dc.String sfxType,
+        Sound sound,
+        double? volume,
+        HlFunc<bool> holdCond,
+        Ref<bool> loop,
+        double? fadeOutTime,
+        double? pitch)
+    {
+        if(KingWeaponSupport.IsKingWeapon(self))
+        {
+            var spatialVolume = CalculateSpatializedVolume(self, volume);
+            if(!spatialVolume.HasValue)
+                return;
+
+            using(KingWeaponSupport.EnterKingContext(self))
+            {
+                try { orig(self, sfxType, sound, spatialVolume.Value, holdCond, loop, fadeOutTime, pitch); } catch { }
+            }
+            return;
+        }
+
+        orig(self, sfxType, sound, volume, holdCond, loop, fadeOutTime, pitch);
     }
 
     private static void Hook_Weapon_updateAmmoHud(Hook_Weapon.orig_updateAmmoHud orig, Weapon self)
@@ -583,10 +772,25 @@ internal static class KingWeaponHooks
     {
         if(KingWeaponSupport.IsKingWeapon(self))
         {
-            KingWeaponSupport.WithKingContext(self, () =>
+            var spatialVol = CalculateSpatializedVolume(self, 1.0);
+            var prevDisable = self.disableSounds;
+            self.disableSounds = true;
+            try
             {
-                try { orig(self, s, cinf); } catch { }
-            });
+                KingWeaponSupport.WithKingContext(self, () =>
+                {
+                    try { orig(self, s, cinf); } catch { }
+                });
+            }
+            finally
+            {
+                self.disableSounds = prevDisable;
+            }
+
+            if(spatialVol.HasValue && !self.disableSounds && !self.customSoundManagement)
+            {
+                try { self.playReleaseSfx(spatialVol.Value, null, Ref<bool>.Null, null, null); } catch { }
+            }
             return;
         }
 
@@ -631,6 +835,25 @@ internal static class KingWeaponHooks
     {
         if(KingWeaponSupport.IsKingWeapon(self))
         {
+            var spatialVol = CalculateSpatializedVolume(self, 1.0);
+            if(!spatialVol.HasValue)
+            {
+                var prevDisable = self.disableSounds;
+                self.disableSounds = true;
+                try
+                {
+                    KingWeaponSupport.WithKingContext(self, () =>
+                    {
+                        try { orig(self, entity); } catch { }
+                    });
+                }
+                finally
+                {
+                    self.disableSounds = prevDisable;
+                }
+                return;
+            }
+
             KingWeaponSupport.WithKingContext(self, () =>
             {
                 try { orig(self, entity); } catch { }
@@ -705,7 +928,19 @@ internal static class KingWeaponHooks
 
     private static bool Hook_BaseShield_tryToCancel(Hook_BaseShield.orig_tryToCancel orig, BaseShield self, bool byWeapon)
     {
-        return RunBaseShieldHookBool(self, () => orig(self, byWeapon));
+        var result = RunBaseShieldHookBool(self, () => orig(self, byWeapon));
+        if(result && !KingWeaponSupport.IsKingWeapon(self) && self != null && IsSameEntity(self.owner, ModEntry.me))
+        {
+            try
+            {
+                ModEntry.Instance?.NotifyLocalWeaponInterruptFromKingWeaponHooks(self);
+            }
+            catch(Exception ex)
+            {
+                LogKingWeaponHookEx(ex, nameof(Hook_BaseShield_tryToCancel) + ".NotifyLocal");
+            }
+        }
+        return result;
     }
 
     private static void Hook_BaseShield_onShieldChargeStart(Hook_BaseShield.orig_onShieldChargeStart orig, BaseShield self)
@@ -716,6 +951,17 @@ internal static class KingWeaponHooks
     private static void Hook_BaseShield_onShieldReleased(Hook_BaseShield.orig_onShieldReleased orig, BaseShield self)
     {
         RunBaseShieldHookVoid(self, () => orig(self));
+        if(!KingWeaponSupport.IsKingWeapon(self) && self != null && IsSameEntity(self.owner, ModEntry.me))
+        {
+            try
+            {
+                ModEntry.Instance?.NotifyLocalWeaponInterruptFromKingWeaponHooks(self);
+            }
+            catch(Exception ex)
+            {
+                LogKingWeaponHookEx(ex, nameof(Hook_BaseShield_onShieldReleased) + ".NotifyLocal");
+            }
+        }
     }
 
     private static void Hook_BaseShield_startParry(Hook_BaseShield.orig_startParry orig, BaseShield self)

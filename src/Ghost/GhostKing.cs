@@ -244,6 +244,12 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
             try
             {
                 spr?._animManager?.play("jumpDown".AsHaxeString(), null, null)?.stopOnLastFrame(Ref<bool>.Null);
+                var fx = _level?.fx ?? ModEntry.me?._level?.fx;
+                if(fx != null && spr != null)
+                {
+                    fx.dust(spr.x, spr.y, 16.0, 12, 0);
+                    fx.landHeavy(spr.x, spr.y, null, null);
+                }
             }
             catch
             {

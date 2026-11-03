@@ -1478,6 +1478,7 @@ namespace DeadCellsMultiplayerMod
 
             stepStart = RuntimeHitchWatch.Start();
             ReceiveGhostCoords();
+            InterpolateGhostPositions();
             LogHeroUpdateStepIfSlow("ModEntry.OnHeroUpdate.ReceiveGhostCoords", stepStart, null);
 
             stepStart = RuntimeHitchWatch.Start();

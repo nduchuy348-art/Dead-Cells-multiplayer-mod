@@ -1,4 +1,4 @@
-﻿using dc.en;
+using dc.en;
 using dc.tool;
 using dc.tool.hero;
 using dc.tool.weap;
@@ -27,6 +27,7 @@ namespace DeadCellsMultiplayerMod.Ghost
         private int pendingAttacks;
         private int pendingInterrupts;
         private int pendingSlot = -1;
+        private string? pendingKindId;
         private long _shieldLastPulseTicks;
         private bool _shieldActive;
         private long _lastShieldReleaseTimestamp;
@@ -101,7 +102,9 @@ namespace DeadCellsMultiplayerMod.Ghost
             if(inventory == null && inv != null)
                 inventory = inv;
 
-            var item = GetWeaponItem(pendingSlot);
+            var item = ((_shieldActive || _meleeSwingActive) && pendingAttacks <= 0)
+                ? weaponItem
+                : GetWeaponItem(pendingSlot, pendingKindId);
             if(item == null || item.kind?.Index == InventItemKind.Indexes.Meta) return;
 
             TryGetCachedWeaponVerdict(item, out var kindId, out var visualOnly);
@@ -120,6 +123,11 @@ namespace DeadCellsMultiplayerMod.Ghost
             if(NeedsWeaponRebuild(item))
             {
                 var rebuildStart = RuntimeHitchWatch.Start();
+                var rebuildNow = Stopwatch.GetTimestamp();
+                if(_shieldActive || weapon is BaseShield)
+                {
+                    ReleaseShield(rebuildNow);
+                }
                 DisposeCurrentWeaponSafely();
 
                 weaponItem = item;
@@ -136,6 +144,7 @@ namespace DeadCellsMultiplayerMod.Ghost
                 if(pendingAttacks <= 0)
                 {
                     pendingInterrupts = 0;
+                    pendingSlot = -1;
                     return;
                 }
 
@@ -181,14 +190,24 @@ namespace DeadCellsMultiplayerMod.Ghost
                 {
                     pendingInterrupts = 0;
                     pendingAttacks = 0;
+                    pendingSlot = -1;
+                    pendingKindId = null;
                     if(_shieldActive || activeWeapon.isCharging())
                         ReleaseShield(now);
                 }
 
-                if(pendingAttacks > 0)
+                if(pendingAttacks > 0 &&
+                   ((pendingSlot >= 0 && weaponItem != null && pendingSlot != weaponItem.posID) ||
+                    (!string.IsNullOrWhiteSpace(pendingKindId) && !string.Equals(pendingKindId, _activeKindId, StringComparison.OrdinalIgnoreCase))))
+                {
+                    ReleaseShield(now);
+                }
+                else if(pendingAttacks > 0)
                 {
                     // Treat incoming ATK as "button still held" pulses. Don't stack them.
                     pendingAttacks = 0;
+                    pendingSlot = -1;
+                    pendingKindId = null;
 
                     // When the remote releases the shield, a few late ATK packets can arrive and would re-trigger hold,
                     // causing the animation/state to flicker (release -> hold -> release ...). Ignore pulses briefly after release.
@@ -248,12 +267,19 @@ namespace DeadCellsMultiplayerMod.Ghost
                 return;
             }
 
+            if(_shieldActive)
+            {
+                ReleaseShield(now);
+            }
+
             if(pendingAttacks > 0 && activeWeapon.isReady())
             {
                 KingWeaponSupport.SyncSource(activeWeapon);
                 activeWeapon.prepare(getWeaponAttackSpeed(activeWeapon));
                 pendingAttacks--;
                 _meleeSwingActive = true;
+                pendingSlot = -1;
+                pendingKindId = null;
             }
 
             if(pendingAttacks > 1)
@@ -277,6 +303,8 @@ namespace DeadCellsMultiplayerMod.Ghost
             if(pendingInterrupts > 0)
             {
                 pendingInterrupts = 0;
+                pendingSlot = -1;
+                pendingKindId = null;
                 if(!activeWeapon.destroyed && activeWeapon.isCharging())
                 {
                     try { activeWeapon.interrupt(); } catch { }
@@ -295,6 +323,8 @@ namespace DeadCellsMultiplayerMod.Ghost
                 // Melee/ranged ATK uses stopOnLastFrame; without a locomotion ANIM change the
                 // ghost stays frozen on the last attack frame while the player stands still.
                 _meleeSwingActive = false;
+                pendingSlot = -1;
+                pendingKindId = null;
                 RestoreRemoteIdlePose();
             }
 
@@ -311,16 +341,18 @@ namespace DeadCellsMultiplayerMod.Ghost
             }
         }
 
-        public void queueAttack(int slot = -1)
+        public void queueAttack(int slot = -1, string? kindId = null)
         {
             if(slot >= 0) pendingSlot = slot;
+            if(!string.IsNullOrWhiteSpace(kindId)) pendingKindId = kindId;
             if(pendingAttacks < 3)
                 pendingAttacks++;
         }
 
-        public void queueInterrupt(int slot = -1)
+        public void queueInterrupt(int slot = -1, string? kindId = null)
         {
             if(slot >= 0) pendingSlot = slot;
+            if(!string.IsNullOrWhiteSpace(kindId)) pendingKindId = kindId;
             if(pendingInterrupts < 3)
                 pendingInterrupts++;
         }
@@ -335,6 +367,7 @@ namespace DeadCellsMultiplayerMod.Ghost
             pendingAttacks = 0;
             pendingInterrupts = 0;
             pendingSlot = -1;
+            pendingKindId = null;
             _shieldActive = false;
             _shieldLastPulseTicks = 0;
             _lastShieldReleaseTimestamp = 0;
@@ -477,6 +510,8 @@ namespace DeadCellsMultiplayerMod.Ghost
             _shieldActive = false;
             _shieldLastPulseTicks = 0;
             _lastShieldReleaseTimestamp = now;
+            pendingSlot = -1;
+            pendingKindId = null;
             ClearShieldAffects();
             RestoreRemoteIdlePose();
             if(RuntimeHitchWatch.Enabled)
@@ -502,7 +537,7 @@ namespace DeadCellsMultiplayerMod.Ghost
             RuntimeHitchWatch.LogSlow(ModEntry.Instance?.Logger, key, stepMs, details);
         }
 
-        private InventItem? GetWeaponItem(int slot)
+        private InventItem? GetWeaponItem(int slot, string? kindId = null)
         {
             var inv = inventory;
             if(inv != null)
@@ -525,6 +560,17 @@ namespace DeadCellsMultiplayerMod.Ghost
                         if(prefer != null) return prefer;
                     }
                 }
+
+                if(!string.IsNullOrWhiteSpace(kindId) && inv.items != null)
+                {
+                    var items = inv.items;
+                    for(int i = 0; i < items.length; i++)
+                    {
+                        if(items.array[i] is InventItem it && IsWeaponKindMatch(it, kindId))
+                            return it;
+                    }
+                }
+
                 var w0 = inv.getEquippedWeaponOn(0);
                 if(w0 != null) return w0;
                 var w1 = inv.getEquippedWeaponOn(1);
@@ -538,6 +584,13 @@ namespace DeadCellsMultiplayerMod.Ghost
             if(ModEntry._net == null)
                 return ModEntry.Instance?.inventItem;
             return null;
+        }
+
+        private static bool IsWeaponKindMatch(InventItem? item, string kindId)
+        {
+            if(item == null || string.IsNullOrWhiteSpace(kindId)) return false;
+            var kind = GetWeaponKindId(item);
+            return string.Equals(kind, kindId, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

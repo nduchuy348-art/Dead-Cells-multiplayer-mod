@@ -430,6 +430,50 @@ internal static class KingWeaponSupport
         WithKingContextCore(weapon?.owner, src, action);
     }
 
+    public readonly ref struct KingContextScope
+    {
+        private readonly Hero? _hero;
+        private readonly KingWeaponRuntimeFrame _frame;
+        private readonly KingSkin? _previousSource;
+        private readonly bool _active;
+
+        public KingContextScope(Weapon weapon)
+        {
+            if(weapon != null && TryGetSource(weapon, out var src) && weapon.owner != null && src != null && _contextDepth == 0)
+            {
+                _hero = weapon.owner;
+                _previousSource = _currentContextSource;
+                _currentContextSource = src;
+                _contextDepth++;
+                _frame = new KingWeaponRuntimeFrame(_hero);
+                _frame.ApplyKingSkin(src, _hero);
+                _active = true;
+            }
+            else
+            {
+                _hero = null;
+                _previousSource = null;
+                _frame = default;
+                _active = false;
+            }
+        }
+
+        public void Dispose()
+        {
+            if(_active && _hero != null)
+            {
+                _frame.Restore(_hero);
+                _currentContextSource = _previousSource;
+                _contextDepth--;
+            }
+        }
+    }
+
+    public static KingContextScope EnterKingContext(Weapon weapon)
+    {
+        return new KingContextScope(weapon);
+    }
+
     public static void WithKingContext(Hero hero, KingSkin source, Action action)
     {
         if(action == null)
