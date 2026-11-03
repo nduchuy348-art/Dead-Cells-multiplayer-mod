@@ -315,4 +315,19 @@ public sealed class CombatAndVisualSyncTests
         var empty = CombatSyncHelpers.ResolveWeaponSlashFx(null, null);
         Assert.Null(empty.resolvedFxId);
     }
+
+    [Fact]
+    public void ResolveWeaponSlashFx_PreservesCustomColors_ForNonStarterSwords()
+    {
+        // Weapons sharing atkBackStabber animations with custom colors (e.g., QuickSword 16367179) preserve their color
+        var quickSword = CombatSyncHelpers.ResolveWeaponSlashFx("fxAtkBackstabberA", "atkBackStabberA", 16367179, 16367179);
+        Assert.Equal("fxSaberA", quickSword.resolvedFxId);
+        Assert.Equal(16367179, quickSword.innerColor);
+        Assert.Equal(16367179, quickSword.outerColor);
+
+        var lowHealth = CombatSyncHelpers.ResolveWeaponSlashFx("fxAtkBackstabberB", "atkBackStabberB", 10084688, 10084688);
+        Assert.Equal("fxSaberB", lowHealth.resolvedFxId);
+        Assert.Equal(10084688, lowHealth.innerColor);
+        Assert.Equal(10084688, lowHealth.outerColor);
+    }
 }

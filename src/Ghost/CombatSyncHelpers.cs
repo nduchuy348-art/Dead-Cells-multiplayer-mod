@@ -285,14 +285,18 @@ public static class CombatSyncHelpers
         if (string.Equals(rawFx, "fxAtkBackstabberA", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(rawAnim, "atkBackStabberA", StringComparison.OrdinalIgnoreCase))
         {
-            return ("fxSaberA", DefaultSlashInnerColor, DefaultSlashOuterColor);
+            var resInner = (!innerColor.HasValue || innerColor.Value <= 7901874) ? DefaultSlashInnerColor : innerColor.Value;
+            var resOuter = (!outerColor.HasValue || outerColor.Value <= 7901874) ? DefaultSlashOuterColor : outerColor.Value;
+            return ("fxSaberA", resInner, resOuter);
         }
 
         // fxAtkBackstabberB / atkBackStabberB -> fxSaberB (inward return crescent slash wave)
         if (string.Equals(rawFx, "fxAtkBackstabberB", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(rawAnim, "atkBackStabberB", StringComparison.OrdinalIgnoreCase))
         {
-            return ("fxSaberB", DefaultSlashInnerColor, DefaultSlashOuterColor);
+            var resInner = (!innerColor.HasValue || innerColor.Value <= 7901874) ? DefaultSlashInnerColor : innerColor.Value;
+            var resOuter = (!outerColor.HasValue || outerColor.Value <= 7901874) ? DefaultSlashOuterColor : outerColor.Value;
+            return ("fxSaberB", resInner, resOuter);
         }
 
         // 2. If fxId is empty/null, deduce from sword animation:
