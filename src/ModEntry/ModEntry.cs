@@ -2,6 +2,7 @@
 using ModCore.Events.Interfaces.Game;
 using ModCore.Events.Interfaces.Game.Hero;
 using ModCore.Mods;
+using ModCore.Utilities;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using dc.en;
@@ -188,12 +189,12 @@ namespace DeadCellsMultiplayerMod
         private double _postReviveLockY;
         private int _reviveHoldTargetId;
         private long _reviveHoldStartedTicks;
-        private const double ReviveUseDistancePx = 48.0;
+        private const double ReviveUseDistancePx = 72.0;
         private const double ReviveAttemptCooldownSeconds = 0.2;
         private const double ReviveHoldSeconds = 0.7;
         private const double ReviveHomunculusBodyMaxDistancePx = 64.0;
-        private const double ReviveRemotePositionValidationPx = 96.0;
-        private const double RemoteDownedStateStaleSeconds = 6.0;
+        private const double ReviveRemotePositionValidationPx = 240.0;
+        private const double RemoteDownedStateStaleSeconds = 60.0;
         private const double DownedStateResendSeconds = 0.4;
         private const double DownedHeadStateResendSeconds = 1.0 / 30.0;
         private const double DownedGhostBodyYOffsetPx = 40.0;
@@ -234,6 +235,9 @@ namespace DeadCellsMultiplayerMod
         private const double ClientDisposeTransitionSeconds = 0.28;
         private const double GhostHeadDormantUpdateSeconds = 0.20;
         private const double GhostHeadRecreateRetrySeconds = 0.25;
+        private bool _pendingMapLandingCrouch;
+        private long _lastLocalLandingFxTicks;
+        private string? _lastLocalHeroAnim;
 
         private static readonly HashSet<string> BossLevelIds = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -1258,6 +1262,40 @@ namespace DeadCellsMultiplayerMod
                     {
                         SendHeroAnim(play, queueAnim, g, force: isAttackAnim);
                     }
+
+                    var now = Stopwatch.GetTimestamp();
+                    var isLanding = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsLandingTransition(_lastLocalHeroAnim, play);
+                    if (isLanding || _pendingMapLandingCrouch || string.Equals(play, "crouch", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (now - _lastLocalLandingFxTicks > (long)(Stopwatch.Frequency * 0.4))
+                        {
+                            _lastLocalLandingFxTicks = now;
+                            try
+                            {
+                                var lvl = meRef._level;
+                                if (lvl?.fx != null && meRef.spr != null)
+                                {
+                                    var cx = meRef.cx != 0 ? meRef.cx : (int)System.Math.Floor(meRef.spr.x / 24.0);
+                                    var cy = meRef.cy != 0 ? meRef.cy : (int)System.Math.Floor(meRef.spr.y / 24.0);
+                                    lvl.fx.breakGroundLight(cx, cy, 1, 1);
+                                    lvl.fx.dust(meRef.spr.x, meRef.spr.y, 8.0, 4, 0);
+                                }
+                            }
+                            catch { }
+                        }
+
+                        if (_pendingMapLandingCrouch && !string.Equals(play, "crouch", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _pendingMapLandingCrouch = false;
+                            try
+                            {
+                                self.play("crouch".AsHaxeString(), null, null);
+                            }
+                            catch { }
+                        }
+                    }
+
+                    _lastLocalHeroAnim = play;
                 }
                 else
                 {
@@ -1365,6 +1403,7 @@ namespace DeadCellsMultiplayerMod
             _debugExplorerRevealAppliedSignature = string.Empty;
             _nextDebugExplorerRevealRetryTick = 0;
             _debugExplorerRevealAllCount = 0;
+            _pendingMapLandingCrouch = true;
         }
 
 
@@ -1375,6 +1414,13 @@ namespace DeadCellsMultiplayerMod
             Tools.GameTrace.Event("hero", "wakeup cell={CX},{CY} level={Level}", cx, cy, SafeTrace(() => lvl?.map?.id?.ToString()));
             _debugExplorerRevealAppliedSignature = string.Empty;
             orig(self, lvl, cx, cy);
+            try
+            {
+                self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
+                lvl?.fx?.breakGroundLight(cx, cy, 1, 1);
+                lvl?.fx?.dust(cx * 24.0, cy * 24.0, 8.0, 4, 0);
+            }
+            catch { }
             EnsureHeroVisibilityAfterRoomChange(me);
             // Either entry point can be the joiner's first level; arming is one-shot, so whichever
             // runs first claims it.

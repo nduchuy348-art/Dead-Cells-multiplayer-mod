@@ -75,6 +75,21 @@ public sealed partial class NetNode
         }
     }
 
+    public bool TryGetRemoteLevelId(int userId, out string? levelId)
+    {
+        lock (_sync)
+        {
+            if (userId > 0 && _remotes.TryGetValue(userId, out var state))
+            {
+                levelId = state.LevelId;
+                return !string.IsNullOrEmpty(levelId);
+            }
+
+            levelId = null;
+            return false;
+        }
+    }
+
     public bool TryConsumeRemoteSnapshot(out List<RemoteSnapshot> snapshot)
     {
         lock (_sync)

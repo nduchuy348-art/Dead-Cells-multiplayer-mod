@@ -890,7 +890,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             // vanilla threat/elite state containers. More importantly, no hit callback may rewrite
             // targets while either player is downed: that exact transition made mobs stop after the
             // survivor's first hit. The normal host update repairs a missing aTarget afterward.
-            if (attacker is KingSkin || ModEntry.HasAnyPlayerDownedForCombat())
+            if (ModEntry.HasAnyPlayerDownedForCombat())
                 return;
 
             var threatDelta = System.Math.Max(0, previousLife - currentLife);
@@ -902,6 +902,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     return;
 
                 mob.updateThreat();
+                TrySetMobAttackTargetsExact(mob, attacker);
             }
             catch
             {

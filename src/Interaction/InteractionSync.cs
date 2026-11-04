@@ -150,6 +150,9 @@ public partial class InteractionSync :
         Hook_SwitchBossRune.canBeActivated += Hook_SwitchBossRune_canBeActivated;
         Hook_SwitchBossRune.close += Hook_SwitchBossRune_close;
         Hook_SwitchBossRune.updateCells += Hook_SwitchBossRune_updateCells;
+        Hook_PurpleElevatorButton.canBeActivated += Hook_PurpleElevatorButton_canBeActivated;
+        Hook_PurpleElevatorButton.onFocus += Hook_PurpleElevatorButton_onFocus;
+        Hook_PurpleElevatorButton.onActivate += Hook_PurpleElevatorButton_onActivate;
     }
 
     private static (double x, double y) GetEntityPixelPos(Entity e)

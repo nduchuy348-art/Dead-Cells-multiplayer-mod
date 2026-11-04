@@ -19,15 +19,15 @@ public static class GameConstants
     public const string DefaultHeadSkin = "BaseFlame";
 
     // Revival
-    public const double ReviveUseDistancePx = 48.0;
+    public const double ReviveUseDistancePx = 72.0;
     public const double ReviveAttemptCooldownSeconds = 0.2;
     public const double ReviveHoldSeconds = 0.7;
     public const double ReviveHomunculusBodyMaxDistancePx = 64.0;
-    public const double ReviveRemotePositionValidationPx = 96.0;
+    public const double ReviveRemotePositionValidationPx = 240.0;
     public const string ReviveHintText = "Hold to revive.";
 
     // Downed state
-    public const double RemoteDownedStateStaleSeconds = 6.0;
+    public const double RemoteDownedStateStaleSeconds = 60.0;
     public const double DownedStateResendSeconds = 0.4;
     public const double DownedHeadStateResendSeconds = 1.0 / 30.0;
     public const double DownedGhostBodyYOffsetPx = 40.0;

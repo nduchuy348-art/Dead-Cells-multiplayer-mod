@@ -71,7 +71,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 var elapsed = GetCurrentFrame(self) - receiveFrame;
                 if (!forcePositionSnap &&
                     elapsed > 0.0 &&
-                    (System.Math.Abs(velocityXPx) > 0.001 || System.Math.Abs(velocityYPx) > 0.001))
+                    (System.Math.Abs(velocityXPx) > 0.02 || System.Math.Abs(velocityYPx) > 0.02))
                 {
                     var maxPrediction = hasGravity
                         ? ClientGroundedMaxPredictionFrames
@@ -119,8 +119,17 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             verticalMismatchLarge;
                 var hardSnapY = (!hasGravity && hardSnapX) || safeGroundedLanding;
 
+                var isHorizontalIdle = System.Math.Abs(target.Dx) < 0.05 && System.Math.Abs(velocityXPx) < 0.05;
+                var isVerticalIdle = !hasGravity
+                    ? (System.Math.Abs(target.Dy) < 0.05 && System.Math.Abs(velocityYPx) < 0.05)
+                    : (!jumpLikeMotion && System.Math.Abs(velocityYPx) < 0.15);
+
                 double lerpedX;
-                if (forcePositionSnap || hardSnapX)
+                if (isHorizontalIdle && System.Math.Abs(deltaX) < 1.5 && !forcePositionSnap)
+                {
+                    lerpedX = currentX;
+                }
+                else if (forcePositionSnap || hardSnapX)
                 {
                     lerpedX = predictedX;
                 }
@@ -135,7 +144,11 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 }
 
                 double lerpedY;
-                if (safeGroundedLanding)
+                if (isVerticalIdle && System.Math.Abs(deltaY) < 1.5 && !forcePositionSnap && !forceVerticalPositionSnap)
+                {
+                    lerpedY = currentY;
+                }
+                else if (safeGroundedLanding)
                 {
                     lerpedY = predictedY - ClientGroundedSafeLandingLiftPx;
                 }
@@ -153,20 +166,23 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         closeThreshold: 0.20);
                 }
 
-                try
+                if (lerpedX != currentX || (syncY && lerpedY != currentY))
                 {
-                    if (syncY)
-                        self.setPosPixel(lerpedX, lerpedY);
-                    else
-                        SetWorldXKeepingY(self, lerpedX);
-                }
-                catch
-                {
-                    if (self.spr != null)
+                    try
                     {
-                        self.spr.x = lerpedX;
                         if (syncY)
-                            self.spr.y = lerpedY;
+                            self.setPosPixel(lerpedX, lerpedY);
+                        else
+                            SetWorldXKeepingY(self, lerpedX);
+                    }
+                    catch
+                    {
+                        if (self.spr != null)
+                        {
+                            self.spr.x = lerpedX;
+                            if (syncY)
+                                self.spr.y = lerpedY;
+                        }
                     }
                 }
 
@@ -228,7 +244,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 0.0,
                 ClientBossMaxPredictionFrames);
 
-            if (!target.ForcePositionSnap && elapsed > 0.0)
+            if (!target.ForcePositionSnap && elapsed > 0.0 &&
+                (System.Math.Abs(velocityXPx) > 0.02 || System.Math.Abs(velocityYPx) > 0.02))
             {
                 predictedX += velocityXPx * elapsed;
                 if (syncVerticalPosition)
@@ -265,33 +282,57 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                            deltaX * deltaX + (syncVerticalPosition ? deltaY * deltaY : 0.0) >=
                            ClientBossHardSnapDistancePx * ClientBossHardSnapDistancePx;
             var alpha = System.Math.Max(ClientBossMinimumInterpolationAlpha, GetClientInterpolationAlpha());
-            var nextX = hardSnap ? predictedX : currentX + deltaX * alpha;
-            var nextY = currentY;
-            if (safeGroundedLanding)
-                nextY = predictedY - ClientGroundedSafeLandingLiftPx;
-            else if (syncVerticalPosition)
-                nextY = hardSnap ? predictedY : currentY + deltaY * alpha;
 
-            try
+            var isBossHorizontalIdle = System.Math.Abs(target.Dx) < 0.05 && System.Math.Abs(velocityXPx) < 0.05;
+            var isBossVerticalIdle = System.Math.Abs(target.Dy) < 0.05 && System.Math.Abs(velocityYPx) < 0.15;
+
+            var nextX = currentX;
+            if (isBossHorizontalIdle && System.Math.Abs(deltaX) < 1.5 && !target.ForcePositionSnap)
             {
-                if (syncVerticalPosition)
-                    boss.setPosPixel(nextX, nextY);
-                else
-                    SetWorldXKeepingY(boss, nextX);
+                nextX = currentX;
             }
-            catch
+            else
+            {
+                nextX = hardSnap ? predictedX : currentX + deltaX * alpha;
+            }
+
+            var nextY = currentY;
+            if (isBossVerticalIdle && System.Math.Abs(deltaY) < 1.5 && !target.ForcePositionSnap && !target.ForceVerticalPositionSnap)
+            {
+                nextY = currentY;
+            }
+            else if (safeGroundedLanding)
+            {
+                nextY = predictedY - ClientGroundedSafeLandingLiftPx;
+            }
+            else if (syncVerticalPosition)
+            {
+                nextY = hardSnap ? predictedY : currentY + deltaY * alpha;
+            }
+
+            if (nextX != currentX || (syncVerticalPosition && nextY != currentY))
             {
                 try
                 {
-                    if (boss.spr != null)
-                    {
-                        boss.spr.x = nextX;
-                        if (syncVerticalPosition)
-                            boss.spr.y = nextY;
-                    }
+                    if (syncVerticalPosition)
+                        boss.setPosPixel(nextX, nextY);
+                    else
+                        SetWorldXKeepingY(boss, nextX);
                 }
                 catch
                 {
+                    try
+                    {
+                        if (boss.spr != null)
+                        {
+                            boss.spr.x = nextX;
+                            if (syncVerticalPosition)
+                                boss.spr.y = nextY;
+                        }
+                    }
+                    catch
+                    {
+                    }
                 }
             }
 

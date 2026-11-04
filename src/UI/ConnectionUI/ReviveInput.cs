@@ -12,7 +12,7 @@ internal static partial class LobbySession
 {
     internal const int ReviveInteractKeyCode = 82; // R (keyboard)
 
-    /// <summary>Hold-to-revive: keyboard R plus gamepad face buttons / primary-secondary (same binding resolution as menus).</summary>
+    /// <summary>Hold-to-revive: keyboard R, E, F, plus gamepad interact/face buttons and configured action keys.</summary>
     internal static bool IsReviveHoldInputDown(Hero? hero)
     {
         if (hero == null)
@@ -20,7 +20,9 @@ internal static partial class LobbySession
 
         try
         {
-            if (dc.hxd.Key.Class.isDown(ReviveInteractKeyCode))
+            if (dc.hxd.Key.Class.isDown(ReviveInteractKeyCode) || // R
+                dc.hxd.Key.Class.isDown(69) || // E
+                dc.hxd.Key.Class.isDown(70))   // F
                 return true;
         }
         catch
@@ -39,64 +41,50 @@ internal static partial class LobbySession
             if (controller == null || controller.isLocked)
                 return false;
 
+            // Direct pad checks: 5 (Right Bumper / interact), 0 (A / interact / confirm)
+            if (controller.padIsDown(5) || controller.padIsDown(0))
+                return true;
+
             var bindings = controller.get_bindings();
-
-            bool PadHeld(ArrayBytes_Int? bind)
+            if (bindings != null)
             {
-                if (bind == null)
-                    return false;
-                try
+                bool PadHeld(ArrayBytes_Int? bind)
                 {
-                    for (var i = 0; i < bind.length; i++)
+                    if (bind == null) return false;
+                    try
                     {
-                        var code = Marshal.ReadInt32(bind.bytes, i << 2);
-                        if (code < 0)
-                            continue;
-                        if (controller.padIsDown(code))
-                            return true;
+                        for (var i = 0; i < bind.length; i++)
+                        {
+                            var code = Marshal.ReadInt32(bind.bytes, i << 2);
+                            if (code >= 0 && controller.padIsDown(code))
+                                return true;
+                        }
                     }
-                }
-                catch
-                {
-                }
-
-                return false;
-            }
-
-            bool KeyHeld(ArrayBytes_Int? bind)
-            {
-                if (bind == null)
+                    catch { }
                     return false;
-                try
+                }
+
+                bool KeyHeld(ArrayBytes_Int? bind)
                 {
-                    for (var i = 0; i < bind.length; i++)
+                    if (bind == null) return false;
+                    try
                     {
-                        var code = Marshal.ReadInt32(bind.bytes, i << 2);
-                        if (code < 0)
-                            continue;
-                        if (dc.hxd.Key.Class.isDown(code))
-                            return true;
+                        for (var i = 0; i < bind.length; i++)
+                        {
+                            var code = Marshal.ReadInt32(bind.bytes, i << 2);
+                            if (code >= 0 && dc.hxd.Key.Class.isDown(code))
+                                return true;
+                        }
                     }
-                }
-                catch
-                {
+                    catch { }
+                    return false;
                 }
 
-                return false;
+                if (PadHeld(bindings.padA) || PadHeld(bindings.padB) || PadHeld(bindings.padC))
+                    return true;
+                if (KeyHeld(bindings.primary) || KeyHeld(bindings.secondary) || KeyHeld(bindings.third))
+                    return true;
             }
-
-            if (PadHeld(bindings.padA))
-                return true;
-            if (PadHeld(bindings.padB))
-                return true;
-            if (PadHeld(bindings.padC))
-                return true;
-            if (KeyHeld(bindings.primary))
-                return true;
-            if (KeyHeld(bindings.secondary))
-                return true;
-            if (KeyHeld(bindings.third))
-                return true;
         }
         catch
         {

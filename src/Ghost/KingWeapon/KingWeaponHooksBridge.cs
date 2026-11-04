@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using dc.tool;
 using dc.tool.weap;
 
@@ -282,10 +282,18 @@ public partial class ModEntry
 
         var ammo = GetWeaponAmmoForSync(item);
         _net?.SendAttack(kindId!, slot, item.permanentId, ammo);
-        _suppressHeroAnimUntilTicks = Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * 0.18);
         _lastAnimSent = null;
         _lastAnimQueueSent = null;
         _lastAnimGSent = null;
+        try
+        {
+            var anim = me.spr?.groupName?.ToString();
+            if (!string.IsNullOrWhiteSpace(anim))
+            {
+                SendHeroAnim(anim, null, null, force: true);
+            }
+        }
+        catch { }
     }
 
     private int ResolveWeaponSlotForSend(Inventory? inv, InventItem item, string kindId)

@@ -443,7 +443,18 @@ namespace DeadCellsMultiplayerMod
                 return;
 
             if (!IsUsableCameraEntity(target))
+            {
+                // If current tracked entity is invalid or destroyed, snap back to local player
+                if (viewport.tracked != null && !IsUsableCameraEntity(viewport.tracked))
+                {
+                    var fallback = ResolveDefaultLocalCameraTarget();
+                    if (IsUsableCameraEntity(fallback))
+                    {
+                        try { viewport.track(fallback, true); } catch { }
+                    }
+                }
                 return;
+            }
 
             try
             {
@@ -476,7 +487,13 @@ namespace DeadCellsMultiplayerMod
                 return false;
 
             var localLevelId = GetCurrentLevelId();
-            var remoteLevelId = client?._level?.map?.id?.ToString();
+            string? remoteLevelId = null;
+            if (_net != null)
+                _net.TryGetRemoteLevelId(remoteId, out remoteLevelId);
+
+            if (string.IsNullOrWhiteSpace(remoteLevelId))
+                remoteLevelId = client?._level?.map?.id?.ToString();
+
             if (!string.IsNullOrWhiteSpace(localLevelId) &&
                 !string.IsNullOrWhiteSpace(remoteLevelId) &&
                 !string.Equals(localLevelId, remoteLevelId, StringComparison.Ordinal))

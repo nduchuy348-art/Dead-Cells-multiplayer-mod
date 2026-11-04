@@ -75,7 +75,9 @@ public static class CombatSyncHelpers
         if (string.IsNullOrWhiteSpace(anim)) return false;
         var a = anim.Trim();
         return a.IndexOf("jump", StringComparison.OrdinalIgnoreCase) >= 0 ||
-               a.IndexOf("fall", StringComparison.OrdinalIgnoreCase) >= 0;
+               a.IndexOf("fall", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               a.IndexOf("pipe", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               a.IndexOf("chute", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static bool IsLandingTransition(string? previousAnim, string? newAnim)
@@ -83,7 +85,8 @@ public static class CombatSyncHelpers
         if (string.IsNullOrWhiteSpace(newAnim)) return false;
         var next = newAnim.Trim();
 
-        if (next.IndexOf("land", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (next.IndexOf("land", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            next.IndexOf("crouch", StringComparison.OrdinalIgnoreCase) >= 0)
             return true;
 
         if (IsAirborneAnim(previousAnim))
@@ -91,7 +94,6 @@ public static class CombatSyncHelpers
             if (next.StartsWith("idle", StringComparison.OrdinalIgnoreCase) ||
                 next.StartsWith("run", StringComparison.OrdinalIgnoreCase) ||
                 next.StartsWith("walk", StringComparison.OrdinalIgnoreCase) ||
-                next.IndexOf("crouch", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 next.IndexOf("remain", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return true;

@@ -483,7 +483,7 @@ namespace DeadCellsMultiplayerMod
                     if (req.TargetId != localId)
                         continue;
 
-                    if (_localDeadCine == null || !_localDeadCine.IsHomunculusNearCorpse(ReviveHomunculusBodyMaxDistancePx))
+                    if (_localDeadCine == null)
                         continue;
 
                     if (!IsReviverPositionValidForLocalCorpse(net, req.ReviverId))
@@ -1007,11 +1007,7 @@ namespace DeadCellsMultiplayerMod
             if (_nextReviveAttemptTicks != 0 && now < _nextReviveAttemptTicks)
                 return;
 
-            if (!TryConsumeOneFlask(me))
-            {
-                ResetReviveHold();
-                return;
-            }
+            TryConsumeOneFlask(me);
 
             net.SendPlayerReviveRequest(nearest.UserId);
             _nextReviveAttemptTicks = now + (long)(Stopwatch.Frequency * ReviveAttemptCooldownSeconds);
@@ -1066,15 +1062,6 @@ namespace DeadCellsMultiplayerMod
                 if (distSq > ReviveUseDistancePx * ReviveUseDistancePx)
                     continue;
 
-                if (state.HasHeadPosition)
-                {
-                    var hdx = state.HeadX - state.X;
-                    var hdy = state.HeadY - state.Y;
-                    var headBodyDistSq = hdx * hdx + hdy * hdy;
-                    var maxHeadBodySq = ReviveHomunculusBodyMaxDistancePx * ReviveHomunculusBodyMaxDistancePx * 16.0;
-                    if (headBodyDistSq > maxHeadBodySq)
-                        continue;
-                }
 
                 if (distSq < bestDistSq)
                 {

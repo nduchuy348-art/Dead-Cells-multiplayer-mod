@@ -228,10 +228,27 @@ public partial class InteractionSync
                 if (vineLadder == null)
                     continue;
 
+                // Vine ladders stay grown permanently in the current level.
+                // Do not re-trigger activation or sprout VFX on repeated heartbeat packets.
+                if (_appliedVineLadders.Contains(vineLadder))
+                    continue;
+
+                try
+                {
+                    if (vineLadder.used)
+                    {
+                        _appliedVineLadders.Add(vineLadder);
+                        continue;
+                    }
+                }
+                catch { }
+
                 // The host re-asserts latched vine ladders on a heartbeat; activate() is not
                 // idempotent natively, so apply each one exactly once per level.
                 if (!TryClaimPersistentInteractionApply(vineLadder))
                     continue;
+
+                _appliedVineLadders.Add(vineLadder);
 
                 try
                 {

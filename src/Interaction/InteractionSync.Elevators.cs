@@ -52,6 +52,53 @@ public partial class InteractionSync
         }
     }
 
+    private bool Hook_PurpleElevatorButton_canBeActivated(Hook_PurpleElevatorButton.orig_canBeActivated orig, PurpleElevatorButton self, Hero by)
+    {
+        // Remote ghost entities must not activate elevator buttons locally or trigger local focus sounds
+        if (by != null && ModEntry.me != null && !ReferenceEquals(by, ModEntry.me))
+            return false;
+
+        return orig(self, by);
+    }
+
+    private void Hook_PurpleElevatorButton_onFocus(Hook_PurpleElevatorButton.orig_onFocus orig, PurpleElevatorButton self)
+    {
+        var me = ModEntry.me;
+        if (me == null || self == null)
+            return;
+
+        // Suppress 2D global focus chime when local hero is far away from the elevator call button
+        try
+        {
+            var dx = System.Math.Abs(self.cx - me.cx);
+            var dy = System.Math.Abs(self.cy - me.cy);
+            if (dx > 5 || dy > 5)
+                return;
+        }
+        catch
+        {
+        }
+
+        orig(self);
+    }
+
+    private void Hook_PurpleElevatorButton_onActivate(Hook_PurpleElevatorButton.orig_onActivate orig, PurpleElevatorButton self, Hero by, bool flag)
+    {
+        var me = ModEntry.me;
+        if (me != null && self != null)
+        {
+            if (by != null && !ReferenceEquals(by, me))
+                return;
+
+            var dx = System.Math.Abs(self.cx - me.cx);
+            var dy = System.Math.Abs(self.cy - me.cy);
+            if (dx > 15 || dy > 15)
+                return;
+        }
+
+        orig(self, by, flag);
+    }
+
     private static void TryApplyElevatorRemoteActivation(Elevator elevator)
     {
         if (elevator == null)

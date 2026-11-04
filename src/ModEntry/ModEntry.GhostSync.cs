@@ -1629,14 +1629,50 @@ namespace DeadCellsMultiplayerMod
                         continue;
 
                     var client = clients[index];
-                    if (client?.kingWeaponsManager == null) continue;
-                    if (attack.Action == RemoteAttackAction.Interrupt)
+                    if (client == null) continue;
+
+                    if (attack.Slot >= 2)
                     {
-                        client.kingWeaponsManager.queueInterrupt(attack.Slot, attack.Kind);
+                        if (client.spr?._animManager != null)
+                        {
+                            try
+                            {
+                                var isBomb = !string.IsNullOrWhiteSpace(attack.Kind) &&
+                                    (attack.Kind.IndexOf("bomb", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                     attack.Kind.IndexOf("grenade", StringComparison.OrdinalIgnoreCase) >= 0);
+                                var anim = isBomb ? "throwBomb" : "throw";
+                                client.spr._animManager.play(anim.AsHaxeString(), null, null).stopOnLastFrame(Ref<bool>.Null);
+                            }
+                            catch
+                            {
+                                try { client.spr._animManager.play("throw".AsHaxeString(), null, null).stopOnLastFrame(Ref<bool>.Null); } catch { }
+                            }
+                        }
+
+                        var fx = client._level?.fx ?? me?._level?.fx;
+                        if (fx != null && client.spr != null)
+                        {
+                            try
+                            {
+                                var dir = client.dir != 0 ? client.dir : 1;
+                                var fxX = client.spr.x + dir * 16.0;
+                                var fxY = client.spr.y - 12.0;
+                                fx.dust(fxX, fxY, 12.0, 8, 0);
+                                fx.landSmoke(fxX, fxY, null);
+                            }
+                            catch { }
+                        }
                     }
-                    else
+                    else if (client.kingWeaponsManager != null)
                     {
-                        client.kingWeaponsManager.queueAttack(attack.Slot, attack.Kind);
+                        if (attack.Action == RemoteAttackAction.Interrupt)
+                        {
+                            client.kingWeaponsManager.queueInterrupt(attack.Slot, attack.Kind);
+                        }
+                        else
+                        {
+                            client.kingWeaponsManager.queueAttack(attack.Slot, attack.Kind);
+                        }
                     }
 
                     // Remote ATK changes GhostKing.spr outside the ANIM path. Drop the body-anim
@@ -1754,10 +1790,8 @@ namespace DeadCellsMultiplayerMod
                     {
                         fx.breakGroundLight(cx, cy, 1, 1);
                         fx.dust(lx, ly, 8.0, 4, 0);
-                        if (anim.StartsWith("idle", StringComparison.OrdinalIgnoreCase))
-                        {
-                            anim = "land";
-                        }
+                        client.spr._animManager?.play("crouch".AsHaxeString(), null, null).stopOnLastFrame(Ref<bool>.Null);
+                        return;
                     }
                     else if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsRollTransition(prevAnim, anim))
                     {

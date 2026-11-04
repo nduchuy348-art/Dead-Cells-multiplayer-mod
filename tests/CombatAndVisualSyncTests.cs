@@ -330,4 +330,44 @@ public sealed class CombatAndVisualSyncTests
         Assert.Equal(10084688, lowHealth.innerColor);
         Assert.Equal(10084688, lowHealth.outerColor);
     }
+
+    [Theory]
+    [InlineData("pipe", true)]
+    [InlineData("chute", true)]
+    [InlineData("pipe_exit", true)]
+    [InlineData("fall", true)]
+    [InlineData("jump", true)]
+    [InlineData("idle", false)]
+    [InlineData("run", false)]
+    public void IsAirborneAnim_RecognizesPassageAndFallTransitions(string? anim, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsAirborneAnim(anim));
+    }
+
+    [Theory]
+    [InlineData(null, "crouch", true)]
+    [InlineData("", "crouch", true)]
+    [InlineData("fall", "crouch", true)]
+    [InlineData("pipe", "crouch", true)]
+    [InlineData("chute", "idle", true)]
+    [InlineData("fall", "idle", true)]
+    [InlineData(null, "land", true)]
+    [InlineData("jump", "land", true)]
+    [InlineData("pipe", "land", true)]
+    [InlineData("idle", "run", false)]
+    [InlineData("run", "idle", false)]
+    public void IsLandingTransition_RecognizesCrouchAndPassageLandings(string? prevAnim, string? newAnim, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsLandingTransition(prevAnim, newAnim));
+    }
+
+    [Fact]
+    public void ReviveConstants_HaveGenerousTolerancesForNetworkCoop()
+    {
+        Assert.True(Core.Constants.GameConstants.ReviveUseDistancePx >= 72.0);
+        Assert.True(Core.Constants.GameConstants.ReviveRemotePositionValidationPx >= 240.0);
+        Assert.True(Core.Constants.GameConstants.RemoteDownedStateStaleSeconds >= 60.0);
+    }
 }
+
+

@@ -281,7 +281,17 @@ namespace DeadCellsMultiplayerMod.MultiplayerModUI.lifeUI
 
         private LifeSlot initkingLife(HUD self, int slotIndex, dc.ui.hud.LifeBar kinglifeui)
         {
-            this.toplib = self.topRightFlowT;
+            if (this.toplib == null || this.toplib.parent == null || !ReferenceEquals(this.toplib.parent, self.root))
+            {
+                try { this.toplib?.remove(); } catch { }
+                var partyFlow = new dc.h2d.Flow(self.root);
+                partyFlow.x = 20.0;
+                partyFlow.y = 200.0;
+                partyFlow.isVertical = true;
+                partyFlow.set_verticalAlign(new FlowAlign.Top());
+                partyFlow.set_horizontalAlign(new FlowAlign.Left());
+                this.toplib = partyFlow;
+            }
 
             // The OUTER owner is a vanilla-managed FlowBox. The inner panel is a plain Object so
             // its graphics/text keep exact positions, but it cannot outlive the owning HUD.
@@ -289,7 +299,7 @@ namespace DeadCellsMultiplayerMod.MultiplayerModUI.lifeUI
                 null, Ref<double>.Null, Ref<double>.Null, Ref<bool>.Null, null);
             owner.isVertical = false;
             owner.box.alpha = 0;
-            owner.set_horizontalAlign(new FlowAlign.Middle());
+            owner.set_horizontalAlign(new FlowAlign.Left());
             owner.set_verticalAlign(new FlowAlign.Middle());
 
             var panel = new dc.h2d.Object(null);
@@ -328,9 +338,6 @@ namespace DeadCellsMultiplayerMod.MultiplayerModUI.lifeUI
             try { kinglifeui.visible = false; } catch { }
 
             this.toplib.addChild(owner);
-            this.toplib.isVertical = true;
-            this.toplib.set_verticalAlign(new FlowAlign.Top());
-            this.toplib.set_horizontalAlign(new FlowAlign.Right());
 
             var slot = new LifeSlot(slotIndex, kinglifeui, owner, panel)
             {

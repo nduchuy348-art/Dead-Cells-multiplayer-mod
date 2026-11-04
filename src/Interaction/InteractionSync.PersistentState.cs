@@ -44,6 +44,9 @@ public partial class InteractionSync
     private readonly HashSet<Teleport> _hostOpenedTeleports =
         new(ReferenceEqualityComparer.Instance);
 
+    private readonly HashSet<VineLadder> _appliedVineLadders =
+        new(ReferenceEqualityComparer.Instance);
+
     /// <summary>
     /// Idempotency window for latched mechanisms.
     /// </summary>
@@ -71,6 +74,7 @@ public partial class InteractionSync
     {
         _hostActivatedVineLadders.Clear();
         _hostOpenedTeleports.Clear();
+        _appliedVineLadders.Clear();
         _lastPersistentInteractionApplyTickMs.Clear();
         _lastRemotePlateTriggerTickMs.Clear();
         _lastPersistentInteractionHeartbeatMs = 0;
