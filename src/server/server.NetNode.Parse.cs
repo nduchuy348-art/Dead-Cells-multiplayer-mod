@@ -1135,6 +1135,39 @@ public sealed partial class NetNode
         return true;
     }
 
+    private static bool TryParseInterEliteShrinePayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterEliteShrineEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 3)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var x))
+            return false;
+        if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
+            return false;
+
+        var levelId = parts.Length >= 4 ? (parts[3] ?? string.Empty) : string.Empty;
+        ev = new InterEliteShrineEvent(userId, x, y, levelId);
+        return true;
+    }
+
     private static bool TryParsePositionLine(
         string line,
         int? senderId,

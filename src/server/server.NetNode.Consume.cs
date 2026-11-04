@@ -308,6 +308,9 @@ public sealed partial class NetNode
     public bool TryConsumeInterPortalEvents(out List<InterPortalEvent> events)
         => TryConsumePending(_pendingInterPortalEvents, out events);
 
+    public bool TryConsumeInterEliteShrineEvents(out List<InterEliteShrineEvent> events)
+        => TryConsumePending(_pendingInterEliteShrineEvents, out events);
+
     public bool TryGetRemoteHpSnapshots(out List<RemoteHpSnapshot> snapshot)
     {
         lock (_sync)

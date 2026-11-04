@@ -1396,13 +1396,18 @@ namespace DeadCellsMultiplayerMod
             try
             {
                 var lvl = self._level;
-                if (lvl?.fx != null && self.spr != null)
+                if (lvl?.fx != null)
                 {
-                    var cx = self.cx != 0 ? self.cx : (int)System.Math.Floor(self.spr.x / 24.0);
-                    var cy = self.cy != 0 ? self.cy : (int)System.Math.Floor(self.spr.y / 24.0);
+                    var px = self.spr != null && self.spr.x != 0 ? self.spr.x : (self.cx + self.xr) * 24.0;
+                    var py = self.spr != null && self.spr.y != 0 ? self.spr.y : (self.cy + self.yr) * 24.0;
+                    var cx = (int)System.Math.Floor(px / 24.0);
+                    var cy = (int)System.Math.Floor(py / 24.0);
+
                     lvl.fx.breakGroundLight(cx, cy, 1, 1);
-                    lvl.fx.dust(self.spr.x, self.spr.y, 8.0, 4, 0);
+                    lvl.fx.dust(px, py, 12.0, 6, 0);
+                    lvl.fx.groundStones(px, py, null, null);
                 }
+                self.landStun(0.35, true);
                 self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
             }
             catch { }
@@ -1413,7 +1418,7 @@ namespace DeadCellsMultiplayerMod
             orig(self, height);
             if (self != null && ReferenceEquals(self, me))
             {
-                if (_pendingMapLandingCrouch || height >= 3.0)
+                if (_pendingMapLandingCrouch || height >= 2.0)
                 {
                     TriggerHeroLandingCrouchAndFx(self);
                 }
@@ -1454,13 +1459,8 @@ namespace DeadCellsMultiplayerMod
             Tools.GameTrace.Event("hero", "wakeup cell={CX},{CY} level={Level}", cx, cy, SafeTrace(() => lvl?.map?.id?.ToString()));
             _debugExplorerRevealAppliedSignature = string.Empty;
             orig(self, lvl, cx, cy);
-            try
-            {
-                self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
-                lvl?.fx?.breakGroundLight(cx, cy, 1, 1);
-                lvl?.fx?.dust(cx * 24.0, cy * 24.0, 8.0, 4, 0);
-            }
-            catch { }
+            _pendingMapLandingCrouch = true;
+            TriggerHeroLandingCrouchAndFx(self);
             EnsureHeroVisibilityAfterRoomChange(me);
             // Either entry point can be the joiner's first level; arming is one-shot, so whichever
             // runs first claims it.

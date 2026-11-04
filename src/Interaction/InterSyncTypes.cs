@@ -191,3 +191,19 @@ public readonly struct InterPortalEvent
         LevelId = levelId ?? string.Empty;
     }
 }
+
+public readonly struct InterEliteShrineEvent
+{
+    public readonly int UserId;
+    public readonly double X;
+    public readonly double Y;
+    public readonly string LevelId;
+
+    public InterEliteShrineEvent(int userId, double x, double y, string levelId = "")
+    {
+        UserId = userId;
+        X = x;
+        Y = y;
+        LevelId = levelId ?? string.Empty;
+    }
+}

@@ -1004,6 +1004,16 @@ namespace DeadCellsMultiplayerMod
                 return;
             }
 
+            if (_role == NetRole.Client &&
+                HasLocalContinueSaveState(out _) &&
+                _remoteCoopStates.TryGetValue(1, out var hostState) &&
+                MUser.IsContinueCompatible(hostState.CoopId, out _))
+            {
+                _log?.Information("[NetMod] Client detected existing continue save matching coop run {CoopId}, launching continue instead of new game", hostState.CoopId);
+                TryLaunchContinue(screen);
+                return;
+            }
+
             TryLaunchNewGame(screen, custom, streamEnabled);
         }
     }

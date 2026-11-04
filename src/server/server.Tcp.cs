@@ -264,6 +264,8 @@ public sealed partial class NetNode
 
                     if (!string.IsNullOrWhiteSpace(cachedRunReadyPayload))
                         await SendLineToClientSafe(connection, $"{RunLaunchWireCodec.ReadyTag}|{cachedRunReadyPayload}\n").ConfigureAwait(false);
+
+                    DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ArmHostMobRegistryResyncForClientJoin();
                 }
 
                 await SendKnownUsersToClientSafe(connection).ConfigureAwait(false);

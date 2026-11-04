@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using dc;
 using dc.en;
 using dc.hl.types;
@@ -246,6 +246,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         // client needing many times more hits than the host is this drop, not a
                         // missing HP broadcast. Count it so the rate is visible without per-packet spam.
                         MobSyncTrace.LogDamageDropped(isHost, hit.MobIndex, hit.UserId, hit.DamageHint);
+                        if (isHost && (hit.Hp <= 0 || hit.DamageHint > 0) && net != null && hit.MobIndex > 0)
+                        {
+                            net.SendMobDie(hit.MobIndex, 0, 0, hit.Generation, string.Empty);
+                        }
                         continue;
                     }
 
@@ -261,7 +265,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     var replaySpecialHit = isHost
                         ? (hit.DamageHint > 0.0)
                         : (hit.DamageHint > 0.0 || targetLife < prevLife);
-                    if (isHost && replaySpecialHit)
+                    if (isHost && replaySpecialHit && hit.Hp > 0)
                         targetLife = prevLife;
 
                     // On a client, every hit in this queue came from the authoritative host, so its
@@ -341,6 +345,18 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         if (!isHost)
                         {
                             ApplyAuthoritativeLifeState(mob, update.TargetLife, update.TargetMaxLife);
+                        }
+                        else if (update.TargetLife <= 0 && !update.IsBoss)
+                        {
+                            try
+                            {
+                                if (!mob.destroyed && mob.life > 0)
+                                {
+                                    mob.life = 0;
+                                    mob.onDie();
+                                }
+                            }
+                            catch { }
                         }
                         appliedLife = GetMobLifeOrFallback(mob, update.TargetLife);
                     }

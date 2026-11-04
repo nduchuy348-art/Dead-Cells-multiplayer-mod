@@ -136,6 +136,7 @@ public sealed partial class NetNode
             _pendingInterBreakableGroundEvents.Clear();
             _pendingBossRuneUpdateCells.Clear();
             _pendingInterPortalEvents.Clear();
+            _pendingInterEliteShrineEvents.Clear();
             _hasLocalHpSnapshot = false;
         }
         lock (_usedClientIds)

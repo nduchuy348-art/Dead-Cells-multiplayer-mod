@@ -587,6 +587,8 @@ public sealed partial class NetNode
         if (!string.IsNullOrWhiteSpace(readyPayload))
             SendRaw($"{RunLaunchWireCodec.ReadyTag}|{readyPayload}");
 
+        DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ArmHostMobRegistryResyncForClientJoin();
+
         return true;
     }
 
@@ -1259,6 +1261,18 @@ public sealed partial class NetNode
 
         var line = $"GTIME|{gameTimeS.ToString("0.###", CultureInfo.InvariantCulture)}|{(stopGameTime ? 1 : 0)}";
         SendRaw(line);
+    }
+
+    public void SendInterEliteShrine(int userId, double x, double y, string levelId)
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw(
+            $"INTERSHRINE|{userId.ToString(CultureInfo.InvariantCulture)}|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
     private void SendRaw(string payload)

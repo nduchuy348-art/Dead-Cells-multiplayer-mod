@@ -143,5 +143,6 @@ public sealed partial class NetNode
     private readonly PendingQueue<InterBreakableGroundEvent> _pendingInterBreakableGroundEvents = new(PendingInteractionLimit);
     private readonly PendingQueue<InterBossRuneUpdateCellsEvent> _pendingBossRuneUpdateCells = new(PendingInteractionLimit);
     private readonly PendingQueue<InterPortalEvent> _pendingInterPortalEvents = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterEliteShrineEvent> _pendingInterEliteShrineEvents = new(PendingInteractionLimit);
     private int _primaryRemoteId;
 }

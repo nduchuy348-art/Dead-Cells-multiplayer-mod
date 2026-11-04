@@ -519,4 +519,76 @@ public partial class InteractionSync
         return null;
     }
 
+    private bool _applyingRemoteEliteShrineEvents;
+
+    private void Hook_EliteShrine_trigger(Hook_EliteShrine.orig_trigger orig, EliteShrine self, Entity by)
+    {
+        if (_applyingRemoteEliteShrineEvents)
+        {
+            orig(self, by);
+            return;
+        }
+
+        orig(self, by);
+
+        if (!IsNetReadyForSend(LobbySession.NetRef))
+            return;
+
+        try
+        {
+            var net = LobbySession.NetRef!;
+            var (x, y) = GetEntityPixelPos(self);
+            if (x == 0 && y == 0 && self != null)
+            {
+                x = (self.cx + self.xr) * TileSizePx;
+                y = (self.cy + self.yr) * TileSizePx;
+            }
+            var levelId = GetCurrentInteractionLevelId();
+            net.SendInterEliteShrine(net.id, x, y, levelId);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "[InteractionSync] EliteShrine send failed");
+        }
+    }
+
+    private void ApplyRemoteEliteShrineEvents(List<InterEliteShrineEvent> events)
+    {
+        var level = ModEntry.me?._level;
+        if (level == null || events == null || events.Count == 0)
+            return;
+
+        var localId = LobbySession.NetRef?.id ?? 0;
+        _applyingRemoteEliteShrineEvents = true;
+        try
+        {
+            foreach (var ev in events)
+            {
+                if (ev.UserId > 0 && ev.UserId == localId)
+                    continue;
+                if (!IsInteractionEventForCurrentLevel(ev.LevelId))
+                    continue;
+
+                var shrine = FindInteractByPos<EliteShrine>(level, ev.X, ev.Y, 48.0);
+                if (shrine == null)
+                {
+                    _log.Warning("[InteractionSync] No EliteShrine found at x={X} y={Y}", ev.X, ev.Y);
+                    continue;
+                }
+
+                try
+                {
+                    shrine.trigger(ModEntry.me);
+                }
+                catch (Exception ex)
+                {
+                    _log.Warning(ex, "[InteractionSync] Apply EliteShrine trigger failed x={X} y={Y}", ev.X, ev.Y);
+                }
+            }
+        }
+        finally
+        {
+            _applyingRemoteEliteShrineEvents = false;
+        }
+    }
 }

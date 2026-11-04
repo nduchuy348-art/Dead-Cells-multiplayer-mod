@@ -45,7 +45,7 @@ namespace DeadCellsMultiplayerMod.Ghost
             if(cinf == null)
                 return;
 
-            if(!disableSounds && !customSoundManagement)
+            if(!disableSounds)
             {
                 playReleaseSfx(null, null, Ref<bool>.Null, null, null);
             }

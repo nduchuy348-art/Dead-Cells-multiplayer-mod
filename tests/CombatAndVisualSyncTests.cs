@@ -408,6 +408,31 @@ public sealed class CombatAndVisualSyncTests
         Assert.Equal(expectedTime, parsedTime, 3);
         Assert.Equal(expectedStop, parsedStop);
     }
+
+    [Fact]
+    public void EliteShrineEvent_WireEncoding_RoundTrips()
+    {
+        var ev = new DeadCellsMultiplayerMod.Interaction.InterEliteShrineEvent(2, 123.5, 456.75, "PrisonQuarters");
+        Assert.Equal(2, ev.UserId);
+        Assert.Equal(123.5, ev.X);
+        Assert.Equal(456.75, ev.Y);
+        Assert.Equal("PrisonQuarters", ev.LevelId);
+
+        var wire = $"INTERSHRINE|{ev.UserId}|{ev.X.ToString(System.Globalization.CultureInfo.InvariantCulture)}|{ev.Y.ToString(System.Globalization.CultureInfo.InvariantCulture)}|{ev.LevelId}";
+        Assert.StartsWith("INTERSHRINE|", wire);
+
+        var payload = wire["INTERSHRINE|".Length..];
+        var parts = payload.Split('|');
+        Assert.True(int.TryParse(parts[0], out var parsedUser));
+        Assert.True(double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedX));
+        Assert.True(double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedY));
+        var parsedLevel = parts.Length >= 4 ? parts[3] : string.Empty;
+
+        Assert.Equal(ev.UserId, parsedUser);
+        Assert.Equal(ev.X, parsedX, 3);
+        Assert.Equal(ev.Y, parsedY, 3);
+        Assert.Equal(ev.LevelId, parsedLevel);
+    }
 }
 
 

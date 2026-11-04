@@ -1464,6 +1464,23 @@ public sealed partial class NetNode
             return true;
         }
 
+        if (line.StartsWith("INTERSHRINE|", StringComparison.OrdinalIgnoreCase))
+        {
+            var payload = line["INTERSHRINE|".Length..];
+            if (TryParseInterEliteShrinePayload(payload, senderId, forceSenderId, out var ev))
+            {
+                lock (_sync)
+                {
+                    AddBoundedLocked(_pendingInterEliteShrineEvents, ev, PendingInteractionLimit);
+                    _hasRemote = true;
+                }
+
+                if (_role == NetRole.Host && senderId.HasValue)
+                    forwardLine = $"INTERSHRINE|{ev.UserId.ToString(CultureInfo.InvariantCulture)}|{ev.X.ToString(CultureInfo.InvariantCulture)}|{ev.Y.ToString(CultureInfo.InvariantCulture)}|{ev.LevelId}\n";
+            }
+            return true;
+        }
+
         if (line.StartsWith("DIED", StringComparison.OrdinalIgnoreCase))
         {
             if (_role == NetRole.Host)

@@ -139,10 +139,16 @@ public partial class InteractionSync :
         Hook_Elevator.onStep += Hook_Elevator_onStep;
         Hook_PressurePlate.trigger += Hook_PressurePlate_trigger;
         Hook_PressurePlate.onCooldownEnd += Hook_PressurePlate_onCooldownEnd;
+        Hook_PressurePlate.execute += Hook_PressurePlate_execute;
+        Hook_PressurePlate.executeOn += Hook_PressurePlate_executeOn;
+        dc.en.inter.button.Hook_Button.setActivated += Hook_Button_setActivated;
+        dc.en.inter.button.Hook_Button.onActivate += Hook_Button_onActivate;
+        dc.en.inter.button.Hook_Button.onActivationSuccess += Hook_Button_onActivationSuccess;
+        dc.en.inter.button.Hook_ATSwitch.setActivated += Hook_ATSwitch_setActivated;
+        dc.en.inter.button.Hook_ATSwitch.onActivationSuccess += Hook_ATSwitch_onActivationSuccess;
         dc.hxd.res.Hook_Sound.play += Hook_Sound_play;
-        // Button/ATSwitch generated hook classes are not present in every GameProxy build. Their
-        // activation edges are detected in PollLocalButtonActivations from IOnHeroUpdate instead.
-        // Don't hook executeOn - it fires every frame when standing, causing infinite event flood
+        dc.hxd.snd.Hook_Manager.play += Hook_Manager_play;
+        Hook_EliteShrine.trigger += Hook_EliteShrine_trigger;
         Hook_TreasureChest.open += Hook_TreasureChest_open;
         Hook_VineLadder.activate += Hook_VineLadder_activate;
         Hook_Teleport.open += Hook_Teleport_open;
@@ -269,6 +275,9 @@ public partial class InteractionSync :
 
         if (net.TryConsumeInterPortalEvents(out var portalEvents))
             ApplyAndRelease(portalEvents, ApplyRemotePortalEvents);
+
+        if (net.TryConsumeInterEliteShrineEvents(out var eliteShrineEvents))
+            ApplyAndRelease(eliteShrineEvents, ApplyRemoteEliteShrineEvents);
 
         if (net.IsHost)
         {

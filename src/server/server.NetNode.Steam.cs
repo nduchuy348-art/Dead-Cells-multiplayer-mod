@@ -745,6 +745,8 @@ public sealed partial class NetNode
             await SendLineToSteamClientSafe(connection, $"HPMULT|{cachedMobsHpMult.Value.ToString(CultureInfo.InvariantCulture)}|{cachedBossesHpMult.Value.ToString(CultureInfo.InvariantCulture)}\n").ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(cachedRunReadyPayload))
             await SendLineToSteamClientSafe(connection, $"{RunLaunchWireCodec.ReadyTag}|{cachedRunReadyPayload}\n").ConfigureAwait(false);
+
+        DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ArmHostMobRegistryResyncForClientJoin();
     }
 
     private async Task SendSteamHandshakeToSteamClient(SteamClientConnection connection)

@@ -90,6 +90,22 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         }
 
         /// <summary>
+        /// Re-arms the authoritative MOBREG and current level death tombstones broadcast burst when
+        /// a client connects or reconnects mid-run.
+        /// </summary>
+        public static void ArmHostMobRegistryResyncForClientJoin()
+        {
+            if (!IsHostAuthorityForNetIds())
+                return;
+
+            lock (Sync)
+            {
+                s_hostMobRegistryResendsRemaining = HostAuthoritativeBootstrapResyncCount;
+                s_lastHostMobRegistrySendFrame = -99999.0;
+            }
+        }
+
+        /// <summary>
         /// Re-arms the MOBREG broadcast after a runtime mob registration, without disturbing a
         /// bootstrap burst that is still in flight.
         /// </summary>

@@ -31,10 +31,26 @@ public partial class InteractionSync
         return orig(self, loop, volume, channelGroup, soundGroup);
     }
 
+    private dc.hxd.snd.Channel Hook_Manager_play(
+        dc.hxd.snd.Hook_Manager.orig_play orig,
+        dc.hxd.snd.Manager self,
+        dc.hxd.res.Sound sound,
+        dc.hxd.snd.ChannelGroup channelGroup,
+        dc.hxd.snd.SoundGroup soundGroup)
+    {
+        if (_suppressFarInteractiveSound)
+        {
+            var ch = orig(self, sound, channelGroup, soundGroup);
+            try { ch?.set_volume(0.0); } catch { }
+            return ch!;
+        }
+        return orig(self, sound, channelGroup, soundGroup);
+    }
+
     private void Hook_PressurePlate_onCooldownEnd(Hook_PressurePlate.orig_onCooldownEnd orig, PressurePlate self, dc.String k, int idx)
     {
         var me = ModEntry.me;
-        bool far = me != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        bool far = me != null && self != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
         if (far)
             _suppressFarInteractiveSound = true;
         try
@@ -51,7 +67,7 @@ public partial class InteractionSync
     private void Hook_PressurePlate_trigger(Hook_PressurePlate.orig_trigger orig, PressurePlate self, Entity by)
     {
         var me = ModEntry.me;
-        bool far = me != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        bool far = me != null && self != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
         if (far)
             _suppressFarInteractiveSound = true;
         try
@@ -63,7 +79,127 @@ public partial class InteractionSync
             if (far)
                 _suppressFarInteractiveSound = false;
         }
-        TrySendPressurePlateEvent(self);
+        if (self != null)
+            TrySendPressurePlateEvent(self);
+    }
+
+    private void Hook_PressurePlate_execute(Hook_PressurePlate.orig_execute orig, PressurePlate self, Entity by)
+    {
+        var me = ModEntry.me;
+        bool far = me != null && self != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            orig(self, by);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
+    }
+
+    private bool Hook_PressurePlate_executeOn(Hook_PressurePlate.orig_executeOn orig, PressurePlate self, Entity e, Entity by, Ref<bool> noLoop)
+    {
+        var me = ModEntry.me;
+        bool far = me != null && self != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            return orig(self, e, by, noLoop);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
+    }
+
+    private void Hook_Button_setActivated(dc.en.inter.button.Hook_Button.orig_setActivated orig, dc.en.inter.button.Button self)
+    {
+        var me = ModEntry.me;
+        bool far = me != null && self != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            orig(self);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
+    }
+
+    private void Hook_Button_onActivate(dc.en.inter.button.Hook_Button.orig_onActivate orig, dc.en.inter.button.Button self, Hero by, bool lp)
+    {
+        var me = ModEntry.me;
+        bool far = me != null && self != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            orig(self, by, lp);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
+    }
+
+    private void Hook_Button_onActivationSuccess(dc.en.inter.button.Hook_Button.orig_onActivationSuccess orig, dc.en.inter.button.Button self, Hero by)
+    {
+        var me = ModEntry.me;
+        bool far = me != null && self != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            orig(self, by);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
+    }
+
+    private void Hook_ATSwitch_setActivated(dc.en.inter.button.Hook_ATSwitch.orig_setActivated orig, dc.en.inter.button.ATSwitch self)
+    {
+        var me = ModEntry.me;
+        bool far = me != null && self != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            orig(self);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
+    }
+
+    private void Hook_ATSwitch_onActivationSuccess(dc.en.inter.button.Hook_ATSwitch.orig_onActivationSuccess orig, dc.en.inter.button.ATSwitch self, Hero by)
+    {
+        var me = ModEntry.me;
+        bool far = me != null && self != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            orig(self, by);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
     }
 
     /// <summary>
