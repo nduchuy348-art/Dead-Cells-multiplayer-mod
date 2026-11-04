@@ -546,6 +546,7 @@ public sealed partial class NetNode
         string? customGameData;
         string? commitPayload;
         string? executePayload;
+        string? readyPayload;
         int? seed;
         int? seedSequence;
         string? launchKind;
@@ -556,6 +557,7 @@ public sealed partial class NetNode
             customGameData = _cachedHostCustomGameDataPayload;
             commitPayload = _cachedHostRunCommitPayload;
             executePayload = _cachedHostRunExecutePayload;
+            readyPayload = _cachedHostRunReadyPayload;
             seed = _cachedHostSeed;
             seedSequence = _cachedHostRunSeedSequence;
             launchKind = _cachedHostLaunchKind;
@@ -582,6 +584,8 @@ public sealed partial class NetNode
             SendRaw($"SEED|{seedSequence.Value}|{seed.Value}|{launchKind ?? string.Empty}");
         if (!string.IsNullOrWhiteSpace(executePayload))
             SendRaw($"{RunLaunchWireCodec.ExecuteTag}|{executePayload}");
+        if (!string.IsNullOrWhiteSpace(readyPayload))
+            SendRaw($"{RunLaunchWireCodec.ReadyTag}|{readyPayload}");
 
         return true;
     }
@@ -1246,6 +1250,15 @@ public sealed partial class NetNode
             return;
 
         SendRaw($"RUNEPROG|{safe}");
+    }
+
+    public void SendGameTime(double gameTimeS, bool stopGameTime)
+    {
+        if (!HasAnyConnection())
+            return;
+
+        var line = $"GTIME|{gameTimeS.ToString("0.###", CultureInfo.InvariantCulture)}|{(stopGameTime ? 1 : 0)}";
+        SendRaw(line);
     }
 
     private void SendRaw(string payload)

@@ -37,6 +37,33 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             };
 
             s_hostDeathTombstonesBySyncId[syncId] = tombstone;
+            s_hostCurrentLevelAllDeaths.Add(tombstone);
+        }
+
+        private static readonly List<HostDeathTombstone> s_hostCurrentLevelAllDeaths = new();
+
+        internal static void SendHostCurrentLevelDeathResendsLocked(NetNode net, int identityToken)
+        {
+            if (s_hostCurrentLevelAllDeaths.Count == 0)
+                return;
+
+            for (int i = 0; i < s_hostCurrentLevelAllDeaths.Count; i++)
+            {
+                var d = s_hostCurrentLevelAllDeaths[i];
+                if (d.Generation != identityToken)
+                    continue;
+
+                try
+                {
+                    net.SendMobDie(d.SyncId, d.X, d.Y, d.Generation, d.Type);
+                }
+                catch { }
+            }
+        }
+
+        internal static void ClearHostLevelDeathsLocked()
+        {
+            s_hostCurrentLevelAllDeaths.Clear();
         }
 
         private static int SafeMobMaxLife(Mob mob)

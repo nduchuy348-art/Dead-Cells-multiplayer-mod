@@ -453,6 +453,37 @@ public sealed partial class NetNode
             return true;
         }
 
+        if (line.StartsWith("GTIME|", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_role != NetRole.Client)
+                return true;
+
+            var payload = line["GTIME|".Length..];
+            var parts = payload.Split('|');
+            if (parts.Length >= 2 &&
+                double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var hostGameTimeS))
+            {
+                var hostStopGameTime = parts[1] == "1" || parts[1].Equals("true", StringComparison.OrdinalIgnoreCase);
+                try
+                {
+                    var gameData = (ModEntry.Instance?.game ?? dc.pr.Game.Class.ME)?.data;
+                    if (gameData != null)
+                    {
+                        if (hostStopGameTime || System.Math.Abs(gameData.gameTimeS - hostGameTimeS) > 0.25)
+                        {
+                            gameData.gameTimeS = hostGameTimeS;
+                        }
+                        gameData.stopGameTime = hostStopGameTime;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.Warning("[NetNode] Failed to apply GTIME: {msg}", ex.Message);
+                }
+            }
+            return true;
+        }
+
         if (line.StartsWith(RunLaunchWireCodec.CommitTag + "|", StringComparison.Ordinal))
         {
             var payload = line[(RunLaunchWireCodec.CommitTag.Length + 1)..];

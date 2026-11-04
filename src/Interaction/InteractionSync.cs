@@ -138,6 +138,8 @@ public partial class InteractionSync :
         Hook_Door.onDie += Hook_Door_onDie;
         Hook_Elevator.onStep += Hook_Elevator_onStep;
         Hook_PressurePlate.trigger += Hook_PressurePlate_trigger;
+        Hook_PressurePlate.onCooldownEnd += Hook_PressurePlate_onCooldownEnd;
+        dc.hxd.res.Hook_Sound.play += Hook_Sound_play;
         // Button/ATSwitch generated hook classes are not present in every GameProxy build. Their
         // activation edges are detected in PollLocalButtonActivations from IOnHeroUpdate instead.
         // Don't hook executeOn - it fires every frame when standing, causing infinite event flood
@@ -276,6 +278,7 @@ public partial class InteractionSync :
             // that DRIVE those doors so a missed activation packet, a peer that was still loading,
             // or a late joiner all converge instead of staying permanently out of sync.
             BroadcastAuthoritativePersistentInteractions(net);
+            BroadcastAuthoritativeElevatorStates(net);
         }
         if (net.TryConsumeInterBreakableGroundEvents(out var breakableGroundEvents))
             ApplyAndRelease(breakableGroundEvents, ApplyRemoteBreakableGroundEvents);
@@ -330,6 +333,8 @@ public partial class InteractionSync :
         _lastDoorStateSentTickMs.Clear();
         _elevatorLastInterSendTickMs.Clear();
         _elevatorLastAppliedSequence.Clear();
+        _lastElevatorMovingBroadcastTickMs = 0;
+        _lastElevatorRestingBroadcastTickMs = 0;
         _pressurePlateLastAppliedSequence.Clear();
         _buttonActivationState.Clear();
         CachedInteractionLevelData.Clear();

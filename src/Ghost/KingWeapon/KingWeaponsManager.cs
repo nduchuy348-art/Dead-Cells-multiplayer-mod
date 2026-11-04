@@ -177,7 +177,15 @@ namespace DeadCellsMultiplayerMod.Ghost
 
             var activeWeapon = weapon;
             if(activeWeapon == null)
+            {
+                if(pendingAttacks > 0)
+                {
+                    pendingAttacks = 0;
+                    pendingSlot = -1;
+                    pendingKindId = null;
+                }
                 return;
+            }
 
             var game = dc.pr.Game.Class.ME;
             if(game != null) activeWeapon.cd.update(game.tmod);

@@ -1073,11 +1073,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     if (FindTrackedMobIndexLocked(mob) >= 0)
                         return;
 
-                    if (!TryGetMobSyncId(mob, out registerSyncId))
-                        return;
+                    TryGetMobSyncId(mob, out registerSyncId);
 
-                    registerLocalIndex = AddTrackedMobLocked(mob);
-                    shouldQueueInitialSync = registerLocalIndex >= 0;
+                    registerLocalIndex = AddTrackedMobLocked(mob, allowUnboundClient: true);
+                    shouldQueueInitialSync = registerLocalIndex >= 0 && registerSyncId >= 0;
                 }
             }
 

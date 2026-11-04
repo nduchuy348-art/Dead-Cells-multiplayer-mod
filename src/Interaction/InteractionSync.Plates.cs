@@ -16,9 +16,53 @@ namespace DeadCellsMultiplayerMod.Interaction;
 
 public partial class InteractionSync
 {
+    private static bool _suppressFarInteractiveSound;
+
+    private dc.hxd.snd.Channel Hook_Sound_play(
+        dc.hxd.res.Hook_Sound.orig_play orig,
+        dc.hxd.res.Sound self,
+        bool? loop,
+        double? volume,
+        dc.hxd.snd.ChannelGroup channelGroup,
+        dc.hxd.snd.SoundGroup soundGroup)
+    {
+        if (_suppressFarInteractiveSound)
+            return orig(self, loop, 0.0, channelGroup, soundGroup);
+        return orig(self, loop, volume, channelGroup, soundGroup);
+    }
+
+    private void Hook_PressurePlate_onCooldownEnd(Hook_PressurePlate.orig_onCooldownEnd orig, PressurePlate self, dc.String k, int idx)
+    {
+        var me = ModEntry.me;
+        bool far = me != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            orig(self, k, idx);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
+    }
+
     private void Hook_PressurePlate_trigger(Hook_PressurePlate.orig_trigger orig, PressurePlate self, Entity by)
     {
-        orig(self, by);
+        var me = ModEntry.me;
+        bool far = me != null && (System.Math.Abs(self.cx - me.cx) > 15 || System.Math.Abs(self.cy - me.cy) > 15);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            orig(self, by);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
         TrySendPressurePlateEvent(self);
     }
 
@@ -140,6 +184,10 @@ public partial class InteractionSync
                     _pressurePlateLastAppliedSequence[key] = ev.Sequence;
                 }
 
+                var me = ModEntry.me;
+                bool far = me != null && (System.Math.Abs(activator.cx - me.cx) > 15 || System.Math.Abs(activator.cy - me.cy) > 15);
+                if (far)
+                    _suppressFarInteractiveSound = true;
                 try
                 {
                     if (plate != null)
@@ -174,6 +222,11 @@ public partial class InteractionSync
                 catch (Exception ex)
                 {
                     _log.Warning(ex, "[InteractionSync] Apply activator event failed x={X} y={Y}", ev.X, ev.Y);
+                }
+                finally
+                {
+                    if (far)
+                        _suppressFarInteractiveSound = false;
                 }
             }
         }

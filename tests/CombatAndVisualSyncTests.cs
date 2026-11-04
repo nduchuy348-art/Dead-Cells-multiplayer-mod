@@ -368,6 +368,46 @@ public sealed class CombatAndVisualSyncTests
         Assert.True(Core.Constants.GameConstants.ReviveRemotePositionValidationPx >= 240.0);
         Assert.True(Core.Constants.GameConstants.RemoteDownedStateStaleSeconds >= 60.0);
     }
+
+    [Fact]
+    public void InterElevatorStateEvent_RetainsProperties()
+    {
+        var evt = new DeadCellsMultiplayerMod.Interaction.InterElevatorStateEvent(
+            userId: 2,
+            anchorX: 120.0,
+            anchorY: 240.0,
+            sequence: 42,
+            platformX: 120.0,
+            platformY: 360.0,
+            moving: true,
+            levelId: "PrisonersQuarters");
+
+        Assert.Equal(2, evt.UserId);
+        Assert.Equal(120.0, evt.AnchorX);
+        Assert.Equal(240.0, evt.AnchorY);
+        Assert.Equal(42, evt.Sequence);
+        Assert.Equal(120.0, evt.PlatformX);
+        Assert.Equal(360.0, evt.PlatformY);
+        Assert.True(evt.Moving);
+        Assert.Equal("PrisonersQuarters", evt.LevelId);
+    }
+
+    [Theory]
+    [InlineData("GTIME|123.456|1", 123.456, true)]
+    [InlineData("GTIME|0|0", 0.0, false)]
+    [InlineData("GTIME|45.2|false", 45.2, false)]
+    [InlineData("GTIME|99.99|true", 99.99, true)]
+    public void GameTimeProtocol_Parsing_MatchesExpectedValues(string line, double expectedTime, bool expectedStop)
+    {
+        var payload = line["GTIME|".Length..];
+        var parts = payload.Split('|');
+        Assert.True(parts.Length >= 2);
+        Assert.True(double.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedTime));
+        var parsedStop = parts[1] == "1" || parts[1].Equals("true", System.StringComparison.OrdinalIgnoreCase);
+
+        Assert.Equal(expectedTime, parsedTime, 3);
+        Assert.Equal(expectedStop, parsedStop);
+    }
 }
 
 

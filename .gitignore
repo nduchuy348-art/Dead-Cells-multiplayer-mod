@@ -22,3 +22,5 @@ README_REFACTORING.txt
 *.zip
 
 scratch/
+__pycache__/
+*.pyc

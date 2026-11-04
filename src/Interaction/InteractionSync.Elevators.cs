@@ -97,6 +97,19 @@ public partial class InteractionSync
         }
 
         orig(self, by, flag);
+
+        if (self?.elevatorTarget != null && IsNetReadyForSend(LobbySession.NetRef))
+        {
+            try
+            {
+                var net = LobbySession.NetRef!;
+                var (ax, ay) = GetElevatorStableAnchor(self.elevatorTarget);
+                var seq = ++_nextElevatorSequence;
+                var levelId = GetCurrentInteractionLevelId();
+                net.SendInterElevator(net.id, ax, ay, seq, levelId);
+            }
+            catch { }
+        }
     }
 
     private static void TryApplyElevatorRemoteActivation(Elevator elevator)
@@ -113,12 +126,83 @@ public partial class InteractionSync
             return (0, 0);
         try
         {
+            if (e.xLeft != 0 || e.xRight != 0 || e.yTop != 0 || e.yBottom != 0)
+            {
+                var midX = (e.xLeft + e.xRight) * 0.5 * TileSizePx;
+                var topY = e.yTop * TileSizePx;
+                return (midX, topY);
+            }
             return ((e.cx + e.xr) * TileSizePx, (e.cy + e.yr) * TileSizePx);
         }
         catch
         {
             return GetEntityPixelPos(e);
         }
+    }
+
+    private long _lastElevatorMovingBroadcastTickMs;
+    private long _lastElevatorRestingBroadcastTickMs;
+
+    private void BroadcastAuthoritativeElevatorStates(NetNode net)
+    {
+        if (!net.IsHost || !IsNetReadyForSend(net))
+            return;
+
+        var level = ModEntry.me?._level;
+        if (level == null)
+            return;
+
+        var elevators = GetInteractionCandidates<Elevator>(level);
+        if (elevators == null || elevators.Count == 0)
+            return;
+
+        var now = System.Environment.TickCount64;
+        bool allowMovingSend = now - _lastElevatorMovingBroadcastTickMs >= 100;
+        bool allowRestingSend = now - _lastElevatorRestingBroadcastTickMs >= 1000;
+
+        if (!allowMovingSend && !allowRestingSend)
+            return;
+
+        var levelId = GetCurrentInteractionLevelId();
+        if (string.IsNullOrWhiteSpace(levelId))
+            return;
+
+        bool sentMoving = false;
+        bool sentResting = false;
+
+        for (var i = 0; i < elevators.Count; i++)
+        {
+            var e = elevators[i];
+            if (e == null)
+                continue;
+
+            bool isMoving = false;
+            try
+            {
+                isMoving = e.isMoving() || System.Math.Abs(e.speed) > 0.01;
+            }
+            catch { }
+
+            if (isMoving && allowMovingSend)
+            {
+                var (px, py) = GetEntityPixelPos(e);
+                var (ax, ay) = GetElevatorStableAnchor(e);
+                net.SendInterElevatorState(net.id, ax, ay, ++_nextElevatorSequence, px, py, true, levelId);
+                sentMoving = true;
+            }
+            else if (!isMoving && allowRestingSend)
+            {
+                var (px, py) = GetEntityPixelPos(e);
+                var (ax, ay) = GetElevatorStableAnchor(e);
+                net.SendInterElevatorState(net.id, ax, ay, ++_nextElevatorSequence, px, py, false, levelId);
+                sentResting = true;
+            }
+        }
+
+        if (sentMoving)
+            _lastElevatorMovingBroadcastTickMs = now;
+        if (sentResting)
+            _lastElevatorRestingBroadcastTickMs = now;
     }
 
     private void ApplyRemoteElevatorEvents(List<InterElevatorEvent> events)
@@ -232,9 +316,36 @@ public partial class InteractionSync
         elevator.cy = cy;
         elevator.xr = tileX - cx;
         elevator.yr = tileY - cy;
-        if (!ev.Moving)
+
+        if (elevator.spr != null)
         {
-            try { elevator.speed = 0; } catch { }
+            try
+            {
+                elevator.spr.x = ev.PlatformX;
+                elevator.spr.y = ev.PlatformY;
+            }
+            catch { }
+        }
+
+        if (ev.Moving)
+        {
+            bool isMoving = false;
+            try { isMoving = elevator.isMoving(); } catch { }
+            if (!isMoving)
+            {
+                try { elevator.onStep(); } catch { }
+            }
+        }
+        else
+        {
+            try
+            {
+                if (elevator.isMoving())
+                {
+                    elevator.speed = 0;
+                }
+            }
+            catch { }
         }
     }
 

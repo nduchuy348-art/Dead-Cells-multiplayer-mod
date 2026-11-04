@@ -139,11 +139,16 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 BuildHostMobRegistryEntriesLocked(identityToken, s_mobRegistryScratch);
             }
 
-            if (s_mobRegistryScratch.Count == 0)
-                return;
+            if (s_mobRegistryScratch.Count > 0)
+            {
+                net.SendMobRegistry(identityToken, s_mobRegistryScratch);
+                s_mobRegistryScratch.Clear();
+            }
 
-            net.SendMobRegistry(identityToken, s_mobRegistryScratch);
-            s_mobRegistryScratch.Clear();
+            lock (Sync)
+            {
+                SendHostCurrentLevelDeathResendsLocked(net, identityToken);
+            }
         }
 
         private static void BuildHostMobRegistryEntriesLocked(int generation, List<NetNode.MobRegistryEntry> dst)

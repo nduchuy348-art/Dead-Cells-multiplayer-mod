@@ -394,7 +394,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             return true;
         }
 
-        private static int AddTrackedMobLocked(Mob mob)
+        private static int AddTrackedMobLocked(Mob mob, bool allowUnboundClient = false)
         {
             if (mob == null)
                 return -1;
@@ -431,10 +431,11 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 }
             }
 
-            // Clients must not append an unbound transient proxy wrapper. Their sync ids come
+            // Clients must not append an unbound transient proxy wrapper unless explicitly allowed
+            // for level entity registration (runtime elite / summon spawns). Their sync ids come
             // from the level registry/host; adding a wrapper with no id bloats trackedMobs and can
             // later displace the canonical entry. Hosts may allocate ids for runtime spawns.
-            if (syncId < 0 && LobbySession.NetRef?.IsHost != true)
+            if (syncId < 0 && LobbySession.NetRef?.IsHost != true && !allowUnboundClient)
                 return -1;
 
             trackedMobs.Add(mob);
@@ -509,6 +510,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             s_mobSyncAliases = new ConditionalWeakTable<Mob, MobSyncAlias>();
             ClearHostMobStallRecoveryLocked();
             ResetPlayerCombatStateRepairLocked();
+            ClearHostLevelDeathsLocked();
             // nextRuntimeSyncId is deliberately NOT reset here. It is the host's NetId allocator and
             // must stay monotonic for the whole session: the wire generation is a pure hash of map
             // id + seed, so two rebuilds of the SAME level carry the same generation and restarting

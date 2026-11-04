@@ -69,10 +69,14 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 isClient = IsClient(dieNet);
                 isBossDeathCandidate = BossSyncHelpers.IsBossMob(self);
 
+                var hasTrackedNetId = TryGetMobSyncId(self, out var trackedSyncId) && trackedSyncId > 0;
+
                 // Client is not authoritative for mob death; wait for host confirmation. The
                 // authoritative depth is set only while applying a host-confirmed death, allowing
                 // vanilla onDie to run exactly once for normal mobs, elites and bosses.
-                if (isClient && IsSyncMob(self) &&
+                // If a mob has no valid tracked NetId (untracked or already killed on host),
+                // suppressing death would make it permanently immortal, so allow vanilla onDie.
+                if (isClient && IsSyncMob(self) && hasTrackedNetId &&
                     System.Threading.Volatile.Read(ref authoritativeClientMobDieDepth) <= 0)
                 {
                     MarkSuppressedClientMobDie(self);

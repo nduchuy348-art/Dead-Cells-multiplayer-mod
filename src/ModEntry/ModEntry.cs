@@ -238,6 +238,8 @@ namespace DeadCellsMultiplayerMod
         private bool _pendingMapLandingCrouch;
         private long _lastLocalLandingFxTicks;
         private string? _lastLocalHeroAnim;
+        private long _lastHostGameTimeSyncTicks;
+        private bool _lastHostStopGameTime;
 
         private static readonly HashSet<string> BossLevelIds = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -640,6 +642,8 @@ namespace DeadCellsMultiplayerMod
             Hook_GlowKey.applyGlowData += Hook_GlowKey_applyGlowData;
             Hook_Hero.wakeup += hook_hero_wakeup;
             Hook_Hero.onLevelChanged += hook_level_changed;
+            Hook_Hero.onLand += Hook_Hero_onLand;
+            Hook_Hero.onTouchGround += Hook_Hero_onTouchGround;
             Hook_Game.activateSubLevel += Hook_Game_activateSubLevel;
             Hook_Level.onActivation += Hook_Level_onActivation_SubLevelRenderGuard;
             Hook_User.newGame += GameDataSync.user_hook_new_game;
@@ -1004,21 +1008,6 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__Save_save(Hook__Save.orig_save orig, User u, bool onlyGameData)
         {
-            // A connected client is rendering a host-authored world assembled from remote graph,
-            // entity and serializer state. Persisting that reconstruction locally is unsafe: the
-            // client does not own the authoritative run and transient remote identities can be
-            // serialized into MSave. The host remains the only writer while the session is live;
-            // normal local saving resumes after disconnect/role reset.
-            var menuRole = LobbySession.CurrentRole;
-            if (_netRole == NetRole.Client || menuRole == NetRole.Client)
-            {
-                Logger.Debug(
-                    "[NetMod][SaveGuard] blocked non-authoritative client save onlyGameData={OnlyGameData} entryRole={EntryRole} menuRole={MenuRole}",
-                    onlyGameData,
-                    _netRole,
-                    menuRole);
-                return;
-            }
 
             // Never let multiplayer GhostKing / KingSkin avatars enter MSave. A persisted GhostKing
             // reloads through KingSkin.initGfx with a null cooldown map and fatals the game.
@@ -1265,7 +1254,7 @@ namespace DeadCellsMultiplayerMod
 
                     var now = Stopwatch.GetTimestamp();
                     var isLanding = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsLandingTransition(_lastLocalHeroAnim, play);
-                    if (isLanding || _pendingMapLandingCrouch || string.Equals(play, "crouch", StringComparison.OrdinalIgnoreCase))
+                    if (isLanding || string.Equals(play, "crouch", StringComparison.OrdinalIgnoreCase))
                     {
                         if (now - _lastLocalLandingFxTicks > (long)(Stopwatch.Frequency * 0.4))
                         {
@@ -1280,16 +1269,6 @@ namespace DeadCellsMultiplayerMod
                                     lvl.fx.breakGroundLight(cx, cy, 1, 1);
                                     lvl.fx.dust(meRef.spr.x, meRef.spr.y, 8.0, 4, 0);
                                 }
-                            }
-                            catch { }
-                        }
-
-                        if (_pendingMapLandingCrouch && !string.Equals(play, "crouch", StringComparison.OrdinalIgnoreCase))
-                        {
-                            _pendingMapLandingCrouch = false;
-                            try
-                            {
-                                self.play("crouch".AsHaxeString(), null, null);
                             }
                             catch { }
                         }
@@ -1406,6 +1385,67 @@ namespace DeadCellsMultiplayerMod
             _pendingMapLandingCrouch = true;
         }
 
+        private void TriggerHeroLandingCrouchAndFx(Hero self)
+        {
+            if (self == null || !ReferenceEquals(self, me))
+                return;
+
+            _pendingMapLandingCrouch = false;
+            _lastLocalLandingFxTicks = Stopwatch.GetTimestamp();
+
+            try
+            {
+                var lvl = self._level;
+                if (lvl?.fx != null && self.spr != null)
+                {
+                    var cx = self.cx != 0 ? self.cx : (int)System.Math.Floor(self.spr.x / 24.0);
+                    var cy = self.cy != 0 ? self.cy : (int)System.Math.Floor(self.spr.y / 24.0);
+                    lvl.fx.breakGroundLight(cx, cy, 1, 1);
+                    lvl.fx.dust(self.spr.x, self.spr.y, 8.0, 4, 0);
+                }
+                self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
+            }
+            catch { }
+        }
+
+        private void Hook_Hero_onLand(Hook_Hero.orig_onLand orig, Hero self, double height)
+        {
+            orig(self, height);
+            if (self != null && ReferenceEquals(self, me))
+            {
+                if (_pendingMapLandingCrouch || height >= 3.0)
+                {
+                    TriggerHeroLandingCrouchAndFx(self);
+                }
+            }
+        }
+
+        private void Hook_Hero_onTouchGround(Hook_Hero.orig_onTouchGround orig, Hero self)
+        {
+            orig(self);
+            if (self != null && ReferenceEquals(self, me) && _pendingMapLandingCrouch)
+            {
+                TriggerHeroLandingCrouchAndFx(self);
+            }
+        }
+
+        private void SyncHostGameTimeToClients()
+        {
+            if (_netRole != NetRole.Host || _net == null || !_net.IsAlive)
+                return;
+
+            var gameData = (game ?? dc.pr.Game.Class.ME)?.data;
+            if (gameData == null)
+                return;
+
+            var now = System.Environment.TickCount64;
+            if (now - _lastHostGameTimeSyncTicks >= 1000 || gameData.stopGameTime != _lastHostStopGameTime)
+            {
+                _lastHostGameTimeSyncTicks = now;
+                _lastHostStopGameTime = gameData.stopGameTime;
+                _net.SendGameTime(gameData.gameTimeS, gameData.stopGameTime);
+            }
+        }
 
         public void hook_hero_wakeup(Hook_Hero.orig_wakeup orig, Hero self, Level lvl, int cx, int cy)
         {
@@ -1520,6 +1560,11 @@ namespace DeadCellsMultiplayerMod
                 stepStart = RuntimeHitchWatch.Start();
                 SendHeroCoords();
                 LogHeroUpdateStepIfSlow("ModEntry.OnHeroUpdate.SendHeroCoords", stepStart, null);
+            }
+
+            if (_netRole == NetRole.Host)
+            {
+                SyncHostGameTimeToClients();
             }
 
             stepStart = RuntimeHitchWatch.Start();

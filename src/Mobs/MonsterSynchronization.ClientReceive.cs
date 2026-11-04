@@ -2595,11 +2595,25 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         return null;
                 }
 
-                if (uniqueBoss == null)
-                    return null;
+                if (uniqueBoss != null)
+                {
+                    TryRebindTrackedMobSyncIdLocked(uniqueBoss, die.MobIndex);
+                    return uniqueBoss;
+                }
 
-                TryRebindTrackedMobSyncIdLocked(uniqueBoss, die.MobIndex);
-                return uniqueBoss;
+                if (TryBindUnboundMobByTypeAndSpawnLocked(
+                        die.MobIndex,
+                        die.Type,
+                        die.X,
+                        die.Y,
+                        reservedMobs: null,
+                        out var boundMob,
+                        out _) && boundMob != null)
+                {
+                    return boundMob;
+                }
+
+                return null;
             }
         }
 

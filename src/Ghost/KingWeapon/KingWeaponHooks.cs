@@ -568,8 +568,12 @@ internal static class KingWeaponHooks
     {
         if(KingWeaponSupport.IsKingWeapon(self))
         {
+            var spatialVol = CalculateSpatializedVolume(self, 1.0);
             var prevDisable = self.disableSounds;
-            self.disableSounds = true;
+            if(!spatialVol.HasValue)
+            {
+                self.disableSounds = true;
+            }
             try
             {
                 KingWeaponSupport.WithKingContext(self, () =>
@@ -671,7 +675,7 @@ internal static class KingWeaponHooks
                     }
 
                     var spatialVol = CalculateSpatializedVolume(self, 1.0);
-                    if(spatialVol.HasValue && !self.disableSounds && !self.customSoundManagement)
+                    if(spatialVol.HasValue && !self.disableSounds)
                     {
                         try { self.playReleaseSfx(spatialVol.Value, null, Ref<bool>.Null, null, null); } catch { }
                     }
@@ -812,7 +816,10 @@ internal static class KingWeaponHooks
         {
             var spatialVol = CalculateSpatializedVolume(self, 1.0);
             var prevDisable = self.disableSounds;
-            self.disableSounds = true;
+            if(!spatialVol.HasValue)
+            {
+                self.disableSounds = true;
+            }
             try
             {
                 KingWeaponSupport.WithKingContext(self, () =>
@@ -825,7 +832,7 @@ internal static class KingWeaponHooks
                 self.disableSounds = prevDisable;
             }
 
-            if(spatialVol.HasValue && !self.disableSounds && !self.customSoundManagement)
+            if(spatialVol.HasValue && !self.disableSounds)
             {
                 try { self.playReleaseSfx(spatialVol.Value, null, Ref<bool>.Null, null, null); } catch { }
             }
