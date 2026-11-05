@@ -204,11 +204,42 @@ public static class CombatSyncHelpers
     /// <summary>
     /// Performs cubic Hermite spline interpolation between (p0, v0) and (p1, v1) over normalized time t in [0, 1].
     /// duration is the time interval between p0 and p1 (used to scale velocities).
+    /// Applies Fritsch-Carlson monotone tangent clamping to guarantee strictly monotonic interpolation
+    /// without overshoot, undershoot, or stationary jitter/floor dipping.
     /// </summary>
     public static double HermiteInterpolate(double p0, double v0, double p1, double v1, double t, double duration = 1.0)
     {
         if (t <= 0.0) return p0;
         if (t >= 1.0) return p1;
+
+        double delta = p1 - p0;
+        if (Math.Abs(delta) < 0.0001)
+        {
+            // Position did not change: strictly clamp to constant to prevent overshoot/jitter
+            return p0;
+        }
+
+        double safeDuration = duration > 0.0001 ? duration : 1.0;
+        double m0 = v0 * safeDuration;
+        double m1 = v1 * safeDuration;
+
+        // Fritsch-Carlson monotonicity: clamp tangents so spline never overshoots or oscillates
+        if (delta > 0.0)
+        {
+            if (m0 < 0.0) m0 = 0.0;
+            else if (m0 > 3.0 * delta) m0 = 3.0 * delta;
+
+            if (m1 < 0.0) m1 = 0.0;
+            else if (m1 > 3.0 * delta) m1 = 3.0 * delta;
+        }
+        else // delta < 0.0
+        {
+            if (m0 > 0.0) m0 = 0.0;
+            else if (m0 < 3.0 * delta) m0 = 3.0 * delta;
+
+            if (m1 > 0.0) m1 = 0.0;
+            else if (m1 < 3.0 * delta) m1 = 3.0 * delta;
+        }
 
         double t2 = t * t;
         double t3 = t2 * t;
@@ -217,9 +248,6 @@ public static class CombatSyncHelpers
         double h10 = t3 - 2.0 * t2 + t;
         double h01 = -2.0 * t3 + 3.0 * t2;
         double h11 = t3 - t2;
-
-        double m0 = v0 * duration;
-        double m1 = v1 * duration;
 
         return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
     }
@@ -283,6 +311,15 @@ public static class CombatSyncHelpers
         if (a.IndexOf("fire", StringComparison.OrdinalIgnoreCase) >= 0) return true;
         if (a.IndexOf("dive", StringComparison.OrdinalIgnoreCase) >= 0) return true;
         if (a.IndexOf("hit", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (a.IndexOf("prep", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (a.IndexOf("aim", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (a.IndexOf("windup", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (a.IndexOf("anticip", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (a.IndexOf("ready", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (a.IndexOf("channel", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (a.IndexOf("flash", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (a.IndexOf("focus", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (a.IndexOf("warn", StringComparison.OrdinalIgnoreCase) >= 0) return true;
         return false;
     }
 

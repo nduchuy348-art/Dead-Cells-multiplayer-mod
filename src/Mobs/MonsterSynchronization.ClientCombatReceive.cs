@@ -247,8 +247,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             var ay = GetWorldY(attackerEntity);
                             var reachDx = ax - hit.X;
                             var reachDy = ay - hit.Y;
-                            // Generous reach check: 25 tiles (600px) allows full room / long-range attacks
-                            const double MaxHitSanityDistanceSq = (24.0 * 25.0) * (24.0 * 25.0);
+                            // Generous reach check: 64 tiles (1536px) allows full room / long-range attacks, skills, bows, and turrets
+                            const double MaxHitSanityDistanceSq = (24.0 * 64.0) * (24.0 * 64.0);
                             if (double.IsFinite(reachDx) && double.IsFinite(reachDy) &&
                                 (reachDx * reachDx + reachDy * reachDy) > MaxHitSanityDistanceSq)
                             {

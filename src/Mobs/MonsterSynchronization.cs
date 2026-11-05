@@ -1405,6 +1405,36 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
             try
             {
+                var sourceSkill = (Entity?)((dynamic)attack).sourceSkill;
+                if (sourceSkill != null && IsLocalPlayerDamageSource(sourceSkill, localHero, gameHero))
+                    return true;
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var skill = (Entity?)((dynamic)attack).skill;
+                if (skill != null && IsLocalPlayerDamageSource(skill, localHero, gameHero))
+                    return true;
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var from = (Entity?)((dynamic)attack).from;
+                if (from != null && IsLocalPlayerDamageSource(from, localHero, gameHero))
+                    return true;
+            }
+            catch
+            {
+            }
+
+            try
+            {
                 InventItem sourceItem;
                 try
                 {
@@ -1479,6 +1509,23 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     if (gameHero != null && IsSameEntityForDamage(owner, gameHero))
                         return true;
                     if ((owner is Hero || owner is KingSkin) && !IsKnownRemoteClientEntity(owner))
+                        return true;
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var from = (Entity?)((dynamic)source).from;
+                if (from != null && !ReferenceEquals(from, source))
+                {
+                    if (localHero != null && IsSameEntityForDamage(from, localHero))
+                        return true;
+                    if (gameHero != null && IsSameEntityForDamage(from, gameHero))
+                        return true;
+                    if ((from is Hero || from is KingSkin) && !IsKnownRemoteClientEntity(from))
                         return true;
                 }
             }

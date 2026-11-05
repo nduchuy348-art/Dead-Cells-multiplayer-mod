@@ -189,16 +189,114 @@ public sealed class SnapshotBufferAndCombatAssistedTests
     [Theory]
     [InlineData(0.0, 0.0, 50.0, 50.0, true)]       // Close (70px) -> valid
     [InlineData(0.0, 0.0, 400.0, 0.0, true)]      // 400px (16.6 tiles) -> valid (long range skill/bow)
-    [InlineData(0.0, 0.0, 590.0, 0.0, true)]      // 590px (< 600px max) -> valid
-    [InlineData(0.0, 0.0, 650.0, 0.0, false)]     // 650px (> 600px max) -> reach exceeded
-    [InlineData(0.0, 0.0, 1000.0, 1000.0, false)] // Off screen / distant level -> reach exceeded
+    [InlineData(0.0, 0.0, 650.0, 0.0, true)]      // 650px (27 tiles, screen-width bow/skill) -> valid
+    [InlineData(0.0, 0.0, 1200.0, 0.0, true)]     // 1200px (50 tiles, cross-room turret/deployable) -> valid
+    [InlineData(0.0, 0.0, 1530.0, 0.0, true)]     // 1530px (< 1536px / 64 tiles max) -> valid
+    [InlineData(0.0, 0.0, 1600.0, 0.0, false)]    // 1600px (> 1536px / 64 tiles max) -> reach exceeded
+    [InlineData(0.0, 0.0, 2500.0, 2500.0, false)] // Off screen / distant level -> reach exceeded
     public void SpatialSanityReach_ChecksAccurately(double ax, double ay, double mx, double my, bool expectedValid)
     {
         double dx = ax - mx;
         double dy = ay - my;
-        const double MaxHitSanityDistanceSq = (24.0 * 25.0) * (24.0 * 25.0); // 600px squared = 360,000
+        const double MaxHitSanityDistanceSq = (24.0 * 64.0) * (24.0 * 64.0); // 1536px squared (64 tiles)
 
         bool isValid = double.IsFinite(dx) && double.IsFinite(dy) && (dx * dx + dy * dy) <= MaxHitSanityDistanceSq;
         Assert.Equal(expectedValid, isValid);
+    }
+
+    [Fact]
+    public void MobSnapshotBuffer_SampleHermite_StationaryWithResidualVelocity_NoDipOrJitter()
+    {
+        var buffer = new MobSnapshotBuffer();
+        // Mobs standing still at Y=88.0, but host engine reports residual gravity/velocity dy = 0.5 (12 px/frame)
+        buffer.Add(new MobSnapshot(10.0, x: 100.0, y: 88.0, dx: 0.2, dy: 0.5, dir: 1, life: 100, maxLife: 100, animPayload: "idle", statePayload: ""));
+        buffer.Add(new MobSnapshot(20.0, x: 100.0, y: 88.0, dx: 0.2, dy: 0.5, dir: 1, life: 100, maxLife: 100, animPayload: "idle", statePayload: ""));
+
+        // Fritsch-Carlson monotonicity MUST clamp tangent to zero because delta = 0.
+        // Sampling at any intermediate frame must return EXACTLY Y=88.0 (no floor dip or hop)
+        for (double f = 10.0; f <= 20.0; f += 0.5)
+        {
+            Assert.True(buffer.SampleHermite(f, out var x, out var y, out _, out _, out _, out _));
+            Assert.Equal(100.0, x, 4);
+            Assert.Equal(88.0, y, 4);
+        }
+    }
+
+    [Fact]
+    public void MobSnapshotBuffer_Add_MonotonicTimestamps_PreventZeroDeltaSnap()
+    {
+        var buffer = new MobSnapshotBuffer();
+        // Add two snapshots at the exact same frame timestamp
+        buffer.Add(new MobSnapshot(10.0, x: 100.0, y: 50.0, dx: 0.0, dy: 0.0, dir: 1, life: 100, maxLife: 100, animPayload: "idle", statePayload: ""));
+        buffer.Add(new MobSnapshot(10.0, x: 110.0, y: 50.0, dx: 0.0, dy: 0.0, dir: 1, life: 100, maxLife: 100, animPayload: "idle", statePayload: ""));
+
+        Assert.True(buffer.TryGetLatest(out var latest));
+        Assert.True(buffer.TryGetAt(1, out var oldest));
+
+        // Timestamps must be strictly increasing
+        Assert.True(latest.ReceivedFrame > oldest.ReceivedFrame);
+
+        // Sampling at intermediate frame must interpolate smoothly without divide-by-zero
+        Assert.True(buffer.SampleHermite(10.005, out var x, out _, out _, out _, out var snap, out _));
+        Assert.False(snap);
+        Assert.True(x >= 100.0 && x <= 110.0);
+    }
+
+    [Fact]
+    public void MobSnapshotBuffer_SampleHermite_GroundedMob_SuppressesDownwardExtrapolation()
+    {
+        var buffer = new MobSnapshotBuffer();
+        // Grounded mob with small residual gravity (dy = 0.15 <= 0.25 threshold)
+        buffer.Add(new MobSnapshot(10.0, x: 100.0, y: 88.0, dx: 1.0, dy: 0.15, dir: 1, life: 100, maxLife: 100, animPayload: "run", statePayload: ""));
+
+        // Sample at 12.0 (2 frames ahead of latest snapshot 10.0)
+        Assert.True(buffer.SampleHermite(12.0, out var x, out var y, out _, out _, out _, out _));
+        // X extrapolates forward
+        Assert.Equal(100.0 + 24.0 * 2.0, x, 2);
+        // Y stays strictly at floor level 88.0 (does not sink into floor)
+        Assert.Equal(88.0, y, 4);
+    }
+
+    [Fact]
+    public void HermiteInterpolation_FritschCarlson_PreventsOvershootAndUndershoot()
+    {
+        double p0 = 100.0;
+        double p1 = 200.0; // delta = +100
+
+        // Test extreme velocity: v0 = 500 px/frame (far exceeds 3*delta = 300)
+        // Without Fritsch-Carlson, the curve would overshoot past 200 (up to 250+).
+        // With Fritsch-Carlson, the curve must remain strictly within [p0, p1].
+        for (double t = 0.0; t <= 1.0; t += 0.05)
+        {
+            double pos = CombatSyncHelpers.HermiteInterpolate(p0, v0: 500.0, p1, v1: 0.0, t, duration: 1.0);
+            Assert.True(pos >= p0 && pos <= p1, $"Position {pos} must be within [{p0}, {p1}] for extreme positive tangent");
+        }
+
+        // Test negative velocity: v0 = -200 px/frame (opposite of delta > 0)
+        // Without Fritsch-Carlson, the curve would undershoot below 100.
+        // With Fritsch-Carlson, v0 is clamped to 0, so position never drops below p0.
+        for (double t = 0.0; t <= 1.0; t += 0.05)
+        {
+            double pos = CombatSyncHelpers.HermiteInterpolate(p0, v0: -200.0, p1, v1: 0.0, t, duration: 1.0);
+            Assert.True(pos >= p0 && pos <= p1, $"Position {pos} must be within [{p0}, {p1}] for negative tangent");
+        }
+    }
+
+    [Theory]
+    [InlineData("atkPrep", true)]
+    [InlineData("mob_windup", true)]
+    [InlineData("aim_shot", true)]
+    [InlineData("anticip_charge", true)]
+    [InlineData("channel_spell", true)]
+    [InlineData("ready_stance", true)]
+    [InlineData("elite_flash", true)]
+    [InlineData("focus_burst", true)]
+    [InlineData("warn_indicator", true)]
+    [InlineData("idle", false)]
+    [InlineData("run", false)]
+    [InlineData("ladder", false)]
+    public void CombatSyncHelpers_TelegraphAnimations_RecognizedAsAttacks(string anim, bool expectedIsAttack)
+    {
+        Assert.Equal(expectedIsAttack, CombatSyncHelpers.IsAttackAnim(anim));
     }
 }

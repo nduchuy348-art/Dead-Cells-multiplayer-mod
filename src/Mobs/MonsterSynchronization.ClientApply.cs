@@ -142,7 +142,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     (forceVerticalPositionSnap || recoverGroundedMobFromBelowFloor);
 
                 var verticalMismatchLarge = System.Math.Abs(deltaY) >= ClientGroundedMaxVerticalMismatchPx;
-                var syncY = !hasGravity ||
+                var syncY = hasSample ||
+                            !hasGravity ||
                             jumpLikeMotion ||
                             IsClientVerticalSyncEnabled() ||
                             safeGroundedLanding ||
@@ -155,17 +156,17 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     : (!jumpLikeMotion && System.Math.Abs(velocityYPx) < 0.15);
 
                 double lerpedX;
-                if (isHorizontalIdle && System.Math.Abs(deltaX) < 1.5 && !forcePositionSnap)
-                {
-                    lerpedX = currentX;
-                }
-                else if (forcePositionSnap || hardSnapX)
+                if (forcePositionSnap || hardSnapX)
                 {
                     lerpedX = predictedX;
                 }
                 else if (hasSample)
                 {
                     lerpedX = predictedX;
+                }
+                else if (isHorizontalIdle && System.Math.Abs(deltaX) < 1.5 && !forcePositionSnap)
+                {
+                    lerpedX = currentX;
                 }
                 else
                 {
@@ -178,11 +179,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 }
 
                 double lerpedY;
-                if (isVerticalIdle && System.Math.Abs(deltaY) < 1.5 && !forcePositionSnap && !forceVerticalPositionSnap)
-                {
-                    lerpedY = currentY;
-                }
-                else if (safeGroundedLanding)
+                if (safeGroundedLanding)
                 {
                     lerpedY = predictedY - ClientGroundedSafeLandingLiftPx;
                 }
@@ -193,6 +190,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 else if (hasSample)
                 {
                     lerpedY = predictedY;
+                }
+                else if (isVerticalIdle && System.Math.Abs(deltaY) < 1.5 && !forcePositionSnap && !forceVerticalPositionSnap)
+                {
+                    lerpedY = currentY;
                 }
                 else
                 {
@@ -350,17 +351,13 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             var isBossVerticalIdle = System.Math.Abs(target.Dy) < 0.05 && System.Math.Abs(velocityYPx) < 0.15;
 
             var nextX = currentX;
-            if (isBossHorizontalIdle && System.Math.Abs(deltaX) < 1.5 && !target.ForcePositionSnap)
+            if (hardSnap || hasBossSample)
+            {
+                nextX = predictedX;
+            }
+            else if (isBossHorizontalIdle && System.Math.Abs(deltaX) < 1.5 && !target.ForcePositionSnap)
             {
                 nextX = currentX;
-            }
-            else if (hardSnap)
-            {
-                nextX = predictedX;
-            }
-            else if (hasBossSample)
-            {
-                nextX = predictedX;
             }
             else
             {
@@ -368,17 +365,24 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             }
 
             var nextY = currentY;
-            if (isBossVerticalIdle && System.Math.Abs(deltaY) < 1.5 && !target.ForcePositionSnap && !target.ForceVerticalPositionSnap)
-            {
-                nextY = currentY;
-            }
-            else if (safeGroundedLanding)
+            if (safeGroundedLanding)
             {
                 nextY = predictedY - ClientGroundedSafeLandingLiftPx;
             }
             else if (syncVerticalPosition)
             {
-                nextY = (hardSnap || hasBossSample) ? predictedY : currentY + deltaY * alpha;
+                if (hardSnap || hasBossSample)
+                {
+                    nextY = predictedY;
+                }
+                else if (isBossVerticalIdle && System.Math.Abs(deltaY) < 1.5 && !target.ForcePositionSnap && !target.ForceVerticalPositionSnap)
+                {
+                    nextY = currentY;
+                }
+                else
+                {
+                    nextY = currentY + deltaY * alpha;
+                }
             }
 
             if (nextX != currentX || (syncVerticalPosition && nextY != currentY))

@@ -87,9 +87,23 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 else if (isClient)
                 {
                     shouldReport = IsDamageFromLocalPlayer(i);
-                    // Fallback for damage-source edge cases: never drop a lethal hit report.
-                    if (!shouldReport && tookLifeDelta && becameDead)
-                        shouldReport = true;
+                    // Fallback for damage-source edge cases (skills, turrets, traps, DoTs, pets, stomps, affixes):
+                    // On Player 2's client, any local mob life reduction not caused by a remote peer is valid local damage.
+                    if (!shouldReport && tookLifeDelta)
+                    {
+                        var isRemoteSource = false;
+                        try
+                        {
+                            if (i.source != null && IsKnownRemoteClientEntity(i.source))
+                                isRemoteSource = true;
+                            else if (i.carrier != null && IsKnownRemoteClientEntity(i.carrier))
+                                isRemoteSource = true;
+                        }
+                        catch { }
+
+                        if (!isRemoteSource)
+                            shouldReport = true;
+                    }
                 }
 
                 if (!shouldReport)

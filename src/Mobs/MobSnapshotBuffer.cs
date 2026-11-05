@@ -72,8 +72,31 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 return;
             }
 
+            double frame = snapshot.ReceivedFrame;
+            double latestFrame = _buffer[_head].ReceivedFrame;
+            if (frame <= latestFrame)
+            {
+                frame = latestFrame + 0.01;
+            }
+
+            var adjusted = Math.Abs(frame - snapshot.ReceivedFrame) > 0.0001
+                ? new MobSnapshot(
+                    frame,
+                    snapshot.X,
+                    snapshot.Y,
+                    snapshot.Dx,
+                    snapshot.Dy,
+                    snapshot.Dir,
+                    snapshot.Life,
+                    snapshot.MaxLife,
+                    snapshot.AnimPayload,
+                    snapshot.StatePayload,
+                    snapshot.ForceSnap,
+                    snapshot.ForceVerticalSnap)
+                : snapshot;
+
             _head = (_head + 1) % Capacity;
-            _buffer[_head] = snapshot;
+            _buffer[_head] = adjusted;
             if (_count < Capacity)
                 _count++;
         }
@@ -140,7 +163,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 double vx = VelocityToPixels(newest.Dx);
                 double vy = VelocityToPixels(newest.Dy);
                 x = newest.X + vx * elapsed;
-                y = newest.Y + vy * elapsed;
+                // Suppress downward vertical extrapolation for small residual velocities (grounded mobs)
+                bool allowYExtrap = Math.Abs(newest.Dy) > 0.25;
+                y = allowYExtrap ? newest.Y + vy * elapsed : newest.Y;
                 dir = newest.Dir;
                 animPayload = newest.AnimPayload;
                 forceSnap = newest.ForceSnap;
