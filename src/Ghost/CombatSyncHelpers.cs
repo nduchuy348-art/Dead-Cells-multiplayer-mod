@@ -201,6 +201,29 @@ public static class CombatSyncHelpers
         return current + delta * dynamicFactor;
     }
 
+    /// <summary>
+    /// Performs cubic Hermite spline interpolation between (p0, v0) and (p1, v1) over normalized time t in [0, 1].
+    /// duration is the time interval between p0 and p1 (used to scale velocities).
+    /// </summary>
+    public static double HermiteInterpolate(double p0, double v0, double p1, double v1, double t, double duration = 1.0)
+    {
+        if (t <= 0.0) return p0;
+        if (t >= 1.0) return p1;
+
+        double t2 = t * t;
+        double t3 = t2 * t;
+
+        double h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
+        double h10 = t3 - 2.0 * t2 + t;
+        double h01 = -2.0 * t3 + 3.0 * t2;
+        double h11 = t3 - t2;
+
+        double m0 = v0 * duration;
+        double m1 = v1 * duration;
+
+        return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
+    }
+
     private static bool ShouldLoopRemoteAnimCore(string anim)
     {
         var a = anim.Trim();

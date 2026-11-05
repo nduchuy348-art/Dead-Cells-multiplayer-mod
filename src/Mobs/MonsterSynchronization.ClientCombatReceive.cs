@@ -238,6 +238,26 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     if (isHost && !IsKnownRemoteHitSenderOnHost(net, hit.UserId))
                         continue;
 
+                    if (isHost && hit.UserId > 0)
+                    {
+                        var attackerEntity = ResolveHostPlayerCombatEntity(hit.UserId);
+                        if (attackerEntity != null)
+                        {
+                            var ax = GetWorldX(attackerEntity);
+                            var ay = GetWorldY(attackerEntity);
+                            var reachDx = ax - hit.X;
+                            var reachDy = ay - hit.Y;
+                            // Generous reach check: 25 tiles (600px) allows full room / long-range attacks
+                            const double MaxHitSanityDistanceSq = (24.0 * 25.0) * (24.0 * 25.0);
+                            if (double.IsFinite(reachDx) && double.IsFinite(reachDy) &&
+                                (reachDx * reachDx + reachDy * reachDy) > MaxHitSanityDistanceSq)
+                            {
+                                MobSyncTrace.LogHitResolveFail(hit.MobIndex, "spatial_reach_exceeded");
+                                continue;
+                            }
+                        }
+                    }
+
                     var mob = ResolveMobFromHitLocked(hit);
                     if (mob == null)
                     {
@@ -341,7 +361,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     {
                         TryWakeMobForForcedSimulation(mob);
                         var hint = update.DamageHint > 0.0 ? update.DamageHint : (update.PreviousLife - update.TargetLife);
-                        TryReplayIncomingSpecialHitReaction(mob, hint);
+                        var attacker = isHost ? ResolveHostPlayerCombatEntity(update.SourceUserId) : null;
+                        TryReplayIncomingSpecialHitReaction(mob, hint, attacker);
                         if (!isHost)
                         {
                             ApplyAuthoritativeLifeState(mob, update.TargetLife, update.TargetMaxLife);

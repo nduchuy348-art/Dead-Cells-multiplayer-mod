@@ -62,14 +62,44 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 var currentY = GetWorldY(self);
                 var interpolationAlpha = GetClientInterpolationAlpha();
 
+                const double ClientInterpolationBufferFrames = 3.0; // 50ms buffer at 60 FPS
+                double currentFrame = GetCurrentFrame(self);
+                double renderFrame = currentFrame - ClientInterpolationBufferFrames;
+
+                bool hasSample = false;
+                double sampleX = target.X;
+                double sampleY = target.Y;
+                int sampleDir = target.Dir;
+                string sampleAnim = target.AnimPayload;
+                bool sampleForceSnap = target.ForcePositionSnap;
+                bool sampleForceVerticalSnap = target.ForceVerticalPositionSnap;
+
+                lock (Sync)
+                {
+                    if (s_clientMobSnapshotBuffers.TryGetValue(self, out var buffer) && buffer.Count > 0)
+                    {
+                        hasSample = buffer.SampleHermite(
+                            renderFrame,
+                            out sampleX,
+                            out sampleY,
+                            out sampleDir,
+                            out sampleAnim,
+                            out sampleForceSnap,
+                            out sampleForceVerticalSnap);
+                    }
+                }
+
                 // Predict from the LOCAL receive frame, not by subtracting host/client ftime values.
-                double predictedX = target.X;
-                double predictedY = target.Y;
+                double predictedX = hasSample ? sampleX : target.X;
+                double predictedY = hasSample ? sampleY : target.Y;
+                if (sampleForceSnap) forcePositionSnap = true;
+                if (sampleForceVerticalSnap) forceVerticalPositionSnap = true;
+
                 var velocityXPx = ToPredictionPixelsPerFrame(target.Dx);
                 var velocityYPx = ToPredictionPixelsPerFrame(target.Dy);
                 var receiveFrame = target.ReceivedFrame > 0.0 ? target.ReceivedFrame : GetCurrentFrame(self);
                 var elapsed = GetCurrentFrame(self) - receiveFrame;
-                if (!forcePositionSnap &&
+                if (!hasSample && !forcePositionSnap &&
                     elapsed > 0.0 &&
                     (System.Math.Abs(velocityXPx) > 0.02 || System.Math.Abs(velocityYPx) > 0.02))
                 {
@@ -133,6 +163,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 {
                     lerpedX = predictedX;
                 }
+                else if (hasSample)
+                {
+                    lerpedX = predictedX;
+                }
                 else
                 {
                     lerpedX = CombatSyncHelpers.SmoothStepPosition(
@@ -153,6 +187,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     lerpedY = predictedY - ClientGroundedSafeLandingLiftPx;
                 }
                 else if (forcePositionSnap || forceVerticalPositionSnap || hardSnapY)
+                {
+                    lerpedY = predictedY;
+                }
+                else if (hasSample)
                 {
                     lerpedY = predictedY;
                 }
@@ -232,10 +270,35 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 (target.ForcePositionSnap || target.ForceVerticalPositionSnap);
             var syncVerticalPosition = !hasGravity || jumpLikeMotion || safeGroundedLanding;
 
+            const double ClientBossInterpolationBufferFrames = 3.0;
+            double currentBossFrame = GetCurrentFrame(boss);
+            double renderBossFrame = currentBossFrame - ClientBossInterpolationBufferFrames;
+
+            bool hasBossSample = false;
+            double sampleBossX = target.X;
+            double sampleBossY = target.Y;
+            bool sampleBossForceSnap = target.ForcePositionSnap;
+            bool sampleBossForceVerticalSnap = target.ForceVerticalPositionSnap;
+
+            lock (Sync)
+            {
+                if (s_clientMobSnapshotBuffers.TryGetValue(boss, out var bossBuffer) && bossBuffer.Count > 0)
+                {
+                    hasBossSample = bossBuffer.SampleHermite(
+                        renderBossFrame,
+                        out sampleBossX,
+                        out sampleBossY,
+                        out _,
+                        out _,
+                        out sampleBossForceSnap,
+                        out sampleBossForceVerticalSnap);
+                }
+            }
+
             var currentX = GetWorldX(boss);
             var currentY = GetWorldY(boss);
-            var predictedX = target.X;
-            var predictedY = target.Y;
+            var predictedX = hasBossSample ? sampleBossX : target.X;
+            var predictedY = hasBossSample ? sampleBossY : target.Y;
             var velocityXPx = ToPredictionPixelsPerFrame(target.Dx);
             var velocityYPx = ToPredictionPixelsPerFrame(target.Dy);
             var receiveFrame = target.ReceivedFrame > 0.0 ? target.ReceivedFrame : GetCurrentFrame(boss);
@@ -244,7 +307,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 0.0,
                 ClientBossMaxPredictionFrames);
 
-            if (!target.ForcePositionSnap && elapsed > 0.0 &&
+            if (!hasBossSample && !target.ForcePositionSnap && elapsed > 0.0 &&
                 (System.Math.Abs(velocityXPx) > 0.02 || System.Math.Abs(velocityYPx) > 0.02))
             {
                 predictedX += velocityXPx * elapsed;
@@ -291,9 +354,17 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             {
                 nextX = currentX;
             }
+            else if (hardSnap)
+            {
+                nextX = predictedX;
+            }
+            else if (hasBossSample)
+            {
+                nextX = predictedX;
+            }
             else
             {
-                nextX = hardSnap ? predictedX : currentX + deltaX * alpha;
+                nextX = currentX + deltaX * alpha;
             }
 
             var nextY = currentY;
@@ -307,7 +378,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             }
             else if (syncVerticalPosition)
             {
-                nextY = hardSnap ? predictedY : currentY + deltaY * alpha;
+                nextY = (hardSnap || hasBossSample) ? predictedY : currentY + deltaY * alpha;
             }
 
             if (nextX != currentX || (syncVerticalPosition && nextY != currentY))
@@ -889,11 +960,13 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             if (HasLocalQueuedOrChargingSkill(self))
                 return;
 
-            // Ordinary mobs keep their local queued attack animation until it completes. Bosses
-            // continue accepting host animation transitions during the presentation lease so
-            // multi-stage attacks and phase-specific telegraphs do not freeze on an earlier frame.
+            // Ordinary mobs keep their local queued attack animation until it completes, but should
+            // accept attack and telegraph windup transitions from the host so warning frames are not lost.
             if (IsClientNetworkAttackActive(self) && !BossSyncHelpers.IsBossMob(self))
-                return;
+            {
+                if (string.IsNullOrWhiteSpace(target.AnimPayload) || !CombatSyncHelpers.IsAttackAnim(target.AnimPayload))
+                    return;
+            }
 
             if (!shouldApplyAnimThisFrame)
                 return;

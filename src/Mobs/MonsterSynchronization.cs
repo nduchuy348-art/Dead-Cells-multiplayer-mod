@@ -56,6 +56,17 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         private static int nextRuntimeSyncId = 1;
 
         private static readonly Dictionary<Mob, ClientMobState> clientMobTargets = new(ReferenceEqualityComparer.Instance);
+        private static readonly Dictionary<Mob, MobSnapshotBuffer> s_clientMobSnapshotBuffers = new(ReferenceEqualityComparer.Instance);
+
+        private static MobSnapshotBuffer GetOrCreateClientMobSnapshotBufferLocked(Mob mob)
+        {
+            if (!s_clientMobSnapshotBuffers.TryGetValue(mob, out var buffer))
+            {
+                buffer = new MobSnapshotBuffer();
+                s_clientMobSnapshotBuffers[mob] = buffer;
+            }
+            return buffer;
+        }
         private static readonly Dictionary<Mob, Entity?> clientCachedAttackTargetByMob = new(ReferenceEqualityComparer.Instance);
         private static readonly Dictionary<Mob, int> hostLastSentContactTargetUserIdByMob = new(ReferenceEqualityComparer.Instance);
         private static readonly Dictionary<Mob, string> clientQueuedOldSkillMarkers = new(ReferenceEqualityComparer.Instance);
@@ -1197,7 +1208,33 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             var net = LobbySession.NetRef;
             if (IsClient(net) && IsSyncMob(self))
             {
+                bool preservePhysics = HasLocalQueuedOrChargingSkill(self) || IsClientNetworkAttackActive(self);
+                if (!preservePhysics)
+                {
+                    try
+                    {
+                        self.dx = 0;
+                        self.dy = 0;
+                        self.bdx = 0;
+                        self.bdy = 0;
+                    }
+                    catch { }
+                }
+
                 orig(self);
+
+                if (!preservePhysics)
+                {
+                    try
+                    {
+                        self.dx = 0;
+                        self.dy = 0;
+                        self.bdx = 0;
+                        self.bdy = 0;
+                    }
+                    catch { }
+                }
+
                 ApplyInterpolatedState(self);
                 return;
             }
@@ -1355,12 +1392,12 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             try
             {
                 var sourceWeapon = attack.sourceWeapon;
-                if (sourceWeapon == null)
-                    return false;
-
-                var owner = (Entity?)sourceWeapon.owner;
-                if (IsLocalPlayerDamageSource(owner, localHero, gameHero))
-                    return true;
+                if (sourceWeapon != null)
+                {
+                    var owner = (Entity?)sourceWeapon.owner;
+                    if (IsLocalPlayerDamageSource(owner, localHero, gameHero))
+                        return true;
+                }
             }
             catch
             {
@@ -1378,11 +1415,32 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     sourceItem = null!;
                 }
 
-                if (sourceItem != null &&
-                    KingWeaponSupport.TryGetSourceByItem(sourceItem, out var kingSkin) &&
-                    kingSkin != null &&
-                    !IsKnownRemoteClientEntity(kingSkin))
-                    return true;
+                if (sourceItem != null)
+                {
+                    if (KingWeaponSupport.TryGetSourceByItem(sourceItem, out var kingSkin) &&
+                        kingSkin != null &&
+                        !IsKnownRemoteClientEntity(kingSkin))
+                    {
+                        return true;
+                    }
+
+                    try
+                    {
+                        var hero = (localHero as Hero) ?? ModEntry.me;
+                        var items = hero?.inventory?.items;
+                        if (items?.array != null)
+                        {
+                            for (int idx = 0; idx < items.length; idx++)
+                            {
+                                if (ReferenceEquals(items.array[idx], sourceItem))
+                                    return true;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
             }
             catch
             {
@@ -1406,6 +1464,23 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             {
                 if ((source is Hero || source is KingSkin) && !IsKnownRemoteClientEntity(source))
                     return true;
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var owner = (Entity?)((dynamic)source).owner;
+                if (owner != null && !ReferenceEquals(owner, source))
+                {
+                    if (localHero != null && IsSameEntityForDamage(owner, localHero))
+                        return true;
+                    if (gameHero != null && IsSameEntityForDamage(owner, gameHero))
+                        return true;
+                    if ((owner is Hero || owner is KingSkin) && !IsKnownRemoteClientEntity(owner))
+                        return true;
+                }
             }
             catch
             {

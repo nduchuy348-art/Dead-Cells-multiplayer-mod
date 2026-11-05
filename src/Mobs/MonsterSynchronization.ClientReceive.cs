@@ -336,6 +336,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             state.AnimPayload,
                             state.Dy);
 
+                    var currentFrame = GetCurrentFrame(mob);
                     clientMobTargets[mob] = new ClientMobState(
                         state.X,
                         state.Y,
@@ -347,9 +348,24 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         state.Time,
                         state.Dx,
                         state.Dy,
-                        GetCurrentFrame(mob),
+                        currentFrame,
                         forcePositionSnap,
                         forceVerticalPositionSnap);
+
+                    var snapshotBuffer = GetOrCreateClientMobSnapshotBufferLocked(mob);
+                    snapshotBuffer.Add(new MobSnapshot(
+                        currentFrame,
+                        state.X,
+                        state.Y,
+                        state.Dx,
+                        state.Dy,
+                        incomingDir,
+                        state.Life,
+                        state.MaxLife,
+                        mergedAnimPayload,
+                        mergedStatePayload,
+                        forcePositionSnap,
+                        forceVerticalPositionSnap));
                 }
             }
 
@@ -440,10 +456,12 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                                 move.AnimPayload,
                                 move.Dy);
 
+                        var currentFrame = GetCurrentFrame(mob);
+                        var normalizedDir = NormalizeDir(move.Dir);
                         clientMobTargets[mob] = new ClientMobState(
                             move.X,
                             move.Y,
-                            NormalizeDir(move.Dir),
+                            normalizedDir,
                             previousTarget.Life,
                             previousTarget.MaxLife,
                             mergedAnimPayload,
@@ -451,9 +469,24 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             move.Time,
                             move.Dx,
                             move.Dy,
-                            GetCurrentFrame(mob),
+                            currentFrame,
                             forcePositionSnap,
                             forceVerticalPositionSnap);
+
+                        var snapshotBuffer = GetOrCreateClientMobSnapshotBufferLocked(mob);
+                        snapshotBuffer.Add(new MobSnapshot(
+                            currentFrame,
+                            move.X,
+                            move.Y,
+                            move.Dx,
+                            move.Dy,
+                            normalizedDir,
+                            previousTarget.Life,
+                            previousTarget.MaxLife,
+                            mergedAnimPayload,
+                            previousTarget.StatePayload,
+                            forcePositionSnap,
+                            forceVerticalPositionSnap));
                     }
                 }
             }
@@ -2010,7 +2043,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             }
         }
 
-        private static void TryReplayIncomingSpecialHitReaction(Mob mob, double damageHint = 1.0)
+        private static void TryReplayIncomingSpecialHitReaction(Mob mob, double damageHint = 1.0, Entity? attacker = null)
         {
             if (mob == null)
                 return;
@@ -2028,22 +2061,27 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     var safeDamage = double.IsFinite(damageHint) && damageHint > 0.0
                         ? System.Math.Clamp(damageHint, 1.0, System.Math.Max(1.0, GetMobLifeOrFallback(mob, 1) * 8.0))
                         : 1.0;
-                    Hero? replaySourceHero = ModEntry.me ?? ModCore.Modules.Game.Instance?.HeroInstance;
+                    Hero? defaultHero = ModEntry.me ?? ModCore.Modules.Game.Instance?.HeroInstance;
+                    Entity? replaySourceEntity = attacker ?? defaultHero;
+                    Hero? replaySourceHero = replaySourceEntity as Hero ?? defaultHero;
                     try
                     {
                         if (replaySourceHero != null && replaySourceHero.destroyed)
                             replaySourceHero = null;
+                        if (replaySourceEntity != null && replaySourceEntity.destroyed)
+                            replaySourceEntity = replaySourceHero;
                     }
                     catch
                     {
                         replaySourceHero = null;
+                        replaySourceEntity = null;
                     }
 
                     var attackUtils = AttackUtils.Class;
                     var createFromHeroAndHit = attackUtils?.createFromHeroAndHit;
                     if (createFromHeroAndHit != null)
                     {
-                        _ = createFromHeroAndHit(replaySourceHero, safeDamage, null, mob);
+                        _ = createFromHeroAndHit(replaySourceEntity ?? replaySourceHero, safeDamage, null, mob);
                         return;
                     }
 
@@ -2052,7 +2090,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     if (createFromHero == null || hit == null)
                         return;
 
-                    var attack = createFromHero(replaySourceHero, safeDamage, null);
+                    var attack = createFromHero(replaySourceEntity ?? replaySourceHero, safeDamage, null);
                     if (attack != null)
                         hit(attack, mob);
                 });

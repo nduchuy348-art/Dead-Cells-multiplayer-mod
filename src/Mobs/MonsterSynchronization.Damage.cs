@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
@@ -158,7 +158,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             if (life >= lastLife)
                             {
                                 var lethalReport = shouldReport && life <= 0 && lastLife > 0 && preDamageLife > 0;
-                                var authoritativeProbe = shouldReport && damageHint > 0.0;
+                                var authoritativeProbe = shouldReport && (damageHint > 0.0 || tookLifeDelta);
                                 if (!lethalReport && !authoritativeProbe)
                                     return;
                             }
@@ -166,6 +166,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             clientLastReportedMobLife[self] = life;
                         }
                     }
+
+                    if (damageHint <= 0.0 && tookLifeDelta)
+                        damageHint = System.Math.Max(1.0, preDamageLife - life);
 
                     var clientHitEvent = string.Create(
                         System.Globalization.CultureInfo.InvariantCulture,

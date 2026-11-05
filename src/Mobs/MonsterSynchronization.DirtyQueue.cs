@@ -186,6 +186,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     needsStatePayload = false;
             }
 
+            var isCharging = HasLocalQueuedOrChargingSkill(mob);
+            if (isCharging)
+                needsAnim = true;
+
             var animPayload = needsAnim ? BuildAnimPayload(mob) : string.Empty;
             // BuildMobStateTypeSignature allocates (type string + runtime-class FullName + joined
             // string) and runs per tracked host mob per frame. The previous signature can only be
@@ -227,7 +231,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             !IsApproximatelyEqual(previous.X, x, MobStatePositionEpsilon) ||
                             !IsApproximatelyEqual(previous.Y, y, MobStatePositionEpsilon) ||
                             previous.Dir != dir ||
-                            !string.Equals(previous.AnimPayload, animPayload, StringComparison.Ordinal);
+                            !string.Equals(previous.AnimPayload, animPayload, StringComparison.Ordinal) ||
+                            isCharging;
 
                         if (snapshotMoveChanged)
                             flags |= previous.VisibleForSync ? HostMobDirtyFlags.Move : HostMobDirtyFlags.ForceState;
