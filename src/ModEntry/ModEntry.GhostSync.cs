@@ -7,6 +7,7 @@ using dc.tool;
 using HaxeProxy.Runtime;
 using HaxeProxy.Runtime.Internals;
 using HaxeProxy.Runtime.Internals.Cache;
+using DeadCellsMultiplayerMod.Ghost;
 using DeadCellsMultiplayerMod.Ghost.GhostBase;
 using DeadCellsMultiplayerMod.KingHead;
 using DeadCellsMultiplayerMod.Tools;
@@ -1791,7 +1792,8 @@ namespace DeadCellsMultiplayerMod
                 p.TicksLeft--;
                 DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.StepSkillProjectile(ref p.X, ref p.Y, ref p.Vx, ref p.Vy, 0.45);
 
-                var curFx = p.Level?.fx ?? fx;
+                var curLvl = p.Level ?? me?._level;
+                var curFx = curLvl?.fx ?? fx;
                 if (curFx != null)
                 {
                     try
@@ -1801,7 +1803,11 @@ namespace DeadCellsMultiplayerMod
                     catch { }
                 }
 
-                if (p.TicksLeft <= 0)
+                int tileX = (int)System.Math.Floor(p.X / 24.0);
+                int tileY = (int)System.Math.Floor(p.Y / 24.0);
+                bool hitGround = curLvl?.map != null && DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsSolidTile(curLvl.map, tileX, tileY);
+
+                if (p.TicksLeft <= 0 || hitGround)
                 {
                     _remoteSkillProjectiles.RemoveAt(i);
                     TriggerSkillDetonationVfx(p);
@@ -1833,15 +1839,30 @@ namespace DeadCellsMultiplayerMod
                 catch { }
             }
 
+            double? spatialVol = 1.0;
             if (me != null)
             {
                 var heroX = me.cx + me.xr;
                 var heroY = me.cy + me.yr;
-                var spatialVol = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, p.X / 24.0, p.Y / 24.0, 0.8);
+                spatialVol = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, p.X / 24.0, p.Y / 24.0, 0.8);
                 if (spatialVol.HasValue && lvl.viewport != null)
                 {
                     lvl.viewport.shakeS(0.2, 0.4, 0.6 * spatialVol.Value);
                 }
+            }
+
+            if (lvl.lAudio != null && spatialVol.HasValue)
+            {
+                try
+                {
+                    var snd = CombatSyncHelpers.TryLoadSound("sfx/hero/grenade_explo.wav") ??
+                              CombatSyncHelpers.TryLoadSound("sfx/hero/stomp_char1.wav");
+                    if (snd != null)
+                    {
+                        lvl.lAudio.playEvent(snd, spatialVol.Value, null, null);
+                    }
+                }
+                catch { }
             }
         }
 

@@ -245,11 +245,12 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
                 var fx = _level?.fx ?? ModEntry.me?._level?.fx;
                 var localHero = ResolveLocalHero();
                 var isHigh = high >= 1.0;
-                var scale = isHigh ? 1.0 : 0.7;
+                var baseScale = isHigh ? 1.0 : 0.7;
                 var color = remoteDiveSkillInfos?.props?.color3 ??
                             remoteDiveSkillInfos?.props?.color2 ??
                             remoteDiveSkillInfos?.props?.color ??
                             0xFFFFFF;
+                var r = isHigh ? 3 : 2;
 
                 if (fx != null && spr != null)
                 {
@@ -258,15 +259,26 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
                     var cellX = (int)System.Math.Floor(px / 24.0);
                     var cellY = (int)System.Math.Floor(py / 24.0);
 
-                    fx.diveAttack(px, py, color, Ref<double>.From(ref scale));
+                    if (isHigh)
+                    {
+                        try { fx.customMask(color, 0.15, 0.04, 0.1, 0.15, null); } catch { }
+                    }
+
                     fx.breakGroundLight(cellX, cellY, 2, 2);
                     fx.groundStones(px, py, null, null);
                     fx.dust(px, py, 16.0, 12, 0);
                     fx.landHeavy(px, py, null, null);
 
+                    for (int ox = -r; ox <= r; ox++)
+                    {
+                        var waveX = px + ox * 24.0;
+                        var powerScale = (System.Math.Abs(ox) == r) ? (baseScale * 0.4) : (baseScale * 0.7);
+                        try { fx.diveAttack(waveX, py, color, Ref<double>.From(ref powerScale)); } catch { }
+                    }
+
                     try
                     {
-                        FlashLight.Class.create(_level, px, py, color, 35.0, null, null, null);
+                        FlashLight.Class.create(_level, px, py - 15.0, color, 24.0 * r, 1.5, 1.5, null);
                     }
                     catch { }
                 }
@@ -283,10 +295,23 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
                 if (spatialVol.HasValue && _level?.viewport != null)
                 {
-                    _level.viewport.shakeS(0.2, 0.5, (isHigh ? 1.0 : 0.7) * spatialVol.Value);
+                    _level.viewport.shakeS(0.5, 1.0, 0.3 * spatialVol.Value);
                 }
 
-                PlayLocomotionFootstepSound();
+                var lvl = _level ?? localHero?._level;
+                if (lvl?.lAudio != null && spatialVol.HasValue)
+                {
+                    try
+                    {
+                        var soundPath = isHigh ? "sfx/hero/stomp_char2.wav" : "sfx/hero/stomp_char1.wav";
+                        var snd = CombatSyncHelpers.TryLoadSound(soundPath);
+                        if (snd != null)
+                        {
+                            lvl.lAudio.playEvent(snd, spatialVol.Value, null, null);
+                        }
+                    }
+                    catch { }
+                }
             }
             catch
             {
@@ -326,6 +351,15 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
                     {
                         fx.landHeavy(px, py, null, null);
                     }
+                    if (dy > 2.0)
+                    {
+                        try
+                        {
+                            bool top = false;
+                            fx.landDirt(px, py, Ref<bool>.From(ref top));
+                        }
+                        catch { }
+                    }
                 }
 
                 double? spatialVol = 1.0;
@@ -338,9 +372,30 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
                     spatialVol = CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, myX, myY, 1.0);
                 }
 
-                if (hardLand && spatialVol.HasValue && _level?.viewport != null)
+                if (spatialVol.HasValue && _level?.viewport != null)
                 {
-                    _level.viewport.shakeS(0.2, 0.5, 0.8 * spatialVol.Value);
+                    if (dy > 3.0)
+                    {
+                        _level.viewport.shakeS(0.2, 0.5, 1.3 * spatialVol.Value);
+                    }
+                    else if (dy > 2.0 || hardLand)
+                    {
+                        _level.viewport.shakeS(0.2, 0.5, 0.5 * spatialVol.Value);
+                    }
+                }
+
+                var lvl = _level ?? localHero?._level;
+                if (lvl?.lAudio != null && dy >= 0.3 && spatialVol.HasValue)
+                {
+                    try
+                    {
+                        var landSound = CombatSyncHelpers.TryLoadSound("sfx/hero/land.wav");
+                        if (landSound != null)
+                        {
+                            lvl.lAudio.playEvent(landSound, 0.25 * spatialVol.Value, null, null);
+                        }
+                    }
+                    catch { }
                 }
 
                 PlayLocomotionFootstepSound();
@@ -353,6 +408,8 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
             if (destroyed || spr == null)
                 return;
 
+            var color = glowColor ?? 0xFFFFFF;
+
             var fx = _level?.fx ?? ModEntry.me?._level?.fx;
             if (fx == null)
                 return;
@@ -361,8 +418,10 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
             {
                 var px = spr.x;
                 var py = spr.y - 12.0;
-                fx.dust(px, py + 12.0, 10.0, 4, 0);
-                fx.landSmoke(px, py, 10);
+                var dir = spr.scaleX < 0 ? -1 : 1;
+                var sparkCount = 4;
+                var deflectCount = 2;
+                fx.hitLines(px + dir * 18.0, py, dir, color, null, Ref<int>.From(ref sparkCount), Ref<int>.From(ref deflectCount));
             }
             catch { }
         }
@@ -385,7 +444,20 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
                 bool inWater = false;
                 try { inWater = HasAffect(this, 29); } catch { }
 
-                var surface = CombatSyncHelpers.ResolveLocomotionSurface(biomeId, inWater, false);
+                bool isWood = false;
+                try
+                {
+                    var map = lvl.map;
+                    if (map != null)
+                    {
+                        int cX = spr != null && spr.x != 0 ? (int)System.Math.Floor(spr.x / 24.0) : cx;
+                        int cY = spr != null && spr.y != 0 ? (int)System.Math.Floor(spr.y / 24.0) : cy;
+                        isWood = CombatSyncHelpers.IsWoodTile(map, cX, cY) || CombatSyncHelpers.IsWoodTile(map, cX, cY + 1);
+                    }
+                }
+                catch { }
+
+                var surface = CombatSyncHelpers.ResolveLocomotionSurface(biomeId, inWater, isWood);
 
                 ArrayObj? soundArray = surface switch
                 {

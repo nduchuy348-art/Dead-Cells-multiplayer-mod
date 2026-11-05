@@ -1427,7 +1427,7 @@ namespace DeadCellsMultiplayerMod
                     }
                 }
 
-                if (duration >= 0.1)
+                if (duration >= 0.4)
                 {
                     self.landStun(duration, true);
                     self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
@@ -1441,7 +1441,7 @@ namespace DeadCellsMultiplayerMod
             orig(self, height);
             if (self != null && ReferenceEquals(self, me))
             {
-                if (_pendingMapLandingCrouch || height >= 1.0)
+                if (_pendingMapLandingCrouch || height >= 2.0)
                 {
                     TriggerHeroLandingCrouchAndFx(self, height);
                 }

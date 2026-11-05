@@ -220,6 +220,7 @@ public sealed class CombatAndVisualSyncTests
     [InlineData("heavyLand", true)]
     [InlineData("dive", true)]
     [InlineData("downAtk", true)]
+    [InlineData("crouch", true)]
     [InlineData(null, false)]
     [InlineData("", false)]
     public void IsHardLanding_DistinguishesSoftAndHardLandings(string? anim, bool expected)
@@ -354,6 +355,9 @@ public sealed class CombatAndVisualSyncTests
     [InlineData(null, "land", true)]
     [InlineData("jump", "land", true)]
     [InlineData("pipe", "land", true)]
+    [InlineData("dive", "crouch", true)]
+    [InlineData("idle", "crouch", false)]
+    [InlineData("run", "crouch", false)]
     [InlineData("idle", "run", false)]
     [InlineData("run", "idle", false)]
     public void IsLandingTransition_RecognizesCrouchAndPassageLandings(string? prevAnim, string? newAnim, bool expected)
@@ -462,8 +466,8 @@ public sealed class CombatAndVisualSyncTests
     [InlineData("PrisonersQuarters", true, false, CombatSyncHelpers.LocomotionSurface.Water)]
     [InlineData("Sewer", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
     [InlineData("SewerOld", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
-    [InlineData("Cliff", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
-    [InlineData("Greenhouse", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
+    [InlineData("Cliff", false, false, CombatSyncHelpers.LocomotionSurface.Wood)]
+    [InlineData("Greenhouse", false, false, CombatSyncHelpers.LocomotionSurface.Wood)]
     [InlineData("LighthouseBottom", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
     [InlineData("LighthouseTop", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
     [InlineData("Castle", false, true, CombatSyncHelpers.LocomotionSurface.Wood)]
@@ -541,6 +545,116 @@ public sealed class CombatAndVisualSyncTests
         Assert.Equal(5.0, vx, 3);
         Assert.Equal(-1.5, vy, 3);
     }
-}
 
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(8, true)]
+    [InlineData(9, true)]
+    [InlineData(0, false)]
+    [InlineData(2, false)]
+    [InlineData(4, false)]
+    public void IsSolidTileValue_RecognizesSolidAndOneWayBits(int bits, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsSolidTileValue(bits));
+    }
+
+    [Fact]
+    public void IsSolidTile_ChecksBoundsAndBitmaskInMemory()
+    {
+        int wid = 4;
+        int hei = 4;
+        var bytes = System.Runtime.InteropServices.Marshal.AllocHGlobal(wid * hei * 4);
+        try
+        {
+            // Zero-initialize
+            for (int i = 0; i < wid * hei; i++)
+            {
+                System.Runtime.InteropServices.Marshal.WriteInt32(bytes, i * 4, 0);
+            }
+
+            // Set (1, 1) = solid wall (bit 1)
+            System.Runtime.InteropServices.Marshal.WriteInt32(bytes, (1 * wid + 1) * 4, 1);
+            // Set (2, 2) = wood platform (bit 8)
+            System.Runtime.InteropServices.Marshal.WriteInt32(bytes, (2 * wid + 2) * 4, 8);
+
+            Assert.True(CombatSyncHelpers.IsSolidTile(bytes, wid, hei, 1, 1));
+            Assert.True(CombatSyncHelpers.IsSolidTile(bytes, wid, hei, 2, 2));
+            Assert.False(CombatSyncHelpers.IsSolidTile(bytes, wid, hei, 0, 0));
+            Assert.False(CombatSyncHelpers.IsSolidTile(bytes, wid, hei, 3, 3));
+
+            // Out-of-bounds coordinates return true (solid boundary)
+            Assert.True(CombatSyncHelpers.IsSolidTile(bytes, wid, hei, -1, 0));
+            Assert.True(CombatSyncHelpers.IsSolidTile(bytes, wid, hei, 4, 0));
+            Assert.True(CombatSyncHelpers.IsSolidTile(bytes, wid, hei, 0, -1));
+            Assert.True(CombatSyncHelpers.IsSolidTile(bytes, wid, hei, 0, 4));
+
+            // Null pointer returns false
+            Assert.False(CombatSyncHelpers.IsSolidTile(System.IntPtr.Zero, wid, hei, 1, 1));
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.FreeHGlobal(bytes);
+        }
+    }
+
+    [Theory]
+    [InlineData("dive", true)]
+    [InlineData("downAtk", true)]
+    [InlineData("jump", true)]
+    [InlineData("fall", true)]
+    [InlineData("run", false)]
+    [InlineData("idle", false)]
+    public void IsAirborneAnim_IncludesDiveAndDownAttack(string anim, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsAirborneAnim(anim));
+    }
+
+    [Theory]
+    [InlineData(8, true)]
+    [InlineData(9, true)]
+    [InlineData(12, true)]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(4, false)]
+    public void IsWoodTileValue_RecognizesWoodBit(int bits, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsWoodTileValue(bits));
+    }
+
+    [Fact]
+    public void IsWoodTile_ChecksBoundsAndBitmaskInMemory()
+    {
+        int wid = 3;
+        int hei = 3;
+        var bytes = System.Runtime.InteropServices.Marshal.AllocHGlobal(wid * hei * 4);
+        try
+        {
+            for (int i = 0; i < wid * hei; i++)
+            {
+                System.Runtime.InteropServices.Marshal.WriteInt32(bytes, i * 4, 0);
+            }
+
+            // Set (1, 1) = wood platform (bit 8)
+            System.Runtime.InteropServices.Marshal.WriteInt32(bytes, (1 * wid + 1) * 4, 8);
+            // Set (0, 1) = solid stone wall (bit 1, not wood)
+            System.Runtime.InteropServices.Marshal.WriteInt32(bytes, (1 * wid + 0) * 4, 1);
+
+            Assert.True(CombatSyncHelpers.IsWoodTile(bytes, wid, hei, 1, 1));
+            Assert.False(CombatSyncHelpers.IsWoodTile(bytes, wid, hei, 0, 1));
+            Assert.False(CombatSyncHelpers.IsWoodTile(bytes, wid, hei, 2, 2));
+
+            // Out-of-bounds coordinates return false
+            Assert.False(CombatSyncHelpers.IsWoodTile(bytes, wid, hei, -1, 0));
+            Assert.False(CombatSyncHelpers.IsWoodTile(bytes, wid, hei, 3, 0));
+
+            // Null pointer returns false
+            Assert.False(CombatSyncHelpers.IsWoodTile(System.IntPtr.Zero, wid, hei, 1, 1));
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.FreeHGlobal(bytes);
+        }
+    }
+}
 

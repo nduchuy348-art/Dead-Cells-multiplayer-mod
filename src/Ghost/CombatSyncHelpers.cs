@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
+using HaxeProxy.Runtime;
+using ModCore.Utilities;
 
 namespace DeadCellsMultiplayerMod.Ghost;
 
@@ -77,7 +80,9 @@ public static class CombatSyncHelpers
         return a.IndexOf("jump", StringComparison.OrdinalIgnoreCase) >= 0 ||
                a.IndexOf("fall", StringComparison.OrdinalIgnoreCase) >= 0 ||
                a.IndexOf("pipe", StringComparison.OrdinalIgnoreCase) >= 0 ||
-               a.IndexOf("chute", StringComparison.OrdinalIgnoreCase) >= 0;
+               a.IndexOf("chute", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               a.IndexOf("dive", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               a.IndexOf("downAtk", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static bool IsLandingTransition(string? previousAnim, string? newAnim)
@@ -85,13 +90,18 @@ public static class CombatSyncHelpers
         if (string.IsNullOrWhiteSpace(newAnim)) return false;
         var next = newAnim.Trim();
 
-        if (next.IndexOf("land", StringComparison.OrdinalIgnoreCase) >= 0 ||
-            next.IndexOf("crouch", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (next.IndexOf("land", StringComparison.OrdinalIgnoreCase) >= 0)
             return true;
+
+        if (string.IsNullOrWhiteSpace(previousAnim))
+        {
+            return next.IndexOf("crouch", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
 
         if (IsAirborneAnim(previousAnim))
         {
-            if (next.StartsWith("idle", StringComparison.OrdinalIgnoreCase) ||
+            if (next.IndexOf("crouch", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                next.StartsWith("idle", StringComparison.OrdinalIgnoreCase) ||
                 next.StartsWith("run", StringComparison.OrdinalIgnoreCase) ||
                 next.StartsWith("walk", StringComparison.OrdinalIgnoreCase) ||
                 next.IndexOf("remain", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -110,7 +120,8 @@ public static class CombatSyncHelpers
         return a.IndexOf("hardLand", StringComparison.OrdinalIgnoreCase) >= 0 ||
                a.IndexOf("heavyLand", StringComparison.OrdinalIgnoreCase) >= 0 ||
                a.IndexOf("dive", StringComparison.OrdinalIgnoreCase) >= 0 ||
-               a.IndexOf("downAtk", StringComparison.OrdinalIgnoreCase) >= 0;
+               a.IndexOf("downAtk", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               a.IndexOf("crouch", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static bool IsJumpTransition(string? previousAnim, string? newAnim)
@@ -423,12 +434,19 @@ public static class CombatSyncHelpers
         if (isInWater)
             return LocomotionSurface.Water;
 
+        if (isWoodTile)
+            return LocomotionSurface.Wood;
+
         if (!string.IsNullOrWhiteSpace(biomeId))
         {
             var b = biomeId.Trim();
             if (string.Equals(b, "Cliff", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(b, "Greenhouse", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(b, "Sewer", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "Greenhouse", StringComparison.OrdinalIgnoreCase))
+            {
+                return LocomotionSurface.Wood;
+            }
+
+            if (string.Equals(b, "Sewer", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(b, "SewerOld", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(b, "LighthouseBottom", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(b, "LighthouseTop", StringComparison.OrdinalIgnoreCase))
@@ -436,9 +454,6 @@ public static class CombatSyncHelpers
                 return LocomotionSurface.Pipe;
             }
         }
-
-        if (isWoodTile)
-            return LocomotionSurface.Wood;
 
         return LocomotionSurface.Stone;
     }
@@ -494,5 +509,95 @@ public static class CombatSyncHelpers
         x += vx;
         y += vy;
         vy += gravity;
+    }
+
+    public static bool IsSolidTileValue(int tileCollisionBits)
+    {
+        return (tileCollisionBits & 1) != 0 || (tileCollisionBits & 8) != 0;
+    }
+
+    public static bool IsSolidTile(IntPtr bytes, int wid, int hei, int cx, int cy)
+    {
+        if (bytes == IntPtr.Zero || wid <= 0 || hei <= 0)
+            return false;
+
+        if (cx < 0 || cx >= wid || cy < 0 || cy >= hei)
+            return true;
+
+        int idx = cy * wid + cx;
+        int val = Marshal.ReadInt32(bytes, idx << 2);
+        return IsSolidTileValue(val);
+    }
+
+    public static bool IsSolidTile(dc.level.LevelMap? map, int cx, int cy)
+    {
+        if (map == null)
+            return false;
+
+        try
+        {
+            var cols = map.collisions;
+            if (cols == null || cols.bytes == IntPtr.Zero)
+                return false;
+
+            return IsSolidTile(cols.bytes, map.wid, map.hei, cx, cy);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static bool IsWoodTileValue(int tileCollisionBits)
+    {
+        return (tileCollisionBits & 8) != 0;
+    }
+
+    public static bool IsWoodTile(IntPtr bytes, int wid, int hei, int cx, int cy)
+    {
+        if (bytes == IntPtr.Zero || wid <= 0 || hei <= 0)
+            return false;
+
+        if (cx < 0 || cx >= wid || cy < 0 || cy >= hei)
+            return false;
+
+        int idx = cy * wid + cx;
+        int val = Marshal.ReadInt32(bytes, idx << 2);
+        return IsWoodTileValue(val);
+    }
+
+    public static bool IsWoodTile(dc.level.LevelMap? map, int cx, int cy)
+    {
+        if (map == null)
+            return false;
+
+        try
+        {
+            var cols = map.collisions;
+            if (cols == null || cols.bytes == IntPtr.Zero)
+                return false;
+
+            return IsWoodTile(cols.bytes, map.wid, map.hei, cx, cy);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static dc.hxd.res.Sound? TryLoadSound(string soundPath)
+    {
+        try
+        {
+            var res = dc.hxd.Res.Class;
+            var loadFunc = res?.load;
+            if (loadFunc != null)
+            {
+                var any = loadFunc.Invoke(soundPath.AsHaxeString());
+                return any?.toSound();
+            }
+        }
+        catch { }
+        return null;
     }
 }

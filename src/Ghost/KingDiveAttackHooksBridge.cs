@@ -8,6 +8,7 @@ using dc.tool.mainSkills;
 using DeadCellsMultiplayerMod.Ghost;
 using DeadCellsMultiplayerMod.Ghost.GhostBase;
 using Hashlink.Virtuals;
+using HaxeProxy.Runtime;
 using ModCore.Utilities;
 
 namespace DeadCellsMultiplayerMod;
@@ -190,23 +191,91 @@ public partial class ModEntry
 
         // Transition/passages (T_*) are no-combat staging levels. A sublevel return can leave
         // stale Mob collision entries alive even though there are no legitimate combat targets.
-        // Let the dive animation end, but do not run vanilla area-hit resolution there.
+        // Play dive landing audio/visual effects and notify peers, but skip vanilla mob hit resolution.
         if (IsNoCombatTransitionLevel(level, out var levelId))
         {
             LogSuppressedNoCombatDive(levelId);
+            TriggerDiveLandingFxAndSfx(hero, high);
             try { self.end(); } catch { }
-            return false;
+            return true;
         }
 
         // Vanilla applyHit/applyAttackResult reads spr.groupName; null crashes the HL runtime (HashlinkError).
         if (!IsHeroSpriteGroupReadyForCombat(hero))
         {
+            TriggerDiveLandingFxAndSfx(hero, high);
             try { self.end(); } catch { }
-            return false;
+            return true;
         }
 
         WithSanitizedDiveTargets(level, () => orig(self, high));
         return true;
+    }
+
+    private static void TriggerDiveLandingFxAndSfx(Hero hero, double high)
+    {
+        try
+        {
+            var lvl = hero._level;
+            if (lvl == null)
+                return;
+
+            var isHigh = high >= 1.0;
+            var r = isHigh ? 3 : 2;
+            var color = 0xFFFFFF;
+            var px = hero.spr != null && hero.spr.x != 0 ? hero.spr.x : (hero.cx + hero.xr) * 24.0;
+            var py = hero.spr != null && hero.spr.y != 0 ? hero.spr.y : (hero.cy + hero.yr) * 24.0;
+            var cellX = (int)Math.Floor(px / 24.0);
+            var cellY = (int)Math.Floor(py / 24.0);
+
+            var fx = lvl.fx;
+            if (fx != null)
+            {
+                if (isHigh)
+                {
+                    try { fx.customMask(color, 0.15, 0.04, 0.1, 0.15, null); } catch { }
+                }
+
+                fx.landHeavy(px, py, null, null);
+                fx.breakGroundLight(cellX, cellY, 2, 2);
+                fx.dust(px, py, 16.0, 12, 0);
+                fx.groundStones(px, py, null, null);
+
+                var baseScale = isHigh ? 1.0 : 0.7;
+                for (int ox = -r; ox <= r; ox++)
+                {
+                    var waveX = px + ox * 24.0;
+                    var powerScale = (Math.Abs(ox) == r) ? (baseScale * 0.4) : (baseScale * 0.7);
+                    try { fx.diveAttack(waveX, py, color, Ref<double>.From(ref powerScale)); } catch { }
+                }
+
+                try
+                {
+                    dc.FlashLight.Class.create(lvl, px, py - hero.hei * 0.5, color, 24.0 * r, 1.5, 1.5, null);
+                }
+                catch { }
+            }
+
+            if (lvl.viewport != null)
+            {
+                lvl.viewport.shakeS(0.5, 1.0, 0.3);
+            }
+
+            if (lvl.lAudio != null)
+            {
+                var soundPath = isHigh ? "sfx/hero/stomp_char2.wav" : "sfx/hero/stomp_char1.wav";
+                try
+                {
+                    var snd = CombatSyncHelpers.TryLoadSound(soundPath);
+                    if (snd != null)
+                    {
+                        lvl.lAudio.playEvent(snd, 1.0, null, null);
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
     }
 
     private static bool IsNoCombatTransitionLevel(Level level, out string levelId)
