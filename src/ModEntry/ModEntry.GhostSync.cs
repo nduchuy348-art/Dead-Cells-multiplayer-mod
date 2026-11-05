@@ -1633,13 +1633,11 @@ namespace DeadCellsMultiplayerMod
 
                     if (attack.Slot >= 2)
                     {
+                        var isBomb = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsBombOrGrenadeKind(attack.Kind);
                         if (client.spr?._animManager != null)
                         {
                             try
                             {
-                                var isBomb = !string.IsNullOrWhiteSpace(attack.Kind) &&
-                                    (attack.Kind.IndexOf("bomb", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                     attack.Kind.IndexOf("grenade", StringComparison.OrdinalIgnoreCase) >= 0);
                                 var anim = isBomb ? "throwBomb" : "throw";
                                 client.spr._animManager.play(anim.AsHaxeString(), null, null).stopOnLastFrame(Ref<bool>.Null);
                             }
@@ -1649,19 +1647,12 @@ namespace DeadCellsMultiplayerMod
                             }
                         }
 
-                        var fx = client._level?.fx ?? me?._level?.fx;
-                        if (fx != null && client.spr != null)
-                        {
-                            try
-                            {
-                                var dir = client.dir != 0 ? client.dir : 1;
-                                var fxX = client.spr.x + dir * 16.0;
-                                var fxY = client.spr.y - 12.0;
-                                fx.dust(fxX, fxY, 12.0, 8, 0);
-                                fx.landSmoke(fxX, fxY, null);
-                            }
-                            catch { }
-                        }
+                        client.TriggerAttackVocalization(0.4);
+
+                        var dir = client.dir != 0 ? client.dir : 1;
+                        var startX = client.spr?.x ?? ((client.cx + client.xr) * 24.0);
+                        var startY = (client.spr?.y ?? ((client.cy + client.yr) * 24.0)) - 14.0;
+                        SpawnRemoteSkillProjectile(startX, startY, dir, isBomb, client._level ?? me?._level);
                     }
                     else if (client.kingWeaponsManager != null)
                     {
@@ -1741,6 +1732,117 @@ namespace DeadCellsMultiplayerMod
                         System.Globalization.CultureInfo.InvariantCulture,
                         $"activeManagers={activeManagers} clients={clients.Length}"));
             }
+
+            UpdateRemoteSkillProjectiles();
+        }
+
+        private sealed class RemoteSkillProjectile
+        {
+            public double X;
+            public double Y;
+            public double Vx;
+            public double Vy;
+            public int TicksLeft;
+            public bool IsBomb;
+            public Level? Level;
+            public int Dir;
+            public int Color;
+        }
+
+        private readonly List<RemoteSkillProjectile> _remoteSkillProjectiles = new();
+
+        private void SpawnRemoteSkillProjectile(double startX, double startY, int dir, bool isBomb, Level? level)
+        {
+            var proj = new RemoteSkillProjectile
+            {
+                X = startX + dir * 14.0,
+                Y = startY,
+                Vx = dir * (isBomb ? 7.0 : 9.0),
+                Vy = isBomb ? -4.5 : -2.5,
+                TicksLeft = isBomb ? 26 : 20,
+                IsBomb = isBomb,
+                Level = level,
+                Dir = dir,
+                Color = isBomb ? 0xFF6600 : 0x00D9FF
+            };
+            _remoteSkillProjectiles.Add(proj);
+
+            var fx = level?.fx ?? me?._level?.fx;
+            if (fx != null)
+            {
+                try
+                {
+                    fx.dust(startX, startY + 12.0, 10.0, 6, 0);
+                    fx.landSmoke(startX, startY, 15);
+                }
+                catch { }
+            }
+        }
+
+        private void UpdateRemoteSkillProjectiles()
+        {
+            if (_remoteSkillProjectiles.Count == 0)
+                return;
+
+            var fx = me?._level?.fx;
+            for (int i = _remoteSkillProjectiles.Count - 1; i >= 0; i--)
+            {
+                var p = _remoteSkillProjectiles[i];
+                p.TicksLeft--;
+                DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.StepSkillProjectile(ref p.X, ref p.Y, ref p.Vx, ref p.Vy, 0.45);
+
+                var curFx = p.Level?.fx ?? fx;
+                if (curFx != null)
+                {
+                    try
+                    {
+                        curFx.smokeBomb(p.X, p.Y, 8.0, 2, null, 0.2);
+                    }
+                    catch { }
+                }
+
+                if (p.TicksLeft <= 0)
+                {
+                    _remoteSkillProjectiles.RemoveAt(i);
+                    TriggerSkillDetonationVfx(p);
+                }
+            }
+        }
+
+        private void TriggerSkillDetonationVfx(RemoteSkillProjectile p)
+        {
+            var lvl = p.Level ?? me?._level;
+            if (lvl == null)
+                return;
+
+            var fx = lvl.fx;
+            var cellX = (int)System.Math.Floor(p.X / 24.0);
+            var cellY = (int)System.Math.Floor(p.Y / 24.0);
+
+            if (fx != null)
+            {
+                try
+                {
+                    double scale = 1.0;
+                    fx.radiusExplosion(p.X, p.Y, p.IsBomb ? 22.0 : 16.0, p.Color, Ref<double>.From(ref scale));
+                    fx.breakGroundLight(cellX, cellY, 2, 2);
+                    fx.dust(p.X, p.Y, 16.0, 8, 0);
+                    fx.groundStones(p.X, p.Y, null, null);
+                    dc.FlashLight.Class.create(lvl, p.X, p.Y, p.Color, 30.0, null, null, null);
+                }
+                catch { }
+            }
+
+            if (me != null)
+            {
+                var heroX = me.cx + me.xr;
+                var heroY = me.cy + me.yr;
+                var spatialVol = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, p.X / 24.0, p.Y / 24.0, 0.8);
+                if (spatialVol.HasValue && lvl.viewport != null)
+                {
+                    lvl.viewport.shakeS(0.2, 0.4, 0.6 * spatialVol.Value);
+                }
+            }
         }
 
         private static int CountPendingClientHeadRecreate()
@@ -1788,9 +1890,8 @@ namespace DeadCellsMultiplayerMod
 
                     if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsLandingTransition(prevAnim, anim))
                     {
-                        fx.breakGroundLight(cx, cy, 1, 1);
-                        fx.dust(lx, ly, 8.0, 4, 0);
-                        client.spr._animManager?.play("crouch".AsHaxeString(), null, null).stopOnLastFrame(Ref<bool>.Null);
+                        var isHard = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsHardLanding(anim);
+                        client.TriggerRemoteLanding(isHard ? 2.5 : 0.8, isHard);
                         return;
                     }
                     else if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsRollTransition(prevAnim, anim))

@@ -386,4 +386,113 @@ public static class CombatSyncHelpers
         // 4. Default: pass-through unchanged for all other weapons
         return (rawFx, innerColor, outerColor);
     }
+
+    public enum LocomotionSurface
+    {
+        Stone,
+        Wood,
+        Pipe,
+        Water
+    }
+
+    public enum ClimbingSurface
+    {
+        Ladder,
+        Chain,
+        Vine
+    }
+
+    public static double CalculateLandingStunDuration(double height, bool isMapTransition = false)
+    {
+        if (double.IsNaN(height) || double.IsInfinity(height))
+            return isMapTransition ? 0.4 : 0.1;
+
+        if (height >= 3.0)
+            return 2.0;
+        if (height >= 2.0)
+            return 1.0;
+        if (isMapTransition)
+            return 0.4;
+        if (height >= 1.0)
+            return 0.1;
+        return 0.01;
+    }
+
+    public static LocomotionSurface ResolveLocomotionSurface(string? biomeId, bool isInWater, bool isWoodTile)
+    {
+        if (isInWater)
+            return LocomotionSurface.Water;
+
+        if (!string.IsNullOrWhiteSpace(biomeId))
+        {
+            var b = biomeId.Trim();
+            if (string.Equals(b, "Cliff", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "Greenhouse", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "Sewer", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "SewerOld", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "LighthouseBottom", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "LighthouseTop", StringComparison.OrdinalIgnoreCase))
+            {
+                return LocomotionSurface.Pipe;
+            }
+        }
+
+        if (isWoodTile)
+            return LocomotionSurface.Wood;
+
+        return LocomotionSurface.Stone;
+    }
+
+    public static ClimbingSurface ResolveClimbingSurface(string? biomeId, bool isChainSpot = false, bool isVineSpot = false)
+    {
+        if (isVineSpot)
+            return ClimbingSurface.Vine;
+
+        if (isChainSpot)
+            return ClimbingSurface.Chain;
+
+        if (!string.IsNullOrWhiteSpace(biomeId))
+        {
+            var b = biomeId.Trim();
+            if (string.Equals(b, "Swamp", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "GardenerStage", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "PurpleGarden", StringComparison.OrdinalIgnoreCase))
+            {
+                return ClimbingSurface.Vine;
+            }
+
+            if (string.Equals(b, "ClockTower", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "Astrolab", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(b, "Distillery", StringComparison.OrdinalIgnoreCase))
+            {
+                return ClimbingSurface.Chain;
+            }
+        }
+
+        return ClimbingSurface.Ladder;
+    }
+
+    public static bool IsBombOrGrenadeKind(string? kindId)
+    {
+        if (string.IsNullOrWhiteSpace(kindId))
+            return false;
+
+        var k = kindId.Trim();
+        return k.IndexOf("bomb", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("grenade", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("cluster", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("explosive", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    public static void StepSkillProjectile(
+        ref double x,
+        ref double y,
+        ref double vx,
+        ref double vy,
+        double gravity)
+    {
+        x += vx;
+        y += vy;
+        vy += gravity;
+    }
 }

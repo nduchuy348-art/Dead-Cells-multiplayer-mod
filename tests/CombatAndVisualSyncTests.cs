@@ -433,6 +433,114 @@ public sealed class CombatAndVisualSyncTests
         Assert.Equal(ev.Y, parsedY, 3);
         Assert.Equal(ev.LevelId, parsedLevel);
     }
+
+    [Theory]
+    [InlineData(3.5, false, 2.0)]
+    [InlineData(3.0, false, 2.0)]
+    [InlineData(2.5, false, 1.0)]
+    [InlineData(2.0, false, 1.0)]
+    [InlineData(1.5, false, 0.1)]
+    [InlineData(1.0, false, 0.1)]
+    [InlineData(0.5, false, 0.01)]
+    [InlineData(0.0, false, 0.01)]
+    [InlineData(-1.0, false, 0.01)]
+    [InlineData(0.5, true, 0.4)]
+    [InlineData(1.5, true, 0.4)]
+    [InlineData(2.5, true, 1.0)]
+    [InlineData(3.5, true, 2.0)]
+    [InlineData(double.NaN, false, 0.1)]
+    [InlineData(double.NaN, true, 0.4)]
+    [InlineData(double.PositiveInfinity, false, 0.1)]
+    public void CalculateLandingStunDuration_MatchesVanillaHeightThresholds(double height, bool isTransition, double expected)
+    {
+        var duration = CombatSyncHelpers.CalculateLandingStunDuration(height, isTransition);
+        Assert.Equal(expected, duration, 3);
+    }
+
+    [Theory]
+    [InlineData(null, true, false, CombatSyncHelpers.LocomotionSurface.Water)]
+    [InlineData("PrisonersQuarters", true, false, CombatSyncHelpers.LocomotionSurface.Water)]
+    [InlineData("Sewer", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
+    [InlineData("SewerOld", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
+    [InlineData("Cliff", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
+    [InlineData("Greenhouse", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
+    [InlineData("LighthouseBottom", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
+    [InlineData("LighthouseTop", false, false, CombatSyncHelpers.LocomotionSurface.Pipe)]
+    [InlineData("Castle", false, true, CombatSyncHelpers.LocomotionSurface.Wood)]
+    [InlineData("PrisonersQuarters", false, false, CombatSyncHelpers.LocomotionSurface.Stone)]
+    [InlineData("", false, false, CombatSyncHelpers.LocomotionSurface.Stone)]
+    public void ResolveLocomotionSurface_IdentifiesSurfaceType(string? biome, bool inWater, bool isWood, CombatSyncHelpers.LocomotionSurface expected)
+    {
+        var surface = CombatSyncHelpers.ResolveLocomotionSurface(biome, inWater, isWood);
+        Assert.Equal(expected, surface);
+    }
+
+    [Theory]
+    [InlineData(null, false, true, CombatSyncHelpers.ClimbingSurface.Vine)]
+    [InlineData(null, true, false, CombatSyncHelpers.ClimbingSurface.Chain)]
+    [InlineData("Swamp", false, false, CombatSyncHelpers.ClimbingSurface.Vine)]
+    [InlineData("GardenerStage", false, false, CombatSyncHelpers.ClimbingSurface.Vine)]
+    [InlineData("PurpleGarden", false, false, CombatSyncHelpers.ClimbingSurface.Vine)]
+    [InlineData("ClockTower", false, false, CombatSyncHelpers.ClimbingSurface.Chain)]
+    [InlineData("Astrolab", false, false, CombatSyncHelpers.ClimbingSurface.Chain)]
+    [InlineData("Distillery", false, false, CombatSyncHelpers.ClimbingSurface.Chain)]
+    [InlineData("PrisonersQuarters", false, false, CombatSyncHelpers.ClimbingSurface.Ladder)]
+    [InlineData("", false, false, CombatSyncHelpers.ClimbingSurface.Ladder)]
+    public void ResolveClimbingSurface_IdentifiesClimbingType(string? biome, bool isChain, bool isVine, CombatSyncHelpers.ClimbingSurface expected)
+    {
+        var surface = CombatSyncHelpers.ResolveClimbingSurface(biome, isChain, isVine);
+        Assert.Equal(expected, surface);
+    }
+
+    [Theory]
+    [InlineData("FireBomb", true)]
+    [InlineData("Grenade", true)]
+    [InlineData("ClusterGrenade", true)]
+    [InlineData("ExplosiveDecoy", true)]
+    [InlineData("IceBomb", true)]
+    [InlineData("StunGrenade", true)]
+    [InlineData("OilGrenade", true)]
+    [InlineData("Phaser", false)]
+    [InlineData("Grapple", false)]
+    [InlineData("HeavyTurret", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void IsBombOrGrenadeKind_ClassifiesCorrectly(string? kind, bool expected)
+    {
+        var result = CombatSyncHelpers.IsBombOrGrenadeKind(kind);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void StepSkillProjectile_IntegratesPositionAndGravity()
+    {
+        double x = 100.0;
+        double y = 200.0;
+        double vx = 5.0;
+        double vy = -3.0;
+        double gravity = 0.5;
+
+        // Step 1
+        CombatSyncHelpers.StepSkillProjectile(ref x, ref y, ref vx, ref vy, gravity);
+        Assert.Equal(105.0, x, 3);
+        Assert.Equal(197.0, y, 3);
+        Assert.Equal(5.0, vx, 3);
+        Assert.Equal(-2.5, vy, 3);
+
+        // Step 2
+        CombatSyncHelpers.StepSkillProjectile(ref x, ref y, ref vx, ref vy, gravity);
+        Assert.Equal(110.0, x, 3);
+        Assert.Equal(194.5, y, 3);
+        Assert.Equal(5.0, vx, 3);
+        Assert.Equal(-2.0, vy, 3);
+
+        // Step 3
+        CombatSyncHelpers.StepSkillProjectile(ref x, ref y, ref vx, ref vy, gravity);
+        Assert.Equal(115.0, x, 3);
+        Assert.Equal(192.5, y, 3);
+        Assert.Equal(5.0, vx, 3);
+        Assert.Equal(-1.5, vy, 3);
+    }
 }
 
 

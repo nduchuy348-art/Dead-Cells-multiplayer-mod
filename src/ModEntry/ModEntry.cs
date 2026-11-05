@@ -1385,30 +1385,53 @@ namespace DeadCellsMultiplayerMod
             _pendingMapLandingCrouch = true;
         }
 
-        private void TriggerHeroLandingCrouchAndFx(Hero self)
+        private void TriggerHeroLandingCrouchAndFx(Hero self, double height = 1.0)
         {
             if (self == null || !ReferenceEquals(self, me))
                 return;
 
+            bool wasTransition = _pendingMapLandingCrouch;
             _pendingMapLandingCrouch = false;
             _lastLocalLandingFxTicks = Stopwatch.GetTimestamp();
 
+            var duration = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.CalculateLandingStunDuration(height, wasTransition);
             try
             {
                 var lvl = self._level;
-                if (lvl?.fx != null)
+                if (lvl != null)
                 {
                     var px = self.spr != null && self.spr.x != 0 ? self.spr.x : (self.cx + self.xr) * 24.0;
                     var py = self.spr != null && self.spr.y != 0 ? self.spr.y : (self.cy + self.yr) * 24.0;
                     var cx = (int)System.Math.Floor(px / 24.0);
                     var cy = (int)System.Math.Floor(py / 24.0);
 
-                    lvl.fx.breakGroundLight(cx, cy, 1, 1);
-                    lvl.fx.dust(px, py, 12.0, 6, 0);
-                    lvl.fx.groundStones(px, py, null, null);
+                    if (lvl.fx != null)
+                    {
+                        lvl.fx.breakGroundLight(cx, cy, duration >= 1.0 ? 2 : 1, duration >= 1.0 ? 2 : 1);
+                        lvl.fx.dust(px, py, duration >= 1.0 ? 16.0 : 12.0, duration >= 1.0 ? 10 : 6, 0);
+                        lvl.fx.groundStones(px, py, null, null);
+                        if (duration >= 1.0)
+                        {
+                            lvl.fx.landHeavy(px, py, null, null);
+                            lvl.fx.landSmoke(px, py, 48);
+                        }
+                        else if (duration >= 0.1)
+                        {
+                            lvl.fx.landSmoke(px, py, 20);
+                        }
+                    }
+
+                    if (duration >= 1.0 && lvl.viewport != null)
+                    {
+                        lvl.viewport.shakeS(0.2, 0.5, duration >= 2.0 ? 1.3 : 0.5);
+                    }
                 }
-                self.landStun(0.35, true);
-                self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
+
+                if (duration >= 0.1)
+                {
+                    self.landStun(duration, true);
+                    self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
+                }
             }
             catch { }
         }
@@ -1418,9 +1441,9 @@ namespace DeadCellsMultiplayerMod
             orig(self, height);
             if (self != null && ReferenceEquals(self, me))
             {
-                if (_pendingMapLandingCrouch || height >= 2.0)
+                if (_pendingMapLandingCrouch || height >= 1.0)
                 {
-                    TriggerHeroLandingCrouchAndFx(self);
+                    TriggerHeroLandingCrouchAndFx(self, height);
                 }
             }
         }
@@ -1430,7 +1453,7 @@ namespace DeadCellsMultiplayerMod
             orig(self);
             if (self != null && ReferenceEquals(self, me) && _pendingMapLandingCrouch)
             {
-                TriggerHeroLandingCrouchAndFx(self);
+                TriggerHeroLandingCrouchAndFx(self, 1.5);
             }
         }
 

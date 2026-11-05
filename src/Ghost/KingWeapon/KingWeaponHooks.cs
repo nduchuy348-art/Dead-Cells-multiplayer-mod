@@ -666,6 +666,12 @@ internal static class KingWeaponHooks
 
                         if(animSpr != null)
                             self.lastFx = animSpr;
+
+                        if(source is DeadCellsMultiplayerMod.Ghost.GhostBase.GhostKing ghostKing)
+                        {
+                            ghostKing.DrawMotionTrail(resOuter ?? resInner ?? 0xFFFFFF);
+                            ghostKing.TriggerAttackVocalization(0.35);
+                        }
                     }
 
                     var spatialVol = CalculateSpatializedVolume(self, 1.0);

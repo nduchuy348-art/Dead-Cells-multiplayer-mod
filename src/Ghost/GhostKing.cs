@@ -36,6 +36,9 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
         private virtual_cooldown_duration_flags_forbiddenItem_props_requiredItem_skill_? remoteDiveSkillInfos;
         private long _lastRemoteDiveStartTicks;
         private long _lastRemoteDiveLandTicks;
+        private long _lastRemoteLandingTicks;
+        private long _lastClimbSfxTicks;
+        private int _lastFootStepFrame = -1;
         private bool _networkTransitionRetired;
 
         private const double RemoteDiveReplayMinSeconds = 0.08;
@@ -235,25 +238,269 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
             if (IsReplayTooSoon(ref _lastRemoteDiveLandTicks, RemoteDiveReplayMinSeconds))
                 return;
 
-            // Remote dives are visual-only. Manufacturing a DiveAttack against the local Hero used
-            // to write synthetic entries into Dead Cells' typed cooldown maps and could later crash
-            // unrelated combat with fastCheck type/null errors. The real diver's local game already
-            // reports enemy hits through authoritative MobSync, so replaying vanilla area damage here
-            // is redundant and unsafe.
             DisposeRemoteDiveAttack();
             try
             {
                 spr?._animManager?.play("jumpDown".AsHaxeString(), null, null)?.stopOnLastFrame(Ref<bool>.Null);
                 var fx = _level?.fx ?? ModEntry.me?._level?.fx;
-                if(fx != null && spr != null)
+                var localHero = ResolveLocalHero();
+                var isHigh = high >= 1.0;
+                var scale = isHigh ? 1.0 : 0.7;
+                var color = remoteDiveSkillInfos?.props?.color3 ??
+                            remoteDiveSkillInfos?.props?.color2 ??
+                            remoteDiveSkillInfos?.props?.color ??
+                            0xFFFFFF;
+
+                if (fx != null && spr != null)
                 {
-                    fx.dust(spr.x, spr.y, 16.0, 12, 0);
-                    fx.landHeavy(spr.x, spr.y, null, null);
+                    var px = spr.x;
+                    var py = spr.y;
+                    var cellX = (int)System.Math.Floor(px / 24.0);
+                    var cellY = (int)System.Math.Floor(py / 24.0);
+
+                    fx.diveAttack(px, py, color, Ref<double>.From(ref scale));
+                    fx.breakGroundLight(cellX, cellY, 2, 2);
+                    fx.groundStones(px, py, null, null);
+                    fx.dust(px, py, 16.0, 12, 0);
+                    fx.landHeavy(px, py, null, null);
+
+                    try
+                    {
+                        FlashLight.Class.create(_level, px, py, color, 35.0, null, null, null);
+                    }
+                    catch { }
                 }
+
+                double? spatialVol = 1.0;
+                if (localHero != null)
+                {
+                    var heroX = localHero.cx + localHero.xr;
+                    var heroY = localHero.cy + localHero.yr;
+                    var myX = cx + xr;
+                    var myY = cy + yr;
+                    spatialVol = CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, myX, myY, 1.0);
+                }
+
+                if (spatialVol.HasValue && _level?.viewport != null)
+                {
+                    _level.viewport.shakeS(0.2, 0.5, (isHigh ? 1.0 : 0.7) * spatialVol.Value);
+                }
+
+                PlayLocomotionFootstepSound();
             }
             catch
             {
             }
+        }
+
+        public void TriggerRemoteLanding(double dy, bool hardLand)
+        {
+            if (destroyed || _level == null)
+                return;
+
+            if (IsReplayTooSoon(ref _lastRemoteLandingTicks, 0.15))
+                return;
+
+            try
+            {
+                if (hardLand)
+                {
+                    spr?._animManager?.play("crouch".AsHaxeString(), null, null)?.stopOnLastFrame(Ref<bool>.Null);
+                }
+
+                var fx = _level?.fx ?? ModEntry.me?._level?.fx;
+                var localHero = ResolveLocalHero();
+
+                if (fx != null && spr != null)
+                {
+                    var px = spr.x;
+                    var py = spr.y;
+                    var cellX = (int)System.Math.Floor(px / 24.0);
+                    var cellY = (int)System.Math.Floor(py / 24.0);
+
+                    fx.breakGroundLight(cellX, cellY, hardLand ? 2 : 1, hardLand ? 2 : 1);
+                    fx.dust(px, py, hardLand ? 16.0 : 10.0, hardLand ? 8 : 4, 0);
+                    fx.groundStones(px, py, null, null);
+                    fx.landSmoke(px, py, hardLand ? 48 : 20);
+                    if (hardLand)
+                    {
+                        fx.landHeavy(px, py, null, null);
+                    }
+                }
+
+                double? spatialVol = 1.0;
+                if (localHero != null)
+                {
+                    var heroX = localHero.cx + localHero.xr;
+                    var heroY = localHero.cy + localHero.yr;
+                    var myX = cx + xr;
+                    var myY = cy + yr;
+                    spatialVol = CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, myX, myY, 1.0);
+                }
+
+                if (hardLand && spatialVol.HasValue && _level?.viewport != null)
+                {
+                    _level.viewport.shakeS(0.2, 0.5, 0.8 * spatialVol.Value);
+                }
+
+                PlayLocomotionFootstepSound();
+            }
+            catch { }
+        }
+
+        public void DrawMotionTrail(int? glowColor)
+        {
+            if (destroyed || spr == null)
+                return;
+
+            var fx = _level?.fx ?? ModEntry.me?._level?.fx;
+            if (fx == null)
+                return;
+
+            try
+            {
+                var px = spr.x;
+                var py = spr.y - 12.0;
+                fx.dust(px, py + 12.0, 10.0, 4, 0);
+                fx.landSmoke(px, py, 10);
+            }
+            catch { }
+        }
+
+        public void PlayLocomotionFootstepSound()
+        {
+            if (destroyed)
+                return;
+
+            var localHero = ResolveLocalHero();
+            var lvl = _level ?? localHero?._level;
+            if (lvl?.lAudio == null || localHero == null)
+                return;
+
+            try
+            {
+                string? biomeId = null;
+                try { biomeId = lvl.map?.id?.ToString(); } catch { }
+
+                bool inWater = false;
+                try { inWater = HasAffect(this, 29); } catch { }
+
+                var surface = CombatSyncHelpers.ResolveLocomotionSurface(biomeId, inWater, false);
+
+                ArrayObj? soundArray = surface switch
+                {
+                    CombatSyncHelpers.LocomotionSurface.Water => localHero.footStepWaterSounds,
+                    CombatSyncHelpers.LocomotionSurface.Pipe => localHero.footStepPipeSounds,
+                    CombatSyncHelpers.LocomotionSurface.Wood => localHero.footStepWoodSounds,
+                    _ => localHero.footStepStoneSounds
+                };
+
+                soundArray ??= localHero.footStepStoneSounds;
+                if (soundArray != null && soundArray.length > 0)
+                {
+                    var idx = Random.Shared.Next(soundArray.length);
+                    if ((uint)idx < (uint)soundArray.length && soundArray.array[idx] is dc.hxd.res.Sound sound)
+                    {
+                        var heroX = localHero.cx + localHero.xr;
+                        var heroY = localHero.cy + localHero.yr;
+                        var myX = cx + xr;
+                        var myY = cy + yr;
+                        var spatialVol = CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, myX, myY, 0.45);
+                        if (spatialVol.HasValue)
+                        {
+                            lvl.lAudio.playEvent(sound, spatialVol.Value, null, null);
+                        }
+                    }
+                }
+
+                if (spr != null)
+                {
+                    lvl.fx?.dust(spr.x, spr.y, 6.0, 3, 0);
+                }
+            }
+            catch { }
+        }
+
+        public void PlayLocomotionClimbSound()
+        {
+            if (destroyed)
+                return;
+
+            if (IsReplayTooSoon(ref _lastClimbSfxTicks, 0.22))
+                return;
+
+            var localHero = ResolveLocalHero();
+            var lvl = _level ?? localHero?._level;
+            if (lvl?.lAudio == null || localHero == null)
+                return;
+
+            try
+            {
+                string? biomeId = null;
+                try { biomeId = lvl.map?.id?.ToString(); } catch { }
+
+                var surface = CombatSyncHelpers.ResolveClimbingSurface(biomeId);
+                ArrayObj? soundArray = surface switch
+                {
+                    CombatSyncHelpers.ClimbingSurface.Vine => localHero.vineClimbSounds,
+                    CombatSyncHelpers.ClimbingSurface.Chain => localHero.chainClimbSounds,
+                    _ => localHero.chainClimbSounds ?? localHero.vineClimbSounds ?? localHero.footStepWoodSounds
+                };
+
+                if (soundArray != null && soundArray.length > 0)
+                {
+                    var idx = Random.Shared.Next(soundArray.length);
+                    if ((uint)idx < (uint)soundArray.length && soundArray.array[idx] is dc.hxd.res.Sound sound)
+                    {
+                        var heroX = localHero.cx + localHero.xr;
+                        var heroY = localHero.cy + localHero.yr;
+                        var myX = cx + xr;
+                        var myY = cy + yr;
+                        var spatialVol = CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, myX, myY, 0.4);
+                        if (spatialVol.HasValue)
+                        {
+                            lvl.lAudio.playEvent(sound, spatialVol.Value, null, null);
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        public void TriggerAttackVocalization(double chance = 0.35)
+        {
+            if (destroyed)
+                return;
+
+            if (Random.Shared.NextDouble() > chance)
+                return;
+
+            var localHero = ResolveLocalHero();
+            var lvl = _level ?? localHero?._level;
+            if (lvl?.lAudio == null || localHero == null)
+                return;
+
+            try
+            {
+                var soundArray = localHero.customAtkSound;
+                if (soundArray != null && soundArray.length > 0)
+                {
+                    var idx = Random.Shared.Next(soundArray.length);
+                    if ((uint)idx < (uint)soundArray.length && soundArray.array[idx] is dc.hxd.res.Sound sound)
+                    {
+                        var heroX = localHero.cx + localHero.xr;
+                        var heroY = localHero.cy + localHero.yr;
+                        var myX = cx + xr;
+                        var myY = cy + yr;
+                        var spatialVol = CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, myX, myY, 0.5);
+                        if (spatialVol.HasValue)
+                        {
+                            lvl.lAudio.playEvent(sound, spatialVol.Value, null, null);
+                        }
+                    }
+                }
+            }
+            catch { }
         }
 
         public void SetRemoteDiveSkillInfos(virtual_cooldown_duration_flags_forbiddenItem_props_requiredItem_skill_? skillInfos)
@@ -1072,6 +1319,9 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
             remoteDiveSkillInfos = null;
             _lastRemoteDiveStartTicks = 0;
             _lastRemoteDiveLandTicks = 0;
+            _lastRemoteLandingTicks = 0;
+            _lastClimbSfxTicks = 0;
+            _lastFootStepFrame = -1;
         }
 
         private void DisposeKingWeaponsManager()
@@ -1233,6 +1483,28 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
         {
             base.postUpdate();
             scarf?.postUpdate();
+
+            if (spr?.groupName != null)
+            {
+                var grp = spr.groupName.ToString();
+                if (grp != null && (grp.StartsWith("run", StringComparison.OrdinalIgnoreCase) || grp.StartsWith("walk", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var frame = spr.frame;
+                    if ((frame == 2 || frame == 6) && _lastFootStepFrame != frame)
+                    {
+                        _lastFootStepFrame = frame;
+                        PlayLocomotionFootstepSound();
+                    }
+                    else if (frame != 2 && frame != 6)
+                    {
+                        _lastFootStepFrame = -1;
+                    }
+                }
+                else if (grp != null && (grp.IndexOf("climb", StringComparison.OrdinalIgnoreCase) >= 0 || grp.IndexOf("ladder", StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    PlayLocomotionClimbSound();
+                }
+            }
         }
 
         public override double get_headX()
