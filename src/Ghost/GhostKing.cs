@@ -259,10 +259,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
                     var cellX = (int)System.Math.Floor(px / 24.0);
                     var cellY = (int)System.Math.Floor(py / 24.0);
 
-                    if (isHigh)
-                    {
-                        try { fx.customMask(color, 0.15, 0.04, 0.1, 0.15, null); } catch { }
-                    }
+
 
                     fx.breakGroundLight(cellX, cellY, 2, 2);
                     fx.groundStones(px, py, null, null);
@@ -1394,6 +1391,16 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
             _lastRemoteLandingTicks = 0;
             _lastClimbSfxTicks = 0;
             _lastFootStepFrame = -1;
+        }
+
+        public void SetPuppetVisible(bool visible)
+        {
+            try { spr?.set_visible(visible); } catch { }
+            try { head?.customHeadSpr?.set_visible(visible); } catch { }
+            try { head?.customBackSpr?.set_visible(visible); } catch { }
+            try { head?.headNormalSb?.set_visible(visible); } catch { }
+            try { head?.headAddSb?.set_visible(visible); } catch { }
+            try { head?.eye?.set_visible(visible); } catch { }
         }
 
         private void DisposeKingWeaponsManager()

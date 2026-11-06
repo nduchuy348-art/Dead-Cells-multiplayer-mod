@@ -90,6 +90,14 @@ public partial class InteractionSync
         TrySendInteractEvent(self, (x, y) => LobbySession.NetRef!.SendInterTreasureChest(x, y, GetCurrentInteractionLevelId()), "TreasureChest");
     }
 
+    private void Hook_Hero_curse(Hook_Hero.orig_curse orig, Hero self, int count, dc.String reason, Ref<bool> hidePopup, Ref<bool> useAltSound)
+    {
+        if (_applyingRemoteChestEvents)
+            return;
+
+        orig(self, count, reason, hidePopup, useAltSound);
+    }
+
     private void Hook_VineLadder_activate(Hook_VineLadder.orig_activate orig, VineLadder self)
     {
         orig(self);
@@ -529,14 +537,37 @@ public partial class InteractionSync
             return;
         }
 
+        var net = LobbySession.NetRef;
+        if (net != null && !net.IsHost)
+        {
+            if (IsNetReadyForSend(net))
+            {
+                try
+                {
+                    var (x, y) = GetEntityPixelPos(self);
+                    if (x == 0 && y == 0 && self != null)
+                    {
+                        x = (self.cx + self.xr) * TileSizePx;
+                        y = (self.cy + self.yr) * TileSizePx;
+                    }
+                    var levelId = GetCurrentInteractionLevelId();
+                    net.SendInterEliteShrine(net.id, x, y, levelId);
+                }
+                catch (Exception ex)
+                {
+                    _log.Warning(ex, "[InteractionSync] EliteShrine send failed");
+                }
+            }
+            return;
+        }
+
         orig(self, by);
 
-        if (!IsNetReadyForSend(LobbySession.NetRef))
+        if (!IsNetReadyForSend(net))
             return;
 
         try
         {
-            var net = LobbySession.NetRef!;
             var (x, y) = GetEntityPixelPos(self);
             if (x == 0 && y == 0 && self != null)
             {
@@ -544,7 +575,7 @@ public partial class InteractionSync
                 y = (self.cy + self.yr) * TileSizePx;
             }
             var levelId = GetCurrentInteractionLevelId();
-            net.SendInterEliteShrine(net.id, x, y, levelId);
+            net!.SendInterEliteShrine(net.id, x, y, levelId);
         }
         catch (Exception ex)
         {
@@ -552,10 +583,49 @@ public partial class InteractionSync
         }
     }
 
+    private static EliteShrine? FindEliteShrine(Level level, double x, double y)
+    {
+        var shrine = FindInteractByPos<EliteShrine>(level, x, y, 96.0);
+        if (shrine != null)
+            return shrine;
+
+        var candidates = GetInteractionCandidates<EliteShrine>(level);
+        if (candidates == null || candidates.Count == 0)
+            return null;
+
+        if (candidates.Count == 1)
+            return candidates[0];
+
+        EliteShrine? closest = null;
+        var minDistSq = double.MaxValue;
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            var s = candidates[i];
+            if (s == null)
+                continue;
+            var sx = (s.cx + s.xr) * TileSizePx;
+            var sy = (s.cy + s.yr) * TileSizePx;
+            var dx = sx - x;
+            var dy = sy - y;
+            var distSq = dx * dx + dy * dy;
+            if (distSq < minDistSq)
+            {
+                minDistSq = distSq;
+                closest = s;
+            }
+        }
+
+        return closest;
+    }
+
     private void ApplyRemoteEliteShrineEvents(List<InterEliteShrineEvent> events)
     {
         var level = ModEntry.me?._level;
         if (level == null || events == null || events.Count == 0)
+            return;
+
+        var net = LobbySession.NetRef;
+        if (net != null && !net.IsHost)
             return;
 
         var localId = LobbySession.NetRef?.id ?? 0;
@@ -569,7 +639,7 @@ public partial class InteractionSync
                 if (!IsInteractionEventForCurrentLevel(ev.LevelId))
                     continue;
 
-                var shrine = FindInteractByPos<EliteShrine>(level, ev.X, ev.Y, 48.0);
+                var shrine = FindEliteShrine(level, ev.X, ev.Y);
                 if (shrine == null)
                 {
                     _log.Warning("[InteractionSync] No EliteShrine found at x={X} y={Y}", ev.X, ev.Y);

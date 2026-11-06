@@ -184,5 +184,12 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             }
         }
 
+        private static void Hook_Hero_addKillCount(Hook_Hero.orig_addKillCount orig, Hero self, Mob mob)
+        {
+            if (System.Threading.Volatile.Read(ref authoritativeClientMobDieDepth) > 0 || SuppressKillProgressForRemoteKill)
+                return;
+
+            orig(self, mob);
+        }
     }
 }

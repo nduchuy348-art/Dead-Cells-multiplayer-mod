@@ -1270,6 +1270,9 @@ internal static class KingWeaponHooks
         if(ModEntry.IsLocalPlayerDowned())
             return true;
 
+        if(DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.SuppressKillProgressForRemoteKill)
+            return true;
+
         return false;
     }
 

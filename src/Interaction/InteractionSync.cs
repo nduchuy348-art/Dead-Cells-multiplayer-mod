@@ -155,6 +155,7 @@ public partial class InteractionSync :
         Hook_Portal.show += Hook_Portal_show;
         Hook_Portal.close += Hook_Portal_close;
         Hook_Hero.breakBreakableGround += Hook_Hero_breakBreakableGround;
+        Hook_Hero.curse += Hook_Hero_curse;
         Hook_SwitchBossRune.canBeActivated += Hook_SwitchBossRune_canBeActivated;
         Hook_SwitchBossRune.close += Hook_SwitchBossRune_close;
         Hook_SwitchBossRune.updateCells += Hook_SwitchBossRune_updateCells;

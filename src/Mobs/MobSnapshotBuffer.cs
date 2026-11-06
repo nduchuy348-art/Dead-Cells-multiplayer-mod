@@ -132,6 +132,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         {
             if (!double.IsFinite(velocity))
                 return 0.0;
+            if (Math.Abs(velocity) < 0.05)
+                return 0.0;
             return Math.Abs(velocity) <= 1.5 ? velocity * 24.0 : velocity;
         }
 

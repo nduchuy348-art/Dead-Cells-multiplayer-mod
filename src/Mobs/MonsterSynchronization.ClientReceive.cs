@@ -2648,6 +2648,12 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         out var boundMob,
                         out _) && boundMob != null)
                 {
+                    if (TryGetMobLifeAndMaxSafe(boundMob, out var life, out var maxLife) && life > 0 && maxLife > 0 && life >= maxLife)
+                    {
+                        InvalidateTrackedSyncCacheLocked(die.MobIndex, "death_unbound_healthy_rejected");
+                        return null;
+                    }
+
                     return boundMob;
                 }
 

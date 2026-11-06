@@ -125,6 +125,7 @@ public class LevelExitSync :
     /// </summary>
     private long _clientAwaitingCommitSinceTicks;
     private const double ClientTransitionCommitFallbackSeconds = 6.0;
+    private const double ClientTransitionTimeoutSeconds = 15.0;
 
     /// <summary>Exit/portal/boss-door entities only — avoids scanning <c>level.entities</c> every hero frame.</summary>
     private readonly List<Entity?> _exitTargetCandidates = new();
@@ -476,18 +477,42 @@ public class LevelExitSync :
             return false;
         }
 
-        if (Stopwatch.GetElapsedTime(_clientAwaitingCommitSinceTicks).TotalSeconds < ClientTransitionCommitFallbackSeconds)
+        var elapsedSeconds = Stopwatch.GetElapsedTime(_clientAwaitingCommitSinceTicks).TotalSeconds;
+        if (elapsedSeconds < ClientTransitionCommitFallbackSeconds)
             return false;
+
+        // Transition Timeout (15s): If host died, crashed or network lagged for > 15 seconds,
+        // recover cleanly and unlock client instead of stranding in an infinite black screen or lockup.
+        if (elapsedSeconds >= ClientTransitionTimeoutSeconds)
+        {
+            _clientAwaitingCommitSinceTicks = 0;
+            _localPressed = false;
+            _transitionDoorKey = string.Empty;
+            _suppressDoorActivateHook = false;
+            _log.Warning(
+                "[ExitSync] Transition timeout ({Timeout:F0}s) reached waiting for host at door={DoorKey}. Releasing lock and recovering normal state.",
+                ClientTransitionTimeoutSeconds,
+                _localDoorKey);
+
+            MultiplayerUI.PushSystemMessage(
+                Localize("Host transition timed out. Normal controls restored."),
+                6.0,
+                1.0);
+
+            try { hero?.cancelSkillControlLock(); } catch { }
+            try { hero?.unlockControls(); } catch { }
+
+            return false;
+        }
 
         // Never let a connected client independently cross a passage just because a commit packet
         // is late. That fallback created exactly the reported "both used the passage, then ended up
         // desynced" failure: the host and client could invoke two independent native transitions.
         // Keep waiting, refresh our ready state, and let the host's transaction remain authoritative.
-        _clientAwaitingCommitSinceTicks = Stopwatch.GetTimestamp();
         try { UpdateLocalPlayerState(net, forceSend: true); } catch { }
         _log.Warning(
             "[ExitSync] Still waiting for host transition commit after {Seconds:F0}s at door={DoorKey}; re-sent ready state and will not transition locally",
-            ClientTransitionCommitFallbackSeconds,
+            elapsedSeconds,
             _localDoorKey);
         return false;
     }

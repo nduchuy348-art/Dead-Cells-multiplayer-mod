@@ -588,6 +588,10 @@ namespace DeadCellsMultiplayerMod
                     ProcessRemoteDoorMarker(remote);
                     if (!ShouldKeepRemoteKingVisibleInRoom(remote, localLevelId))
                     {
+                        if (index >= 0 && index < clients.Length && clients[index] != null)
+                        {
+                            try { clients[index].SetPuppetVisible(false); } catch { }
+                        }
                         QueueClientDisposeWithTransition(index);
                         disposedSlots++;
                         if (perfEnabled)
@@ -606,6 +610,7 @@ namespace DeadCellsMultiplayerMod
                     var client = EnsureClientKingSlot(index);
                     if (client == null)
                         continue;
+                    try { client.SetPuppetVisible(true); } catch { }
                     if (!hadClientBefore)
                     {
                         createdSlots++;
@@ -792,9 +797,15 @@ namespace DeadCellsMultiplayerMod
                 return false;
             }
 
-            // Room marker replication is noisy around Continue/LoadSave and level bootstrap and can
-            // briefly diverge even when both players share the same map. Prefer level-only
-            // visibility so a fresh GhostKing can spawn after continue instead of being disposed.
+            if (TryGetCurrentVisibilityContext(out _, out var localBranchToken))
+            {
+                var remoteBranchToken = remote.HasRoom && remote.RoomId.HasValue ? remote.RoomId.Value : 0;
+                if (localBranchToken != remoteBranchToken)
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
 
@@ -1653,7 +1664,7 @@ namespace DeadCellsMultiplayerMod
                         var dir = client.dir != 0 ? client.dir : 1;
                         var startX = client.spr?.x ?? ((client.cx + client.xr) * 24.0);
                         var startY = (client.spr?.y ?? ((client.cy + client.yr) * 24.0)) - 14.0;
-                        SpawnRemoteSkillProjectile(startX, startY, dir, isBomb, client._level ?? me?._level);
+                        SpawnRemoteSkillProjectile(startX, startY, dir, isBomb, client._level ?? me?._level, attack.Kind);
                     }
                     else if (client.kingWeaponsManager != null)
                     {
@@ -1748,11 +1759,24 @@ namespace DeadCellsMultiplayerMod
             public Level? Level;
             public int Dir;
             public int Color;
+            public string? Kind;
+        }
+
+        private sealed class RemoteDeployedSkill
+        {
+            public double X;
+            public double Y;
+            public string Kind = string.Empty;
+            public int TicksLeft;
+            public Level? Level;
+            public int Dir;
+            public int Color;
         }
 
         private readonly List<RemoteSkillProjectile> _remoteSkillProjectiles = new();
+        private readonly List<RemoteDeployedSkill> _remoteDeployedSkills = new();
 
-        private void SpawnRemoteSkillProjectile(double startX, double startY, int dir, bool isBomb, Level? level)
+        private void SpawnRemoteSkillProjectile(double startX, double startY, int dir, bool isBomb, Level? level, string? kind = null)
         {
             var proj = new RemoteSkillProjectile
             {
@@ -1764,7 +1788,8 @@ namespace DeadCellsMultiplayerMod
                 IsBomb = isBomb,
                 Level = level,
                 Dir = dir,
-                Color = isBomb ? 0xFF6600 : 0x00D9FF
+                Color = isBomb ? 0xFF6600 : 0x00D9FF,
+                Kind = kind
             };
             _remoteSkillProjectiles.Add(proj);
 
@@ -1782,6 +1807,8 @@ namespace DeadCellsMultiplayerMod
 
         private void UpdateRemoteSkillProjectiles()
         {
+            UpdateRemoteDeployedSkills();
+
             if (_remoteSkillProjectiles.Count == 0)
                 return;
 
@@ -1811,6 +1838,58 @@ namespace DeadCellsMultiplayerMod
                 {
                     _remoteSkillProjectiles.RemoveAt(i);
                     TriggerSkillDetonationVfx(p);
+                    if (DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsDeployableSkillKind(p.Kind))
+                    {
+                        _remoteDeployedSkills.Add(new RemoteDeployedSkill
+                        {
+                            X = p.X,
+                            Y = p.Y,
+                            Kind = p.Kind ?? "turret",
+                            TicksLeft = 600,
+                            Level = curLvl,
+                            Dir = p.Dir,
+                            Color = p.Color
+                        });
+                    }
+                }
+            }
+        }
+
+        private void UpdateRemoteDeployedSkills()
+        {
+            if (_remoteDeployedSkills.Count == 0)
+                return;
+
+            for (int i = _remoteDeployedSkills.Count - 1; i >= 0; i--)
+            {
+                var d = _remoteDeployedSkills[i];
+                d.TicksLeft--;
+
+                var lvl = d.Level ?? me?._level;
+                var fx = lvl?.fx;
+                if (fx != null && (d.TicksLeft % 20 == 0))
+                {
+                    try
+                    {
+                        fx.dust(d.X, d.Y, 8.0, 3, 0);
+                        fx.smokeBomb(d.X, d.Y - 6.0, 5.0, 1, null, 0.1);
+                        dc.FlashLight.Class.create(lvl, d.X, d.Y - 8.0, d.Color, 16.0, 0.4, 0.4, null);
+                    }
+                    catch { }
+                }
+
+                if (d.TicksLeft <= 0)
+                {
+                    _remoteDeployedSkills.RemoveAt(i);
+                    if (fx != null)
+                    {
+                        try
+                        {
+                            fx.smokeBomb(d.X, d.Y - 6.0, 10.0, 3, null, 0.2);
+                            fx.dust(d.X, d.Y, 12.0, 6, 0);
+                        }
+                        catch { }
+                    }
                 }
             }
         }
@@ -2539,6 +2618,8 @@ namespace DeadCellsMultiplayerMod
             _lastLocalDiveStartSendTicks = 0;
             _lastLocalDiveLandSendTicks = 0;
             _lastDiveInfoScanTicks = 0;
+            _remoteSkillProjectiles.Clear();
+            _remoteDeployedSkills.Clear();
         }
     }
 }

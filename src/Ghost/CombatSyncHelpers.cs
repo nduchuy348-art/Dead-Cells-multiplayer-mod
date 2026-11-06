@@ -120,8 +120,7 @@ public static class CombatSyncHelpers
         return a.IndexOf("hardLand", StringComparison.OrdinalIgnoreCase) >= 0 ||
                a.IndexOf("heavyLand", StringComparison.OrdinalIgnoreCase) >= 0 ||
                a.IndexOf("dive", StringComparison.OrdinalIgnoreCase) >= 0 ||
-               a.IndexOf("downAtk", StringComparison.OrdinalIgnoreCase) >= 0 ||
-               a.IndexOf("crouch", StringComparison.OrdinalIgnoreCase) >= 0;
+               a.IndexOf("downAtk", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static bool IsJumpTransition(string? previousAnim, string? newAnim)
@@ -497,6 +496,23 @@ public static class CombatSyncHelpers
                k.IndexOf("grenade", StringComparison.OrdinalIgnoreCase) >= 0 ||
                k.IndexOf("cluster", StringComparison.OrdinalIgnoreCase) >= 0 ||
                k.IndexOf("explosive", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    public static bool IsDeployableSkillKind(string? kindId)
+    {
+        if (string.IsNullOrWhiteSpace(kindId))
+            return false;
+
+        var k = kindId.Trim();
+        return k.IndexOf("turret", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("trap", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("slicer", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("sinew", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("deploy", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("cleaver", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("crossbowmatic", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("heavy_turret", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               k.IndexOf("crusher", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static void StepSkillProjectile(

@@ -48,6 +48,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             public int SyncId;
             public int Generation;
         }
+        public static bool SuppressKillProgressForRemoteKill { get; set; }
         private static ConditionalWeakTable<Mob, MobSyncAlias> s_mobSyncAliases = new();
         /// <summary>
         /// Host NetId allocator. Starts at 1 so wire Index 0 stays a reserved "none/invalid" sentinel
@@ -576,6 +577,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             Hook_Entity.addTimeToAffect += Hook_Entity_addTimeToAffect_MobSync;
             Hook_Entity.removeAffects += Hook_Entity_removeAffects_MobSync;
             Hook_Entity.removeAllAffects += Hook_Entity_removeAllAffects_MobSync;
+            Hook_Hero.addKillCount += Hook_Hero_addKillCount;
 
             // Boss-specific adapters for state the generic mob/boss pipeline structurally cannot
             // carry (see BeholderArenaSync). Installed last and self-guarded, so a binding mismatch

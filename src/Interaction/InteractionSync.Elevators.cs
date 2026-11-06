@@ -85,18 +85,28 @@ public partial class InteractionSync
     private void Hook_PurpleElevatorButton_onActivate(Hook_PurpleElevatorButton.orig_onActivate orig, PurpleElevatorButton self, Hero by, bool flag)
     {
         var me = ModEntry.me;
+        bool far = false;
         if (me != null && self != null)
         {
             if (by != null && !ReferenceEquals(by, me))
                 return;
 
-            var dx = System.Math.Abs(self.cx - me.cx);
-            var dy = System.Math.Abs(self.cy - me.cy);
-            if (dx > 15 || dy > 15)
-                return;
+            var dx = self.cx - me.cx;
+            var dy = self.cy - me.cy;
+            far = (dx * dx + dy * dy) > (15 * 15);
         }
 
-        orig(self, by, flag);
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            orig(self, by, flag);
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
 
         if (self?.elevatorTarget != null && IsNetReadyForSend(LobbySession.NetRef))
         {
@@ -117,7 +127,26 @@ public partial class InteractionSync
         if (elevator == null)
             return;
 
-        elevator.onStep();
+        var me = ModEntry.me;
+        bool far = false;
+        if (me != null)
+        {
+            var dx = elevator.cx - me.cx;
+            var dy = elevator.cy - me.cy;
+            far = (dx * dx + dy * dy) > (15 * 15);
+        }
+
+        if (far)
+            _suppressFarInteractiveSound = true;
+        try
+        {
+            elevator.onStep();
+        }
+        finally
+        {
+            if (far)
+                _suppressFarInteractiveSound = false;
+        }
     }
 
     private static (double x, double y) GetElevatorStableAnchor(Elevator e)

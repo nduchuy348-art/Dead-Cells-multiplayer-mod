@@ -161,11 +161,20 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 {
                     RunWithAuthoritativeClientMobDie(mob, () =>
                     {
-                        RunWithSuppressedMobDieSend(() =>
+                        var prevSuppress = SuppressKillProgressForRemoteKill;
+                        SuppressKillProgressForRemoteKill = true;
+                        try
                         {
-                            mob.life = 0;
-                            mob.onDie();
-                        });
+                            RunWithSuppressedMobDieSend(() =>
+                            {
+                                mob.life = 0;
+                                mob.onDie();
+                            });
+                        }
+                        finally
+                        {
+                            SuppressKillProgressForRemoteKill = prevSuppress;
+                        }
                     });
 
                     Tools.GameTrace.Event("mob", "client applied authoritative death type={Type}", mob.GetType().Name);
@@ -266,7 +275,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         // client needing many times more hits than the host is this drop, not a
                         // missing HP broadcast. Count it so the rate is visible without per-packet spam.
                         MobSyncTrace.LogDamageDropped(isHost, hit.MobIndex, hit.UserId, hit.DamageHint);
-                        if (isHost && (hit.Hp <= 0 || hit.DamageHint > 0) && net != null && hit.MobIndex > 0)
+                        if (isHost && hit.Hp <= 0 && net != null && hit.MobIndex > 0)
                         {
                             net.SendMobDie(hit.MobIndex, 0, 0, hit.Generation, string.Empty);
                         }
@@ -373,8 +382,18 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             {
                                 if (!mob.destroyed && mob.life > 0)
                                 {
-                                    mob.life = 0;
-                                    mob.onDie();
+                                    var remoteKill = update.SourceUserId > 0 && update.SourceUserId != net?.id;
+                                    var prevSuppress = SuppressKillProgressForRemoteKill;
+                                    if (remoteKill) SuppressKillProgressForRemoteKill = true;
+                                    try
+                                    {
+                                        mob.life = 0;
+                                        mob.onDie();
+                                    }
+                                    finally
+                                    {
+                                        SuppressKillProgressForRemoteKill = prevSuppress;
+                                    }
                                 }
                             }
                             catch { }
@@ -397,8 +416,18 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             {
                                 if (!mob.destroyed)
                                 {
-                                    mob.life = 0;
-                                    mob.onDie();
+                                    var remoteKill = update.SourceUserId > 0 && update.SourceUserId != net?.id;
+                                    var prevSuppress = SuppressKillProgressForRemoteKill;
+                                    if (remoteKill) SuppressKillProgressForRemoteKill = true;
+                                    try
+                                    {
+                                        mob.life = 0;
+                                        mob.onDie();
+                                    }
+                                    finally
+                                    {
+                                        SuppressKillProgressForRemoteKill = prevSuppress;
+                                    }
                                 }
                                 else
                                 {

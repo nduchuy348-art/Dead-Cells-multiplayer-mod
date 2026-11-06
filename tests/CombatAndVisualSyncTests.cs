@@ -220,7 +220,7 @@ public sealed class CombatAndVisualSyncTests
     [InlineData("heavyLand", true)]
     [InlineData("dive", true)]
     [InlineData("downAtk", true)]
-    [InlineData("crouch", true)]
+    [InlineData("crouch", false)]
     [InlineData(null, false)]
     [InlineData("", false)]
     public void IsHardLanding_DistinguishesSoftAndHardLandings(string? anim, bool expected)
@@ -655,6 +655,40 @@ public sealed class CombatAndVisualSyncTests
         {
             System.Runtime.InteropServices.Marshal.FreeHGlobal(bytes);
         }
+    }
+
+    [Theory]
+    [InlineData("turret", true)]
+    [InlineData("heavy_turret", true)]
+    [InlineData("crossbowmatic", true)]
+    [InlineData("sinew_slicer", true)]
+    [InlineData("slicer", true)]
+    [InlineData("bear_trap", true)]
+    [InlineData("trap", true)]
+    [InlineData("deployable_cleaver", true)]
+    [InlineData("crusher", true)]
+    [InlineData("sword", false)]
+    [InlineData("bow", false)]
+    [InlineData("shield", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void IsDeployableSkillKind_ClassifiesDeployablesCorrectly(string? kind, bool expected)
+    {
+        Assert.Equal(expected, CombatSyncHelpers.IsDeployableSkillKind(kind));
+    }
+
+    [Theory]
+    [InlineData(0.0, 0.0)]
+    [InlineData(0.01, 0.0)]
+    [InlineData(-0.04, 0.0)]
+    [InlineData(0.05, 1.2)] // 0.05 * 24.0 = 1.2
+    [InlineData(1.0, 24.0)]
+    [InlineData(-1.0, -24.0)]
+    [InlineData(2.0, 2.0)] // > 1.5 is already in pixels
+    public void VelocityToPixels_AppliesDeadbandAndPixelScaling(double input, double expected)
+    {
+        var result = DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobSnapshotBuffer.VelocityToPixels(input);
+        Assert.Equal(expected, result, precision: 2);
     }
 }
 

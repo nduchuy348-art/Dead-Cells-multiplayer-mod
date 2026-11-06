@@ -195,7 +195,13 @@ public partial class ModEntry
         if (IsNoCombatTransitionLevel(level, out var levelId))
         {
             LogSuppressedNoCombatDive(levelId);
-            TriggerDiveLandingFxAndSfx(hero, high);
+            try
+            {
+                var px = hero.spr != null && hero.spr.x != 0 ? hero.spr.x : (hero.cx + hero.xr) * 24.0;
+                var py = hero.spr != null && hero.spr.y != 0 ? hero.spr.y : (hero.cy + hero.yr) * 24.0;
+                level.fx?.landSmoke(px, py, 15);
+            }
+            catch { }
             try { self.end(); } catch { }
             return true;
         }
@@ -231,10 +237,7 @@ public partial class ModEntry
             var fx = lvl.fx;
             if (fx != null)
             {
-                if (isHigh)
-                {
-                    try { fx.customMask(color, 0.15, 0.04, 0.1, 0.15, null); } catch { }
-                }
+
 
                 fx.landHeavy(px, py, null, null);
                 fx.breakGroundLight(cellX, cellY, 2, 2);
