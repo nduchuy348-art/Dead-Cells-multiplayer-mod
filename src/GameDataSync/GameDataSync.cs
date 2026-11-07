@@ -1011,6 +1011,33 @@ namespace DeadCellsMultiplayerMod
             }
         }
 
+        public static void EnsureLocalSerializerCaptured()
+        {
+            if (_localSerializerCaptured)
+                return;
+
+            try
+            {
+                var serializerClass = dc.hxbit.Serializer.Class;
+                if (serializerClass == null)
+                    return;
+
+                lock (_serializerSyncLock)
+                {
+                    if (!_localSerializerCaptured && !_hasRemoteSerializerValues)
+                    {
+                        _localSerializerSeq = serializerClass.SEQ;
+                        _localSerializerUid = serializerClass.UID;
+                        _localSerializerCaptured = true;
+                        _log?.Information("[NetMod][Save] Captured pristine local serializer SEQ={Seq} UID={Uid}", _localSerializerSeq, _localSerializerUid);
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
         /// <summary>
         /// Enters a <see cref="LocalSerializerSaveScope"/>. Returns an inert scope when there is
         /// nothing to correct (no remote identity was ever installed, or the local identity is
@@ -1018,6 +1045,9 @@ namespace DeadCellsMultiplayerMod
         /// </summary>
         public static LocalSerializerSaveScope BeginLocalSerializerSaveScope(string reason)
         {
+            if (!_localSerializerCaptured)
+                EnsureLocalSerializerCaptured();
+
             if (!_localSerializerCaptured)
                 return default;
 

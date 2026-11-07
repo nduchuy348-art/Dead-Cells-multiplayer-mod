@@ -446,6 +446,7 @@ namespace DeadCellsMultiplayerMod
             // save-slot override can stick, and it is still before the title screen loads a User.
             try { ApplySaveSlotEnvOverride(); }
             catch (Exception ex) { Logger.Warning("[NetMod] DCCM_SAVE_SLOT override failed: {Message}", ex.Message); }
+            GameDataSync.EnsureLocalSerializerCaptured();
             LobbySession.SetRole(NetRole.None);
             s_steamOverlayCallbackPending = true;
             s_steamOverlayCallbackRetryCount = 0;
@@ -987,7 +988,10 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook_User_unserialize(Hook_User.orig_unserialize orig, User self, dc.hxbit.Serializer v)
         {
-            orig(self, v);
+            using (GameDataSync.BeginLocalSerializerSaveScope("User.unserialize"))
+            {
+                orig(self, v);
+            }
             try { _ConnectionUI.RememberLocalHeroSkinFromUser(self, "unserialize"); } catch { }
             if (_netRole == NetRole.Client)
                 GameDataSync.CaptureOriginalUserData(self, allowReplaceWhenBetter: true);
@@ -1246,15 +1250,17 @@ namespace DeadCellsMultiplayerMod
                 if (isHeroBody)
                 {
                     var isAttackAnim = IsAttackAnim(play);
+                    var isLandingAnim = string.Equals(play, "crouch", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(play, "land", StringComparison.OrdinalIgnoreCase);
                     if (!DeadCellsMultiplayerMod.Ghost.KingWeaponSupport.IsInKingContext &&
                         !DeadCellsMultiplayerMod.Ghost.KingWeaponSupport.IsUnsafeRemoteGhostAnimation(play))
                     {
-                        SendHeroAnim(play, queueAnim, g, force: isAttackAnim);
+                        SendHeroAnim(play, queueAnim, g, force: isAttackAnim || isLandingAnim);
                     }
 
                     var now = Stopwatch.GetTimestamp();
                     var isLanding = DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsLandingTransition(_lastLocalHeroAnim, play);
-                    if (isLanding || string.Equals(play, "crouch", StringComparison.OrdinalIgnoreCase))
+                    if (isLanding || isLandingAnim)
                     {
                         if (now - _lastLocalLandingFxTicks > (long)(Stopwatch.Frequency * 0.4))
                         {
@@ -1429,7 +1435,11 @@ namespace DeadCellsMultiplayerMod
 
                 if (duration >= 0.4)
                 {
-                    self.landStun(duration, true);
+                    self.landStun(System.Math.Min(duration, 0.3), true);
+                    self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
+                }
+                else
+                {
                     self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
                 }
             }
@@ -1441,10 +1451,7 @@ namespace DeadCellsMultiplayerMod
             orig(self, height);
             if (self != null && ReferenceEquals(self, me))
             {
-                if (_pendingMapLandingCrouch || height >= 2.0)
-                {
-                    TriggerHeroLandingCrouchAndFx(self, height);
-                }
+                TriggerHeroLandingCrouchAndFx(self, height);
             }
         }
 

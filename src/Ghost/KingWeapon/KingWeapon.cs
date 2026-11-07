@@ -26,6 +26,24 @@ namespace DeadCellsMultiplayerMod.Ghost
             _KingWeapon.__inst_construct__(this, source);
             BindAreasToSource();
             PatchSkills();
+
+            // Distance attenuation for weapon equip/holster events
+            var vol = GetSpatialVolume();
+            disableSounds = !vol.HasValue;
+        }
+
+        internal double? GetSpatialVolume(double? baseVolume = 1.0)
+        {
+            var hero = ModEntry.me ?? owner;
+            if(hero == null || source == null)
+                return baseVolume;
+
+            double heroX = hero.cx != 0 || hero.xr != 0 ? (hero.cx + hero.xr) : ((hero.spr?.x ?? 0) / 24.0);
+            double heroY = hero.cy != 0 || hero.yr != 0 ? (hero.cy + hero.yr) : ((hero.spr?.y ?? 0) / 24.0);
+            double srcX = source.cx != 0 || source.xr != 0 ? (source.cx + source.xr) : ((source.spr?.x ?? 0) / 24.0);
+            double srcY = source.cy != 0 || source.yr != 0 ? (source.cy + source.yr) : ((source.spr?.y ?? 0) / 24.0);
+
+            return CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, srcX, srcY, baseVolume);
         }
 
         public override double get_shootX()
@@ -45,9 +63,10 @@ namespace DeadCellsMultiplayerMod.Ghost
             if(cinf == null)
                 return;
 
-            if(!disableSounds)
+            var vol = GetSpatialVolume();
+            if(!disableSounds && vol.HasValue)
             {
-                playReleaseSfx(null, null, Ref<bool>.Null, null, null);
+                playReleaseSfx(vol.Value, null, Ref<bool>.Null, null, null);
             }
 
             var fx = source?._level?.fx ?? owner?._level?.fx;

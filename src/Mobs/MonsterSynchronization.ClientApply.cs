@@ -741,7 +741,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             if (!IsMobCulledLocally(mob))
                 return false;
 
-            try { mob.life = 0; } catch { }
+            // Defer death execution to postUpdate when the mob is simulated, without pre-zeroing life early
             lock (Sync)
             {
                 s_pendingCulledMobDeaths.Add(mob);

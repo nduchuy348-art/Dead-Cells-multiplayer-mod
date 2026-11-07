@@ -128,6 +128,9 @@ namespace DeadCellsMultiplayerMod.Ghost
                 {
                     ReleaseShield(rebuildNow);
                 }
+
+                // Clean up previous weapon models, slash effects, and suppress ghost attack anims (Bug 6)
+                CleanUpPreviousWeaponVisualsAndSuppressGhostAnims();
                 DisposeCurrentWeaponSafely();
 
                 weaponItem = item;
@@ -152,6 +155,11 @@ namespace DeadCellsMultiplayerMod.Ghost
                 // recognized before binding the detached ghost or patching/advancing any skill.
                 var candidate = KingWeaponSupport.CreateWeaponCandidate(hero, item);
                 weapon = candidate;
+
+                // Distance attenuation for weapon equip/holster events (Bug 3)
+                var spatialVol = CalculateGhostSpatialVolume();
+                candidate.disableSounds = !spatialVol.HasValue;
+
                 if(KingWeaponSupport.RequiresVisualOnlyRemoteReplay(kindId, candidate, out var unsafeReason))
                 {
                     if(kindId.Length > 0)
@@ -452,12 +460,78 @@ namespace DeadCellsMultiplayerMod.Ghost
             }
         }
 
+        internal double? CalculateGhostSpatialVolume(double? baseVolume = 1.0)
+        {
+            var localHero = ModEntry.me ?? hero;
+            if(localHero == null || king == null)
+                return baseVolume;
+
+            double heroX = localHero.cx != 0 || localHero.xr != 0 ? (localHero.cx + localHero.xr) : ((localHero.spr?.x ?? 0) / 24.0);
+            double heroY = localHero.cy != 0 || localHero.yr != 0 ? (localHero.cy + localHero.yr) : ((localHero.spr?.y ?? 0) / 24.0);
+            double ghostX = king.cx != 0 || king.xr != 0 ? (king.cx + king.xr) : ((king.spr?.x ?? 0) / 24.0);
+            double ghostY = king.cy != 0 || king.yr != 0 ? (king.cy + king.yr) : ((king.spr?.y ?? 0) / 24.0);
+
+            return CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, ghostX, ghostY, baseVolume);
+        }
+
+        private void CleanUpPreviousWeaponVisualsAndSuppressGhostAnims()
+        {
+            // 1. Clean up previous weapon models and fx (e.g. Pure Nail slashes/sprites)
+            var current = weapon;
+            if(current != null)
+            {
+                try
+                {
+                    if(current.lastFx != null)
+                    {
+                        try { current.lastFx.remove(); } catch { }
+                        current.lastFx = null!;
+                    }
+                }
+                catch { }
+            }
+
+            // 2. Discard previous attack/interrupt queue on weapon switch so old weapon combos don't bleed through
+            pendingAttacks = 0;
+            pendingInterrupts = 0;
+            pendingSlot = -1;
+            pendingKindId = null;
+            _meleeSwingActive = false;
+
+            // 3. Suppress phantom animation layering on the ghost sprite
+            try
+            {
+                var animManager = king?.spr?._animManager ?? king?.spr?.get_anim();
+                if(animManager?.stack != null)
+                {
+                    while (animManager.stack.length > 0)
+                        animManager.stack.pop();
+                }
+                animManager?.play("idle".AsHaxeString(), null, null)?.loop(null);
+            }
+            catch { }
+        }
+
         private void DisposeCurrentWeaponSafely()
         {
             var current = weapon;
             weapon = null!;
             if(current == null)
                 return;
+
+            try
+            {
+                if(current.lastFx != null)
+                {
+                    try { current.lastFx.remove(); } catch { }
+                    current.lastFx = null!;
+                }
+            }
+            catch { }
+
+            // Apply spatial distance attenuation to holster event (Bug 3)
+            var spatialVol = CalculateGhostSpatialVolume();
+            current.disableSounds = !spatialVol.HasValue;
 
             try { KingWeaponSupport.RetireRemoteWeapon(current); } catch { }
         }

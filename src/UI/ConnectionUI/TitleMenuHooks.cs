@@ -152,10 +152,21 @@ namespace DeadCellsMultiplayerMod
 
             return new HlAction(() =>
             {
-                try { StopNetworkFromMenu(); }
-                catch (Exception ex) { _log?.Warning("[NetMod] Quit cleanup failed: {Message}", ex.Message); }
-                try { callback(); }
-                catch (Exception ex) { _log?.Warning("[NetMod] Quit callback failed: {Message}", ex.Message); }
+                try
+                {
+                    _forceMultiplayerSaveStore = true;
+                    callback();
+                }
+                catch (Exception ex)
+                {
+                    _log?.Warning("[NetMod] Quit callback failed: {Message}", ex.Message);
+                }
+                finally
+                {
+                    _forceMultiplayerSaveStore = false;
+                    try { StopNetworkFromMenu(); }
+                    catch (Exception ex) { _log?.Warning("[NetMod] Quit cleanup failed: {Message}", ex.Message); }
+                }
             });
         }
 

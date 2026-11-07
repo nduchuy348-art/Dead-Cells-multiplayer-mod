@@ -84,7 +84,9 @@ namespace DeadCellsMultiplayerMod
                     };
 
                     IODirectory.CreateDirectory(IOPath.GetDirectoryName(path)!);
-                    IOFile.WriteAllText(path, JsonConvert.SerializeObject(metadata, Formatting.Indented));
+                    var tempPath = path + ".tmp";
+                    IOFile.WriteAllText(tempPath, JsonConvert.SerializeObject(metadata, Formatting.Indented));
+                    IOFile.Move(tempPath, path, overwrite: true);
                     UpdateCacheLocked(slot, path, metadata);
                     return true;
                 }
@@ -240,16 +242,24 @@ namespace DeadCellsMultiplayerMod
             return IOPath.Combine(GetSaveRootPath(), MultiplayerSaveFolderName);
         }
 
-        private static int ResolveSaveSlotNumber(int? slot)
+        internal static int ResolveSaveSlotNumber(int? slot)
         {
-            if (slot.HasValue && slot.Value >= 0)
-                return slot.Value;
+            return ResolveSlotFromSources(
+                slot,
+                Environment.GetEnvironmentVariable("DCCM_SAVE_SLOT"),
+                MultiplayerSettingsStorage.MultiplayerProfileSlot,
+                TryGetGameOptionsSlot);
+        }
 
-            // Per-process slot override. options.curSlot lives in a shared config file, so two
-            // game processes on one machine (local co-op testing) race on it and can silently
-            // converge onto the SAME save slot — concurrent writes to one user_N.dat corrupted
-            // it with NUL bytes. An env var is process-scoped and wins over the shared config.
-            var envSlot = Environment.GetEnvironmentVariable("DCCM_SAVE_SLOT");
+        internal static int ResolveSlotFromSources(
+            int? explicitSlot,
+            string? envSlot,
+            int profileSlot,
+            Func<int?>? gameOptionsFallback = null)
+        {
+            if (explicitSlot.HasValue && explicitSlot.Value >= 0)
+                return explicitSlot.Value;
+
             if (!string.IsNullOrWhiteSpace(envSlot) &&
                 int.TryParse(envSlot, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedEnvSlot) &&
                 parsedEnvSlot >= 0)
@@ -257,6 +267,28 @@ namespace DeadCellsMultiplayerMod
                 return parsedEnvSlot;
             }
 
+            if (profileSlot >= 0)
+                return profileSlot;
+
+            if (gameOptionsFallback != null)
+            {
+                try
+                {
+                    var current = gameOptionsFallback();
+                    if (current.HasValue && current.Value >= 0)
+                        return current.Value;
+                }
+                catch
+                {
+                }
+            }
+
+            return 0;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static int? TryGetGameOptionsSlot()
+        {
             try
             {
                 var current = dc.Main.Class.ME?.options?.curSlot;
@@ -266,8 +298,7 @@ namespace DeadCellsMultiplayerMod
             catch
             {
             }
-
-            return 0;
+            return null;
         }
 
         private static string GetSaveRootPath()

@@ -1071,8 +1071,27 @@ public class LevelExitSync :
         if (expected <= 1)
             return true;
 
-        _readyPlayerCounts.TryGetValue(doorKey, out var ready);
-        return ready >= expected;
+        if (_readyPlayerCounts.TryGetValue(doorKey, out var ready) && ready >= expected)
+            return true;
+
+        if (TryParseDoorKey(doorKey, out var targetCx, out var targetCy))
+        {
+            var nearbyReady = 0;
+            foreach (var kvp in _readyPlayerCounts)
+            {
+                if (TryParseDoorKey(kvp.Key, out var kCx, out var kCy))
+                {
+                    if (System.Math.Abs(kCx - targetCx) <= 6 && System.Math.Abs(kCy - targetCy) <= 6)
+                    {
+                        nearbyReady += kvp.Value;
+                        if (nearbyReady >= expected)
+                            return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     private int ComputeExpectedPlayerCount(NetNode net)

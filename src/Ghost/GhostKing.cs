@@ -325,10 +325,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
             try
             {
-                if (hardLand)
-                {
-                    spr?._animManager?.play("crouch".AsHaxeString(), null, null)?.stopOnLastFrame(Ref<bool>.Null);
-                }
+                spr?._animManager?.play((hardLand ? "crouch" : "land").AsHaxeString(), null, null)?.stopOnLastFrame(Ref<bool>.Null);
 
                 var fx = _level?.fx ?? ModEntry.me?._level?.fx;
                 var localHero = ResolveLocalHero();

@@ -58,6 +58,7 @@ public sealed class MultiplayerSettingsData
     public bool ShowPerfLogs { get; set; } = false;
 
     public string DebugStartPerkId { get; set; } = MultiplayerSettingsStorage.NoStartPerkValue;
+    public int MultiplayerProfileSlot { get; set; } = -1;
 }
 
 public static class MultiplayerSettingsStorage
@@ -320,6 +321,27 @@ public static class MultiplayerSettingsStorage
         }
     }
 
+    public static int MultiplayerProfileSlot
+    {
+        get
+        {
+            lock (SyncRoot)
+                return EnsureDataNormalizedUnsafe().MultiplayerProfileSlot;
+        }
+        set
+        {
+            lock (SyncRoot)
+            {
+                var data = EnsureDataNormalizedUnsafe();
+                if (data.MultiplayerProfileSlot == value)
+                    return;
+
+                data.MultiplayerProfileSlot = value;
+                SaveUnsafe();
+            }
+        }
+    }
+
     public static bool IsModuleEnabled(DebugModuleId moduleId)
     {
         lock (SyncRoot)
@@ -428,6 +450,12 @@ public static class MultiplayerSettingsStorage
         if (!string.Equals(data.DebugStartPerkId, normalizedPerkId, StringComparison.Ordinal))
         {
             data.DebugStartPerkId = normalizedPerkId;
+            changed = true;
+        }
+
+        if (data.MultiplayerProfileSlot < -1)
+        {
+            data.MultiplayerProfileSlot = -1;
             changed = true;
         }
 

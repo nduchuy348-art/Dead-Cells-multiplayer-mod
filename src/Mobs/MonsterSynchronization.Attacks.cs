@@ -1260,6 +1260,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
             try
             {
+                if (safeEntity is DeadCellsMultiplayerMod.Ghost.GhostBase.GhostKing)
+                    return safeEntity.destroyed || safeEntity.life <= 0;
                 return safeEntity.destroyed || safeEntity.life <= 0 || !safeEntity._targetable;
             }
             catch

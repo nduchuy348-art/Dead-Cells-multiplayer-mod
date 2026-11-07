@@ -148,12 +148,22 @@ public partial class InteractionSync
     private void Hook_Portal_show(Hook_Portal.orig_show orig, Portal self)
     {
         orig(self);
+        if (_applyingRemotePortalEvents)
+            return;
+        var net = LobbySession.NetRef;
+        if (net != null && !net.IsHost)
+            return;
         TrySendPortalEvent(self, "show");
     }
 
     private void Hook_Portal_close(Hook_Portal.orig_close orig, Portal self)
     {
         orig(self);
+        if (_applyingRemotePortalEvents)
+            return;
+        var net = LobbySession.NetRef;
+        if (net != null && !net.IsHost)
+            return;
         TrySendPortalEvent(self, "close");
     }
 
@@ -161,12 +171,15 @@ public partial class InteractionSync
     {
         if (_applyingRemotePortalEvents)
             return;
-        if (!IsNetReadyForSend(LobbySession.NetRef))
+        var net = LobbySession.NetRef;
+        if (net != null && !net.IsHost)
+            return;
+        if (!IsNetReadyForSend(net))
             return;
         try
         {
             var (x, y) = GetEntityPixelPos(self);
-            LobbySession.NetRef!.SendInterPortal(x, y, action, GetCurrentInteractionLevelId());
+            net!.SendInterPortal(x, y, action, GetCurrentInteractionLevelId());
         }
         catch (Exception ex)
         {
@@ -622,10 +635,6 @@ public partial class InteractionSync
     {
         var level = ModEntry.me?._level;
         if (level == null || events == null || events.Count == 0)
-            return;
-
-        var net = LobbySession.NetRef;
-        if (net != null && !net.IsHost)
             return;
 
         var localId = LobbySession.NetRef?.id ?? 0;

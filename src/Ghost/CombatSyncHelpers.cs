@@ -40,6 +40,8 @@ public static class CombatSyncHelpers
     }
 
     public const double DefaultMaxSoundDistanceCases = 26.0;
+    public const double VerticalDistanceWeight = 1.35;
+    public const double MinimumAudibleThreshold = 0.035;
 
     public static double? CalculateSpatializedVolume(
         double heroX,
@@ -58,7 +60,12 @@ public static class CombatSyncHelpers
 
         double dx = heroX - srcX;
         double dy = heroY - srcY;
-        double distCases = Math.Sqrt(dx * dx + dy * dy);
+
+        // In 2D multi-layer/platformer biomes (such as Promenade or Sewers), sounds on different vertical
+        // floors bleed through ground/ceilings and produce map-wide reverberation. Weighting vertical distance
+        // prevents cross-floor audio bleed while preserving exact horizontal sound falloff on the same plane.
+        double weightedDy = dy * VerticalDistanceWeight;
+        double distCases = Math.Sqrt(dx * dx + weightedDy * weightedDy);
 
         if (double.IsNaN(distCases) || distCases >= maxDistanceCases)
             return null;
@@ -67,7 +74,8 @@ public static class CombatSyncHelpers
         double volumeScale = factor * factor;
 
         double attenuated = baseVol * volumeScale;
-        if (attenuated < 0.02)
+        // Suppress very faint residual volume that would otherwise trigger engine-side biome reverb / echo bleed across map
+        if (attenuated < MinimumAudibleThreshold)
             return null;
 
         return attenuated;

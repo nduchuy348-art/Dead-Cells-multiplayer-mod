@@ -603,10 +603,10 @@ internal static class KingWeaponHooks
             return KingWeaponSupport.IsKingWeapon(self) ? null : originalVolume;
         }
 
-        double heroX = hero.cx + hero.xr;
-        double heroY = hero.cy + hero.yr;
-        double srcX = source.cx + source.xr;
-        double srcY = source.cy + source.yr;
+        double heroX = hero.cx != 0 || hero.xr != 0 ? (hero.cx + hero.xr) : ((hero.spr?.x ?? 0) / 24.0);
+        double heroY = hero.cy != 0 || hero.yr != 0 ? (hero.cy + hero.yr) : ((hero.spr?.y ?? 0) / 24.0);
+        double srcX = source.cx != 0 || source.xr != 0 ? (source.cx + source.xr) : ((source.spr?.x ?? 0) / 24.0);
+        double srcY = source.cy != 0 || source.yr != 0 ? (source.cy + source.yr) : ((source.spr?.y ?? 0) / 24.0);
 
         return CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, srcX, srcY, originalVolume);
     }
@@ -1643,10 +1643,10 @@ internal static class KingWeaponHooks
         if(hero == null)
             return originalVolume;
 
-        double heroX = hero.cx + hero.xr;
-        double heroY = hero.cy + hero.yr;
-        double srcX = source.cx + source.xr;
-        double srcY = source.cy + source.yr;
+        double heroX = hero.cx != 0 || hero.xr != 0 ? (hero.cx + hero.xr) : ((hero.spr?.x ?? 0) / 24.0);
+        double heroY = hero.cy != 0 || hero.yr != 0 ? (hero.cy + hero.yr) : ((hero.spr?.y ?? 0) / 24.0);
+        double srcX = source.cx != 0 || source.xr != 0 ? (source.cx + source.xr) : ((source.spr?.x ?? 0) / 24.0);
+        double srcY = source.cy != 0 || source.yr != 0 ? (source.cy + source.yr) : ((source.spr?.y ?? 0) / 24.0);
 
         return CombatSyncHelpers.CalculateSpatializedVolume(heroX, heroY, srcX, srcY, originalVolume);
     }
