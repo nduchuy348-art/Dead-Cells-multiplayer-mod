@@ -1197,6 +1197,583 @@ public sealed class CoopBugfixRegressionTests
         Assert.Equal(-10, affect.AffectId);
         Assert.Equal(0.0, affect.Sec);
     }
+
+    [Fact]
+    public void CombatSyncHelpers_IsSolidTile_BoundsAndNullSafety()
+    {
+        // Zero pointer returns false
+        Assert.False(CombatSyncHelpers.IsSolidTile(IntPtr.Zero, 10, 10, 5, 5));
+        Assert.False(CombatSyncHelpers.IsSolidTile(IntPtr.Zero, 0, 0, 0, 0));
+
+        // Out of bounds coordinates count as solid walls
+        Assert.True(CombatSyncHelpers.IsSolidTile(new IntPtr(12345), 10, 10, -1, 5));
+        Assert.True(CombatSyncHelpers.IsSolidTile(new IntPtr(12345), 10, 10, 10, 5));
+        Assert.True(CombatSyncHelpers.IsSolidTile(new IntPtr(12345), 10, 10, 5, -1));
+        Assert.True(CombatSyncHelpers.IsSolidTile(new IntPtr(12345), 10, 10, 5, 10));
+    }
+
+    [Fact]
+    public void CombatSyncHelpers_IsWoodTile_BoundsAndNullSafety()
+    {
+        // Zero pointer returns false
+        Assert.False(CombatSyncHelpers.IsWoodTile(IntPtr.Zero, 10, 10, 5, 5));
+        Assert.False(CombatSyncHelpers.IsWoodTile(IntPtr.Zero, 0, 0, 0, 0));
+
+        // Out of bounds coordinates return false
+        Assert.False(CombatSyncHelpers.IsWoodTile(new IntPtr(12345), 10, 10, -1, 5));
+        Assert.False(CombatSyncHelpers.IsWoodTile(new IntPtr(12345), 10, 10, 10, 5));
+        Assert.False(CombatSyncHelpers.IsWoodTile(new IntPtr(12345), 10, 10, 5, -1));
+        Assert.False(CombatSyncHelpers.IsWoodTile(new IntPtr(12345), 10, 10, 5, 10));
+    }
+
+    [Theory]
+    [InlineData(0, 0, true)]
+    [InlineData(1, 1, true)]
+    [InlineData(5, 5, true)]
+    [InlineData(0, 5, true)]
+    [InlineData(5, 0, true)]
+    [InlineData(-1, 0, false)]
+    [InlineData(0, -1, false)]
+    [InlineData(6, 0, false)]
+    [InlineData(0, 6, false)]
+    [InlineData(10, 10, false)]
+    public void BossStemCell_RunLaunchDescriptor_BoundsCheck(int difficulty, int bossCells, bool expectedValid)
+    {
+        var descriptor = new DeadCellsMultiplayerMod.PortableCore.RunLaunchDescriptor(
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            RunId: 10,
+            Sequence: 1,
+            ProtocolVersion: 17,
+            RunSeed: 99999,
+            LaunchKind: "normal",
+            InitialLevelId: "PrisonStart",
+            InitialLevelSeed: 100.0,
+            Difficulty: difficulty,
+            BossCells: bossCells,
+            BossRush: false,
+            DlcFlags: 0,
+            SaveSlot: 1,
+            BossRushSeed: 0,
+            LevelGenSeed: 0,
+            BossRushTier: 0,
+            Route: string.Empty,
+            BossSequence: string.Empty,
+            Modifiers: 0,
+            TargetArena: "PrisonStart");
+
+        var isValid = descriptor.TryValidate(out var error);
+        Assert.Equal(expectedValid, isValid);
+        if (!expectedValid)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(error));
+        }
+    }
+
+    [Theory]
+    [InlineData("0", 0, 5)]
+    [InlineData("1", 1, 5)]
+    [InlineData("3", 3, 5)]
+    [InlineData("5", 5, 5)]
+    [InlineData("-1", 0, 5)]
+    [InlineData("-99", 0, 5)]
+    [InlineData("6", 5, 5)]
+    [InlineData("99", 5, 5)]
+    [InlineData("3|4", 3, 4)]
+    [InlineData("2|2", 2, 2)]
+    [InlineData("5|2", 2, 2)] // Clamped to host's unlocked level 2
+    [InlineData("4|0", 0, 0)] // Clamped to host's unlocked level 0
+    [InlineData("-2|3", 0, 3)]
+    [InlineData("10|10", 5, 5)] // Clamped to absolute max 5
+    public void BossStemCell_TryParseBossRunePayload_BoundsAndHostLimitValidation(string payload, int expectedBC, int expectedMax)
+    {
+        var parsed = BossStemCellSync.TryParseBossRunePayload(payload, out var bc, out var maxAllowed);
+        Assert.True(parsed);
+        Assert.Equal(expectedBC, bc);
+        Assert.Equal(expectedMax, maxAllowed);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("invalid_payload")]
+    [InlineData("not|numbers")]
+    public void BossStemCell_TryParseBossRunePayload_HandlesMalformedSafely(string? payload)
+    {
+        var parsed = BossStemCellSync.TryParseBossRunePayload(payload, out var bc, out var maxAllowed);
+        Assert.False(parsed);
+        Assert.Equal(0, bc);
+        Assert.Equal(BossStemCellSync.MaxBossCells, maxAllowed);
+    }
+
+    [Theory]
+    [InlineData("PrisonStart", true)]
+    [InlineData("prisonstart", true)]
+    [InlineData("PRISONSTART", true)]
+    [InlineData("Prison_Start", false)]
+    [InlineData("Ossuary", false)]
+    [InlineData("Promenade", false)]
+    [InlineData("ClockTower", false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData(null, false)]
+    public void BossStemCell_IsStartingHubLevel_Validation(string? levelId, bool expectedHub)
+    {
+        var isHub = BossStemCellSync.IsStartingHubLevel(levelId);
+        Assert.Equal(expectedHub, isHub);
+    }
+
+    [Fact]
+    public void BossStemCell_InterBossRuneUpdateCellsEvent_Validation()
+    {
+        var ev = new InterBossRuneUpdateCellsEvent(double.NaN, double.NegativeInfinity, true, null!);
+        Assert.Equal(0, ev.UserId);
+        Assert.Equal(0.0, ev.X);
+        Assert.Equal(0.0, ev.Y);
+        Assert.True(ev.Add);
+        Assert.Equal(string.Empty, ev.LevelId);
+
+        var evWithUser = new InterBossRuneUpdateCellsEvent(-5, 128.5, 256.0, false, "PrisonStart");
+        Assert.Equal(0, evWithUser.UserId);
+        Assert.Equal(128.5, evWithUser.X);
+        Assert.Equal(256.0, evWithUser.Y);
+        Assert.False(evWithUser.Add);
+        Assert.Equal("PrisonStart", evWithUser.LevelId);
+    }
+
+    [Fact]
+    public void BossStemCell_ClampBossCells_BoundsAndAuthority()
+    {
+        // Out of bounds values clamped to [0..5]
+        Assert.Equal(0, BossStemCellSync.ClampBossCells(-10, 5));
+        Assert.Equal(5, BossStemCellSync.ClampBossCells(10, 5));
+        Assert.Equal(0, BossStemCellSync.ClampBossCells(0, 5));
+        Assert.Equal(5, BossStemCellSync.ClampBossCells(5, 5));
+
+        // Clamped against host's unlocked ceiling
+        Assert.Equal(2, BossStemCellSync.ClampBossCells(5, 2));
+        Assert.Equal(0, BossStemCellSync.ClampBossCells(3, 0));
+        Assert.Equal(1, BossStemCellSync.ClampBossCells(1, 2));
+
+        // Clamping handles out-of-range maxAllowed safely
+        Assert.Equal(0, BossStemCellSync.ClampBossCells(5, -1));
+        Assert.Equal(5, BossStemCellSync.ClampBossCells(10, 10));
+    }
+
+    [Theory]
+    [InlineData("PrisonStart/", true)]
+    [InlineData("PrisonStart\\", true)]
+    [InlineData("PrisonStart\0", true)]
+    [InlineData("  PrisonStart  ", true)]
+    [InlineData("PrisonStart/\0", true)]
+    [InlineData("Promenade/", false)]
+    [InlineData("Ossuary\\", false)]
+    public void BossStemCell_IsStartingHubLevel_SanitizesProtocolArtifacts(string? levelId, bool expectedHub)
+    {
+        var isHub = BossStemCellSync.IsStartingHubLevel(levelId);
+        Assert.Equal(expectedHub, isHub);
+    }
+
+    [Fact]
+    public void BossStemCell_TryParseInterBossRuneUpdateCellsPayload_BothFormats()
+    {
+        // 4-part legacy format
+        var parsed4 = NetNode.TryParseInterBossRuneUpdateCellsPayload("120.0|240.5|1|PrisonStart", out var ev4);
+        Assert.True(parsed4);
+        Assert.Equal(0, ev4.UserId);
+        Assert.Equal(120.0, ev4.X);
+        Assert.Equal(240.5, ev4.Y);
+        Assert.True(ev4.Add);
+        Assert.Equal("PrisonStart", ev4.LevelId);
+
+        // 5-part format with explicit userId
+        var parsed5 = NetNode.TryParseInterBossRuneUpdateCellsPayload("3|120.0|240.5|0|PrisonStart", out var ev5);
+        Assert.True(parsed5);
+        Assert.Equal(3, ev5.UserId);
+        Assert.Equal(120.0, ev5.X);
+        Assert.Equal(240.5, ev5.Y);
+        Assert.False(ev5.Add);
+        Assert.Equal("PrisonStart", ev5.LevelId);
+
+        // Malformed coordinate payloads rejected safely
+        Assert.False(NetNode.TryParseInterBossRuneUpdateCellsPayload("NaN|240.5|1|PrisonStart", out _));
+        Assert.False(NetNode.TryParseInterBossRuneUpdateCellsPayload("120.0|Infinity|1|PrisonStart", out _));
+        Assert.False(NetNode.TryParseInterBossRuneUpdateCellsPayload("not|a|number", out _));
+        Assert.False(NetNode.TryParseInterBossRuneUpdateCellsPayload(string.Empty, out _));
+    }
+
+    [Fact]
+    public void BossStemCell_NetNode_HostAuthorityRejection()
+    {
+        var hostNode = new NetNode(1, NetRole.Host);
+
+        // Host rejects client-originated BOSSRUNE packet
+        var handledBossRune = hostNode.HandleLine("BOSSRUNE|5", senderId: 2, out var forwardLine1);
+        Assert.True(handledBossRune);
+        Assert.Null(forwardLine1);
+
+        // Host rejects client-originated BOSSRUNE_UPDATE_CELLS packet
+        var handledUpdate = hostNode.HandleLine("BOSSRUNE_UPDATE_CELLS|100|200|1|PrisonStart", senderId: 2, out var forwardLine2);
+        Assert.True(handledUpdate);
+        Assert.Null(forwardLine2);
+    }
+
+    [Fact]
+    public void BossStemCell_NetNode_ClientRejectsDirectSendBossRune()
+    {
+        var clientNode = new NetNode(2, NetRole.Client);
+
+        // Non-host calling SendBossRune or SendInterBossRuneUpdateCells does not throw and is dropped
+        clientNode.SendBossRune(5, 5);
+        clientNode.SendInterBossRuneUpdateCells(100.0, 200.0, true, "PrisonStart");
+    }
+
+    [Fact]
+    public void BossStemCell_GameDataSync_HostMaxUnlockedTrackingAndClamping()
+    {
+        // Clean initial state
+        GameDataSync.ResetBossRuneStateForTesting();
+        Assert.False(GameDataSync.HasRemoteBossRune());
+
+        // Receive dual payload with host max unlocked 3
+        GameDataSync.ReceiveBossRune("5|3");
+        Assert.True(GameDataSync.HasRemoteBossRune());
+        Assert.True(GameDataSync.TryGetRemoteBossRune(out var bc));
+        Assert.Equal(3, bc); // Clamped to host unlocked 3
+
+        Assert.True(GameDataSync.TryGetHostMaxUnlockedBossRune(out var hostMax));
+        Assert.Equal(3, hostMax);
+
+        // Legacy single-integer payload with BC 5 should be clamped against host's unlocked 3
+        GameDataSync.ReceiveBossRune("5");
+        Assert.True(GameDataSync.TryGetRemoteBossRune(out bc));
+        Assert.Equal(3, bc);
+
+        // Valid lower BC within range updates correctly
+        GameDataSync.ReceiveBossRune("1");
+        Assert.True(GameDataSync.TryGetRemoteBossRune(out bc));
+        Assert.Equal(1, bc);
+
+        // Clean-up on session restore
+        GameDataSync.ResetBossRuneStateForTesting();
+        Assert.False(GameDataSync.HasRemoteBossRune());
+        Assert.False(GameDataSync.TryGetRemoteBossRune(out _));
+    }
+
+    [Theory]
+    [InlineData(0, 5, true)]
+    [InlineData(3, 5, true)]
+    [InlineData(5, 5, true)]
+    [InlineData(2, 2, true)]
+    [InlineData(3, 2, false)]
+    [InlineData(-1, 5, false)]
+    [InlineData(6, 5, false)]
+    [InlineData(0, -1, false)]
+    [InlineData(0, 6, true)] // maxAllowed clamped to 5, bc 0 is valid
+    public void BossStemCell_IsValidBossCells_Validation(int bc, int maxAllowed, bool expectedValid)
+    {
+        var isValid = BossStemCellSync.IsValidBossCells(bc, maxAllowed);
+        Assert.Equal(expectedValid, isValid);
+    }
+
+    [Theory]
+    [InlineData(0, 5, "0|5")]
+    [InlineData(3, 3, "3|3")]
+    [InlineData(5, 5, "5|5")]
+    [InlineData(-1, 5, "0|5")]
+    [InlineData(10, 5, "5|5")]
+    [InlineData(5, 2, "2|2")]
+    [InlineData(3, -1, "0|0")]
+    public void BossStemCell_FormatBossRunePayload_FormattingAndClamping(int bc, int maxAllowed, string expectedPayload)
+    {
+        var payload = BossStemCellSync.FormatBossRunePayload(bc, maxAllowed);
+        Assert.Equal(expectedPayload, payload);
+    }
+
+    [Theory]
+    [InlineData(true, "PrisonStart", true)]
+    [InlineData(true, "prisonstart", true)]
+    [InlineData(true, "PrisonStart/", true)]
+    [InlineData(true, "Promenade", false)]
+    [InlineData(true, "Ossuary", false)]
+    [InlineData(true, "", false)]
+    [InlineData(true, null, false)]
+    [InlineData(false, "PrisonStart", false)]
+    [InlineData(false, "Promenade", false)]
+    public void BossStemCell_CanModifyBossCells_Validation(bool isHost, string? levelId, bool expectedCanModify)
+    {
+        var canModify = BossStemCellSync.CanModifyBossCells(isHost, levelId);
+        Assert.Equal(expectedCanModify, canModify);
+    }
+
+    [Fact]
+    public void BossStemCell_InterBossRuneUpdateCellsEvent_ExtendedFieldsAndClamping()
+    {
+        var ev = new InterBossRuneUpdateCellsEvent(1, 100.0, 200.0, true, "PrisonStart", 4, 3);
+        Assert.Equal(1, ev.UserId);
+        Assert.Equal(100.0, ev.X);
+        Assert.Equal(200.0, ev.Y);
+        Assert.True(ev.Add);
+        Assert.Equal("PrisonStart", ev.LevelId);
+        Assert.Equal(3, ev.TargetBossCells); // Clamped to maxAllowed 3
+        Assert.Equal(3, ev.MaxAllowedBossCells);
+
+        var evNegative = new InterBossRuneUpdateCellsEvent(0, 50.0, 60.0, false, "PrisonStart", -2, -1);
+        Assert.Equal(0, evNegative.TargetBossCells);
+        Assert.Equal(0, evNegative.MaxAllowedBossCells);
+
+        var evOverflow = new InterBossRuneUpdateCellsEvent(0, 50.0, 60.0, false, "PrisonStart", 10, 10);
+        Assert.Equal(5, evOverflow.TargetBossCells);
+        Assert.Equal(5, evOverflow.MaxAllowedBossCells);
+    }
+
+    [Fact]
+    public void BossStemCell_TryParseInterBossRuneUpdateCellsPayload_ExtendedFormats()
+    {
+        // 5-part without uid: x | y | add | levelId | targetBc
+        var parsed5 = NetNode.TryParseInterBossRuneUpdateCellsPayload("120.0|240.5|1|PrisonStart|2", out var ev5);
+        Assert.True(parsed5);
+        Assert.Equal(0, ev5.UserId);
+        Assert.Equal(120.0, ev5.X);
+        Assert.Equal(240.5, ev5.Y);
+        Assert.True(ev5.Add);
+        Assert.Equal("PrisonStart", ev5.LevelId);
+        Assert.Equal(2, ev5.TargetBossCells);
+        Assert.Null(ev5.MaxAllowedBossCells);
+
+        // 6-part without uid: x | y | add | levelId | targetBc | maxAllowed
+        var parsed6 = NetNode.TryParseInterBossRuneUpdateCellsPayload("120.0|240.5|1|PrisonStart|4|3", out var ev6);
+        Assert.True(parsed6);
+        Assert.Equal(0, ev6.UserId);
+        Assert.Equal(3, ev6.TargetBossCells); // Clamped to maxAllowed 3
+        Assert.Equal(3, ev6.MaxAllowedBossCells);
+
+        // 7-part with uid: uid | x | y | add | levelId | targetBc | maxAllowed
+        var parsed7 = NetNode.TryParseInterBossRuneUpdateCellsPayload("2|120.0|240.5|0|PrisonStart|5|4", out var ev7);
+        Assert.True(parsed7);
+        Assert.Equal(2, ev7.UserId);
+        Assert.False(ev7.Add);
+        Assert.Equal(4, ev7.TargetBossCells); // Clamped to maxAllowed 4
+        Assert.Equal(4, ev7.MaxAllowedBossCells);
+    }
+
+    [Fact]
+    public void BossStemCell_GameDataSync_ExplicitMaxAllowsIncrease()
+    {
+        GameDataSync.ResetBossRuneStateForTesting();
+
+        // Initial sync: host max is 2, BC is 2
+        GameDataSync.ReceiveBossRune("2|2");
+        Assert.True(GameDataSync.TryGetRemoteBossRune(out var bc));
+        Assert.Equal(2, bc);
+        Assert.True(GameDataSync.TryGetHostMaxUnlockedBossRune(out var max));
+        Assert.Equal(2, max);
+
+        // Host unlocks cell 3 and syncs 3|3
+        GameDataSync.ReceiveBossRune("3|3");
+        Assert.True(GameDataSync.TryGetRemoteBossRune(out bc));
+        Assert.Equal(3, bc);
+        Assert.True(GameDataSync.TryGetHostMaxUnlockedBossRune(out max));
+        Assert.Equal(3, max);
+
+        // Legacy packet without explicit max should preserve the learned host max 3
+        GameDataSync.ReceiveBossRune("5");
+        Assert.True(GameDataSync.TryGetRemoteBossRune(out bc));
+        Assert.Equal(3, bc);
+
+        GameDataSync.ResetBossRuneStateForTesting();
+    }
+
+    [Fact]
+    public void BossStemCell_TryParseInterBossRuneUpdateCellsPayload_Legacy3Part()
+    {
+        var parsed3 = NetNode.TryParseInterBossRuneUpdateCellsPayload("120.0|240.5|1", out var ev3);
+        Assert.True(parsed3);
+        Assert.Equal(0, ev3.UserId);
+        Assert.Equal(120.0, ev3.X);
+        Assert.Equal(240.5, ev3.Y);
+        Assert.True(ev3.Add);
+        Assert.Equal(string.Empty, ev3.LevelId);
+        Assert.Null(ev3.TargetBossCells);
+        Assert.Null(ev3.MaxAllowedBossCells);
+    }
+
+    [Fact]
+    public void BossHpScaling_ResetAll_ExecutesSafelyWithoutException()
+    {
+        DeadCellsMultiplayerMod.Mobs.Bosses.BossHpScaling.ResetAll();
+    }
+
+    [Fact]
+    public void BossStemCell_RunLaunchCommit_ReconcilesStaleRemoteBossRune()
+    {
+        RunLaunchCoordinator.ResetForTesting(NetRole.Client);
+        GameDataSync.ResetBossRuneStateForTesting();
+
+        try
+        {
+            // Simulate client having stale BC 1
+            GameDataSync.ReceiveBossRune("1|1");
+            Assert.True(GameDataSync.TryGetRemoteBossRune(out var bc));
+            Assert.Equal(1, bc);
+
+            // Host commits run launch with BC 3
+            var descriptor = new DeadCellsMultiplayerMod.PortableCore.RunLaunchDescriptor(
+                Guid.NewGuid(),
+                RunId: 100,
+                Sequence: 2,
+                ProtocolVersion: DeadCellsMultiplayerMod.BuildInfo.NetworkProtocolVersion,
+                RunSeed: 54321,
+                LaunchKind: "normal",
+                InitialLevelId: "PrisonStart",
+                InitialLevelSeed: 123.0,
+                Difficulty: 3,
+                BossCells: 3,
+                BossRush: false,
+                DlcFlags: 0,
+                SaveSlot: 0,
+                BossRushSeed: 0,
+                LevelGenSeed: 0,
+                BossRushTier: 0,
+                Route: string.Empty,
+                BossSequence: string.Empty,
+                Modifiers: 0,
+                TargetArena: string.Empty);
+
+            var commitWire = DeadCellsMultiplayerMod.RunLaunchWireCodec.BuildCommitLine(descriptor)["RUNCOMMIT|".Length..];
+            LobbySession.ReceiveRunLaunchCommitPayload(commitWire);
+
+            // Reconciled to descriptor's 3 BC
+            Assert.True(GameDataSync.TryGetRemoteBossRune(out bc));
+            Assert.Equal(3, bc);
+        }
+        finally
+        {
+            GameDataSync.ResetBossRuneStateForTesting();
+            RunLaunchCoordinator.ResetForTesting(NetRole.None);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, 0.0, 2.5, true)]   // Reviver is alive: always true
+    [InlineData(false, 10.0, 2.5, true)]  // Reviver is alive: always true
+    [InlineData(true, 0.0, 2.5, true)]    // Reviver just downed at same tick (0s): honor revive
+    [InlineData(true, 0.5, 2.5, true)]    // Reviver downed 0.5s ago: honor revive
+    [InlineData(true, 1.5, 2.5, true)]    // Reviver downed 1.5s ago: honor revive
+    [InlineData(true, 2.5, 2.5, true)]    // Reviver downed exactly at boundary (2.5s): honor revive
+    [InlineData(true, 2.6, 2.5, false)]   // Reviver downed 2.6s ago (> grace): reject stale revive
+    [InlineData(true, 10.0, 2.5, false)]  // Reviver downed 10s ago: reject stale revive
+    [InlineData(true, -0.5, 2.5, false)]  // Negative duration: invalid/reject
+    [InlineData(true, 0.1, 0.0, false)]   // Zero grace configured: reject
+    [InlineData(true, 0.1, -1.0, false)]  // Negative grace configured: reject
+    public void CombatSyncHelpers_CanHonorSimultaneousRevive_HandlesRaceConditions(
+        bool reviverIsDowned,
+        double reviverDownedDurationSec,
+        double simultaneousGraceSec,
+        bool expectedResult)
+    {
+        var result = CombatSyncHelpers.CanHonorSimultaneousRevive(reviverIsDowned, reviverDownedDurationSec, simultaneousGraceSec);
+        Assert.Equal(expectedResult, result);
+    }
+
+    [Fact]
+    public void CollectorForgeLedger_ResetLocks_IdempotentlyWipesAllLocksAndSequences()
+    {
+        var ledger = new CollectorForgeLedger();
+
+        // Acquire Collector lock for user 1
+        Assert.True(ledger.TryAcquireLock(1, "Collector", 1000, out var seq1));
+        Assert.True(ledger.IsLockedByOther(2, "Collector", 1000, out var occupyingCollector));
+        Assert.Equal(1, occupyingCollector);
+
+        // Acquire Forge lock for user 2
+        Assert.True(ledger.TryAcquireLock(2, "Forge", 1000, out var seq2));
+        Assert.True(ledger.IsLockedByOther(1, "Forge", 1000, out var occupyingForge));
+        Assert.Equal(2, occupyingForge);
+
+        // First reset
+        ledger.ResetLocks();
+
+        Assert.False(ledger.IsLockedByOther(1, "Collector", 1000, out _));
+        Assert.False(ledger.IsLockedByOther(2, "Collector", 1000, out _));
+        Assert.False(ledger.IsLockedByOther(1, "Forge", 1000, out _));
+        Assert.False(ledger.IsLockedByOther(2, "Forge", 1000, out _));
+
+        // Re-acquisition after reset must succeed
+        Assert.True(ledger.TryAcquireLock(3, "Collector", 1000, out var seq3));
+        Assert.True(ledger.TryAcquireLock(3, "Forge", 1000, out var seq4));
+
+        // Multiple idempotent resets in a row must succeed cleanly
+        ledger.ResetLocks();
+        ledger.ResetLocks();
+        ledger.ResetLocks();
+
+        Assert.False(ledger.IsLockedByOther(3, "Collector", 1000, out _));
+        Assert.False(ledger.IsLockedByOther(3, "Forge", 1000, out _));
+    }
+
+    [Fact]
+    public void ShopReservationManager_ClearAll_IdempotentlyWipesClaims()
+    {
+        var reservations = new ShopReservationManager();
+
+        // Reserve an item
+        Assert.True(reservations.TryClaim("PrisonStart", 100.0, 200.0, 1, 1000));
+        Assert.True(reservations.IsClaimed("PrisonStart", 100.0, 200.0));
+
+        // Clear all
+        reservations.ClearAll();
+
+        Assert.False(reservations.IsClaimed("PrisonStart", 100.0, 200.0));
+
+        // Idempotent clears
+        reservations.ClearAll();
+        reservations.ClearAll();
+        Assert.False(reservations.IsClaimed("PrisonStart", 100.0, 200.0));
+    }
+
+    [Fact]
+    public void NetNode_ClearPendingStateForRunRestart_ClearsAllPendingQueuesIdempotently()
+    {
+        var node = new NetNode(1, NetRole.Host);
+
+        // Populate various pending queues via HandleLine
+        node.HandleLine("PDOWN|2|1|100|200|PrisonStart", senderId: 2, out _);
+        node.HandleLine("PREVIVE|2|1", senderId: 2, out _);
+        node.HandleLine("INTER_COLLECTOR_LOCK|2|1|Collector|1", senderId: 2, out _);
+        node.HandleLine("INTER_COLLECTOR_DEPOSIT|2|1|Sword|5", senderId: 2, out _);
+        node.HandleLine("INTER_BLUEPRINT_UNLOCK|2|1|Bow", senderId: 2, out _);
+        node.HandleLine("INTER_FORGE_UPGRADE|2|1|1|10", senderId: 2, out _);
+
+        // Client node for exit commit and boss rune cell updates
+        var clientNode = new NetNode(2, NetRole.Client);
+        clientNode.HandleLine("EXITCOMMIT|1|PrisonStart|Promenade|100|200", senderId: 1, out _);
+        clientNode.HandleLine("BOSSRUNE_UPDATE_CELLS|100|200|1|PrisonStart", senderId: 1, out _);
+
+        // Clear for run restart
+        node.ClearPendingStateForRunRestart();
+        clientNode.ClearPendingStateForRunRestart();
+
+        // Assert host queues are completely cleared
+        Assert.False(node.TryConsumePlayerDownStates(out _));
+        Assert.False(node.TryConsumePlayerReviveRequests(out _));
+        Assert.False(node.TryConsumeInterCollectorLockEvents(out _));
+        Assert.False(node.TryConsumeInterCollectorDepositEvents(out _));
+        Assert.False(node.TryConsumeInterBlueprintUnlockEvents(out _));
+        Assert.False(node.TryConsumeInterForgeUpgradeEvents(out _));
+
+        // Assert client queues are completely cleared
+        Assert.False(clientNode.TryConsumeExitTransitionCommits(out _));
+        Assert.False(clientNode.TryConsumeBossRuneUpdateCells(out _));
+
+        // Idempotent calls must execute cleanly without exceptions
+        node.ClearPendingStateForRunRestart();
+        node.ClearPendingStateForRunRestart();
+        clientNode.ClearPendingStateForRunRestart();
+
+        Assert.False(node.TryConsumePlayerDownStates(out _));
+        Assert.False(clientNode.TryConsumeExitTransitionCommits(out _));
+    }
 }
 
 

@@ -13,6 +13,22 @@ namespace DeadCellsMultiplayerMod
             return Instance != null && Instance._localFakeDead;
         }
 
+        internal static bool AreAllPlayersDowned()
+        {
+            var instance = Instance;
+            if (instance == null)
+                return false;
+
+            if (!instance._localFakeDead)
+                return false;
+
+            var net = _net;
+            if (net == null || !net.IsAlive || !net.IsConnected)
+                return true;
+
+            return !instance.HasAliveRemoteTeammate(net);
+        }
+
         internal static bool ShouldAnchorLocalDownedCorpse()
         {
             return Instance != null && Instance._localFakeDead;

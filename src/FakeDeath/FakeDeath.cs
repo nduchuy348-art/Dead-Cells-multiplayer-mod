@@ -20,6 +20,10 @@ namespace DeadCellsMultiplayerMod
         private bool _allDownedRestartQueued;
         private long _allDownedRestartAtTicks;
         private const double AllDownedGameOverDelaySeconds = 0.35;
+        private long _allPlayersDownedStartedTicks;
+        private const double AllPlayersDownedGraceSeconds = 2.5;
+        private const double SimultaneousReviveGraceSeconds = 2.5;
+        private long _lastReviveSentTicks;
         private bool _fakeDeathFlowInProgress;
         private bool _localDownedGravityCaptured;
         private bool _localDownedOriginalHasGravity = true;
@@ -397,7 +401,8 @@ namespace DeadCellsMultiplayerMod
                     {
                         existing = new RemoteDownedState
                         {
-                            UserId = state.UserId
+                            UserId = state.UserId,
+                            FirstDownedAtTicks = Stopwatch.GetTimestamp()
                         };
                         _remoteDowned[state.UserId] = existing;
                         combatStateChanged = true;
@@ -497,11 +502,24 @@ namespace DeadCellsMultiplayerMod
                     if (req.TargetId != localId)
                         continue;
 
-                    if (req.ReviverId <= 0 || IsRemotePlayerDowned(req.ReviverId) || !_scratchRemoteActiveIds.Contains(req.ReviverId))
+                    if (req.ReviverId <= 0 || !_scratchRemoteActiveIds.Contains(req.ReviverId))
                         continue;
 
-                    if (_localDeadCine == null)
-                        continue;
+                    // Simultaneous bleed-out & revive race guard:
+                    // If the reviver was recently downed (e.g. within SimultaneousReviveGraceSeconds),
+                    // they finished the revive hold and consumed their flask while still alive on their end.
+                    // Honor this clutch revive!
+                    if (_remoteDowned.TryGetValue(req.ReviverId, out var reviverDowned))
+                    {
+                        var downedDurationSec = reviverDowned.FirstDownedAtTicks > 0
+                            ? (double)(Stopwatch.GetTimestamp() - reviverDowned.FirstDownedAtTicks) / Stopwatch.Frequency
+                            : 0.0;
+
+                        if (!DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.CanHonorSimultaneousRevive(true, downedDurationSec, SimultaneousReviveGraceSeconds))
+                        {
+                            continue;
+                        }
+                    }
 
                     if (!IsReviverPositionValidForLocalCorpse(net, req.ReviverId))
                         continue;
@@ -518,13 +536,28 @@ namespace DeadCellsMultiplayerMod
 
         private bool IsReviverPositionValidForLocalCorpse(NetNode net, int reviverId)
         {
-            if (net == null || reviverId <= 0 || _localDeadCine == null)
+            if (net == null || reviverId <= 0)
                 return false;
 
-            // Position validation is intentionally best-effort. A missing snapshot should not make
-            // a legitimate revive impossible, but a known cross-level or far-away reviver is rejected.
-            if (!net.TryGetRemotePosition(reviverId, out var reviverX, out var reviverY, out var reviverLevelId))
+            double reviverX;
+            double reviverY;
+            string? reviverLevelId;
+
+            if (net.TryGetRemotePosition(reviverId, out reviverX, out reviverY, out reviverLevelId))
+            {
+            }
+            else if (_remoteDowned.TryGetValue(reviverId, out var reviverDowned))
+            {
+                reviverX = reviverDowned.X;
+                reviverY = reviverDowned.Y;
+                reviverLevelId = reviverDowned.LevelId;
+            }
+            else
+            {
+                // Position validation is intentionally best-effort. A missing snapshot should not make
+                // a legitimate revive impossible, but a known cross-level or far-away reviver is rejected.
                 return true;
+            }
 
             var localLevelId = GetCurrentLevelId();
             if (!string.IsNullOrWhiteSpace(localLevelId) &&
@@ -534,8 +567,13 @@ namespace DeadCellsMultiplayerMod
                 return false;
             }
 
-            if (!_localDeadCine.TryGetCorpsePixelPosition(out var corpseX, out var corpseY))
-                return true;
+            double corpseX = _localDownedX;
+            double corpseY = _localDownedY;
+            if (_localDeadCine != null && _localDeadCine.TryGetCorpsePixelPosition(out var cineX, out var cineY))
+            {
+                corpseX = cineX;
+                corpseY = cineY;
+            }
 
             var dx = reviverX - corpseX;
             var dy = reviverY - corpseY;
@@ -769,15 +807,31 @@ namespace DeadCellsMultiplayerMod
             // the client without a managed exception.
             if (!HasAliveRemoteTeammate(net))
             {
-                var graceTicks = (long)(Stopwatch.Frequency * 1.25);
-                if (_localFakeDeadStartedTicks != 0 &&
-                    now - _localFakeDeadStartedTicks < graceTicks)
+                if (_lastReviveSentTicks > 0)
+                {
+                    var elapsedSinceRevive = (double)(now - _lastReviveSentTicks) / Stopwatch.Frequency;
+                    if (elapsedSinceRevive >= 0.0 && elapsedSinceRevive < SimultaneousReviveGraceSeconds)
+                    {
+                        // Revive was recently dispatched to a teammate; allow the round-trip revival to complete.
+                        return;
+                    }
+                }
+
+                if (_allPlayersDownedStartedTicks == 0)
+                    _allPlayersDownedStartedTicks = now;
+
+                var allDownedGraceTicks = (long)(Stopwatch.Frequency * AllPlayersDownedGraceSeconds);
+                if (now - _allPlayersDownedStartedTicks < allDownedGraceTicks)
                 {
                     return;
                 }
 
                 HandleAllPlayersDowned(net);
                 return;
+            }
+            else
+            {
+                _allPlayersDownedStartedTicks = 0;
             }
 
             if (_localDeadCine == null &&
@@ -819,6 +873,13 @@ namespace DeadCellsMultiplayerMod
             }
 
             SnapHeroToDownedPosition(me, _postReviveLockX, _postReviveLockY);
+
+            // Redundant broadcast confirmation: ensure remote peer definitively receives isDowned: false
+            var net = _net;
+            if (net != null && net.IsAlive && net.IsConnected)
+            {
+                SendLocalDownedState(net, isDowned: false, force: false);
+            }
         }
 
         private static void SnapHeroToDownedPosition(Hero hero, double x, double y, bool clampToGround = true)
@@ -1032,6 +1093,7 @@ namespace DeadCellsMultiplayerMod
             TryConsumeOneFlask(me);
 
             net.SendPlayerReviveRequest(nearest.UserId);
+            _lastReviveSentTicks = now;
             _nextReviveAttemptTicks = now + (long)(Stopwatch.Frequency * ReviveAttemptCooldownSeconds);
             ResetReviveHold();
             ClearReviveHints();
@@ -1233,6 +1295,7 @@ namespace DeadCellsMultiplayerMod
             _lastLocalDamageContextTicks = 0;
             RestoreLocalHeroPhysics(me);
             ResetSafeReviveAnchorHistory(string.Empty);
+            _lastReviveSentTicks = 0;
             ResetReviveHold();
             ClearReviveHints();
             if (clearRemoteDownedTracking)
@@ -1252,6 +1315,12 @@ namespace DeadCellsMultiplayerMod
 
             if (unlockLocalHero && me != null)
             {
+                try
+                {
+                    if (me.life <= 0)
+                        me.life = System.Math.Max(1, (int)System.Math.Ceiling(me.maxLife * 0.5));
+                }
+                catch { }
                 try { me.cancelSkillControlLock(); } catch { }
                 try { me.unlockControls(); } catch { }
                 try { me._targetable = true; } catch { }
@@ -1291,7 +1360,7 @@ namespace DeadCellsMultiplayerMod
                 // Creating vanilla GameOver while both heroes are fake-dead can synchronously pause
                 // the game/cinematic scheduler and leave the client permanently Not Responding.
                 // Keep the presentation lightweight; the authoritative host queues the restart.
-                try { MultiplayerUI.PushSystemMessage("All players are down."); } catch { }
+                try { MultiplayerUI.PushSystemMessage(Localize("All players are down. Restarting run...")); } catch { }
                 _allDownedGameOverShown = true;
                 _allDownedRestartAtTicks = now + (long)(Stopwatch.Frequency * AllDownedGameOverDelaySeconds);
             }
@@ -1309,23 +1378,35 @@ namespace DeadCellsMultiplayerMod
             SnapHeroToDownedPosition(me, _localHeldX, _localHeldY, clampToGround: true);
             SendLocalDownedState(net, isDowned: true, force: false);
 
-            if (_allDownedRestartQueued)
-                return;
-
             if (_allDownedRestartAtTicks != 0 && now < _allDownedRestartAtTicks)
                 return;
 
             if (_netRole == NetRole.Host)
             {
-                _allDownedRestartQueued = true;
-                LobbySession.QueueHostRestartFromDeath("all_players_downed");
+                if (!_allDownedRestartQueued)
+                {
+                    _allDownedRestartQueued = true;
+                    LobbySession.QueueHostRestartFromDeath("all_players_downed");
+                }
+                else
+                {
+                    // Host watchdog: if host queued restart but world reload failed or hung for 15s, recover cleanly
+                    var waitElapsed = _allDownedRestartAtTicks != 0 && now > _allDownedRestartAtTicks
+                        ? (double)(now - _allDownedRestartAtTicks) / Stopwatch.Frequency
+                        : 0.0;
+                    if (waitElapsed >= 15.0)
+                    {
+                        MultiplayerUI.PushSystemMessage(Localize("Restart timeout reached. Recovering hero."));
+                        ResetDownedPlayersForRestart();
+                    }
+                }
             }
             else if (!net.IsConnected)
             {
                 // Client whose host disconnected while downed: recover cleanly without infinite hang
                 _allDownedRestartQueued = true;
                 MultiplayerUI.PushSystemMessage(Localize("Host disconnected. Run ended."));
-                ResetFakeDeathState(unlockLocalHero: true, sendNetworkUpState: false);
+                ResetDownedPlayersForRestart();
             }
             else
             {
@@ -1337,7 +1418,7 @@ namespace DeadCellsMultiplayerMod
                 {
                     _allDownedRestartQueued = true;
                     MultiplayerUI.PushSystemMessage(Localize("Restart timeout reached. Recovering hero."));
-                    ResetFakeDeathState(unlockLocalHero: true, sendNetworkUpState: false);
+                    ResetDownedPlayersForRestart();
                 }
             }
         }
@@ -1398,6 +1479,7 @@ namespace DeadCellsMultiplayerMod
             _allDownedGameOverShown = false;
             _allDownedRestartQueued = false;
             _allDownedRestartAtTicks = 0;
+            _allPlayersDownedStartedTicks = 0;
         }
 
         private static void EnsureHeroVisibilityAfterRoomChange(Hero? hero)
@@ -1435,15 +1517,36 @@ namespace DeadCellsMultiplayerMod
         internal static void ResetDownedPlayersForRestart()
         {
             var instance = Instance;
-            if (instance == null)
-                return;
-
             try
             {
                 // Broadcast the revived (not-downed) state on restart so the peer clears its stale
                 // remote-downed tracking; otherwise the host keeps pinning this player as a corpse
                 // and gates interactions (e.g. exit doors) as if still downed.
-                instance.ResetFakeDeathState(unlockLocalHero: true, sendNetworkUpState: true);
+                instance?.ResetFakeDeathState(unlockLocalHero: true, sendNetworkUpState: true);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _net?.ClearPendingStateForRunRestart();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                DeadCellsMultiplayerMod.MultiplayerModUI.LevelExit.LevelExitSync.Instance?.ResetForRunRestart();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                DeadCellsMultiplayerMod.Interaction.InteractionSync.ResetForRunRestart();
             }
             catch
             {

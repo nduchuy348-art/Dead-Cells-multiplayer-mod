@@ -171,6 +171,8 @@ public sealed partial class NetNode : IDisposable
     private string? _cachedHostRunReadyPayload;
     private int? _cachedHostRunLaunchSequence;
     private int? _cachedHostBossRune;
+    private int? _cachedHostMaxUnlockedBossRune;
+    private int? _cachedHostDlcMask;
     private int? _cachedHostSerializerSeq;
     private int? _cachedHostSerializerUid;
     private string? _cachedHostLevelDescPayload;
@@ -306,5 +308,17 @@ public sealed partial class NetNode : IDisposable
         }
 
         _lifecycle.Start();
+    }
+
+    internal NetNode(int id, NetRole role)
+    {
+        _log = Serilog.Log.Logger ?? Serilog.Core.Logger.None;
+        _role = role;
+        _useSteamTransport = true;
+        _cts = new CancellationTokenSource();
+        _steamHostId = new CSteamID(0);
+        _bindEp = new IPEndPoint(IPAddress.None, 0);
+        _destEp = new IPEndPoint(IPAddress.None, 0);
+        ID = id;
     }
 }

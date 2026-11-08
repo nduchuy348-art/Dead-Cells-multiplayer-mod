@@ -1,5 +1,6 @@
 using System.Globalization;
 using DeadCellsMultiplayerMod;
+using DeadCellsMultiplayerMod.Interaction;
 using DeadCellsMultiplayerMod.Mobs.MobsSynchronization;
 using DeadCellsMultiplayerMod.PortableCore;
 
@@ -292,14 +293,26 @@ public sealed partial class NetNode
         _ = SendLineSafe(line);
     }
 
-    public void SendBossRune(int bossRune)
+    public void SendBossRune(int bossRune, int maxUnlocked = -1)
     {
-        if (_role == NetRole.Host)
+        if (_role != NetRole.Host)
         {
-            lock (_hostCacheSync)
-            {
-                _cachedHostBossRune = bossRune;
-            }
+            _log.Warning("[NetNode] Only the host may send BOSSRUNE.");
+            return;
+        }
+
+        var clampedBossRune = Math.Clamp(bossRune, 0, 5);
+        int clampedMaxUnlocked = -1;
+        if (maxUnlocked >= 0)
+        {
+            clampedMaxUnlocked = Math.Clamp(maxUnlocked, 0, 5);
+            clampedBossRune = Math.Min(clampedBossRune, clampedMaxUnlocked);
+        }
+
+        lock (_hostCacheSync)
+        {
+            _cachedHostBossRune = clampedBossRune;
+            _cachedHostMaxUnlockedBossRune = clampedMaxUnlocked >= 0 ? clampedMaxUnlocked : null;
         }
 
         if (!HasAnyConnection())
@@ -308,7 +321,9 @@ public sealed partial class NetNode
             return;
         }
 
-        var payload = bossRune.ToString(CultureInfo.InvariantCulture);
+        var payload = clampedMaxUnlocked >= 0
+            ? $"{clampedBossRune.ToString(CultureInfo.InvariantCulture)}|{clampedMaxUnlocked.ToString(CultureInfo.InvariantCulture)}"
+            : clampedBossRune.ToString(CultureInfo.InvariantCulture);
         SendRaw("BOSSRUNE|" + payload);
         // _log.Information("[NetNode] Sent boss rune {BossRune}", bossRune);
     }
@@ -546,6 +561,7 @@ public sealed partial class NetNode
 
         string? generatePayload;
         int? bossRune;
+        int? maxUnlocked;
         string? customGameData;
         string? commitPayload;
         string? executePayload;
@@ -557,6 +573,7 @@ public sealed partial class NetNode
         {
             generatePayload = _cachedHostGeneratePayload;
             bossRune = _cachedHostBossRune;
+            maxUnlocked = _cachedHostMaxUnlockedBossRune;
             customGameData = _cachedHostCustomGameDataPayload;
             commitPayload = _cachedHostRunCommitPayload;
             executePayload = _cachedHostRunExecutePayload;
@@ -577,7 +594,13 @@ public sealed partial class NetNode
         // forward. Sending CGDATA first would let the GEN handler clear the custom-mode readiness
         // flag that the CGDATA handler had just satisfied, and the client would never arm.
         if (bossRune.HasValue)
-            SendRaw($"BOSSRUNE|{bossRune.Value.ToString(CultureInfo.InvariantCulture)}");
+        {
+            var clamped = Math.Clamp(bossRune.Value, 0, 5);
+            var payload = maxUnlocked.HasValue
+                ? $"{clamped.ToString(CultureInfo.InvariantCulture)}|{Math.Clamp(maxUnlocked.Value, 0, 5).ToString(CultureInfo.InvariantCulture)}"
+                : clamped.ToString(CultureInfo.InvariantCulture);
+            SendRaw($"BOSSRUNE|{payload}");
+        }
         if (!string.IsNullOrWhiteSpace(generatePayload))
             SendRaw("GEN|" + generatePayload);
         if (!string.IsNullOrWhiteSpace(customGameData))
@@ -1034,7 +1057,7 @@ public sealed partial class NetNode
     }
 
     /// <summary>Host only: publish where a mid-run joiner should be placed (the host's own cell).</summary>
-    public void SendHostSpawnAnchor(int cx, int cy, string? levelId)
+    public void SendHostSpawnAnchor(int cx, int cy, string? levelId, bool inCombat = false)
     {
         if (_role != NetRole.Host)
             return;
@@ -1047,7 +1070,8 @@ public sealed partial class NetNode
             .Replace("|", "/", StringComparison.Ordinal)
             .Replace("\r", string.Empty, StringComparison.Ordinal)
             .Replace("\n", string.Empty, StringComparison.Ordinal);
-        SendRaw(string.Create(CultureInfo.InvariantCulture, $"SPAWNANCHOR|{cx}|{cy}|{safeLevel}"));
+        var combatFlag = inCombat ? "1" : "0";
+        SendRaw(string.Create(CultureInfo.InvariantCulture, $"SPAWNANCHOR|{cx}|{cy}|{safeLevel}|{combatFlag}"));
     }
 
     /// <summary>Client: newest host spawn anchor, if one has arrived.</summary>
@@ -1245,8 +1269,19 @@ public sealed partial class NetNode
         SendRaw($"INTERBREAK|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
-    public void SendInterBossRuneUpdateCells(double x, double y, bool add, string levelId = "")
+    public void SendInterBossRuneUpdateCells(
+        double x,
+        double y,
+        bool add,
+        string levelId = "",
+        int? targetBossCells = null,
+        int? maxAllowed = null)
     {
+        if (_role != NetRole.Host)
+        {
+            _log.Warning("[NetNode] Only the host may send BOSSRUNE_UPDATE_CELLS.");
+            return;
+        }
         if (!HasAnyConnection())
             return;
         if (ID <= 0)
@@ -1255,7 +1290,22 @@ public sealed partial class NetNode
         var safeX = double.IsFinite(x) ? x : 0.0;
         var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
-        SendRaw($"BOSSRUNE_UPDATE_CELLS|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{(add ? 1 : 0)}|{safeLevel}");
+
+        string line;
+        if (targetBossCells.HasValue)
+        {
+            var safeMax = maxAllowed.HasValue
+                ? BossStemCellSync.ClampBossCells(maxAllowed.Value, BossStemCellSync.MaxBossCells)
+                : BossStemCellSync.MaxBossCells;
+            var safeBc = BossStemCellSync.ClampBossCells(targetBossCells.Value, safeMax);
+            line = $"BOSSRUNE_UPDATE_CELLS|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{(add ? 1 : 0)}|{safeLevel}|{safeBc.ToString(CultureInfo.InvariantCulture)}|{safeMax.ToString(CultureInfo.InvariantCulture)}";
+        }
+        else
+        {
+            line = $"BOSSRUNE_UPDATE_CELLS|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{(add ? 1 : 0)}|{safeLevel}";
+        }
+
+        SendRaw(line);
     }
 
     public void SendInterPortal(double x, double y, string action, string levelId = "")
@@ -1317,6 +1367,19 @@ public sealed partial class NetNode
         SendRaw(line);
     }
 
+    public void SendDlcMask(int dlcMask)
+    {
+        if (_role == NetRole.Host)
+        {
+            lock (_hostCacheSync)
+            {
+                _cachedHostDlcMask = dlcMask;
+            }
+        }
+        var idPart = ID > 0 ? ID.ToString(CultureInfo.InvariantCulture) : (_role == NetRole.Host ? "1" : "0");
+        SendRaw($"DLCMASK|{idPart}|{dlcMask.ToString(CultureInfo.InvariantCulture)}\n");
+    }
+
     public void SendInterEliteShrine(int userId, double x, double y, string levelId)
     {
         if (!HasAnyConnection())
@@ -1329,6 +1392,139 @@ public sealed partial class NetNode
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
         SendRaw(
             $"INTERSHRINE|{userId.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+    }
+
+    public void SendInterCollectorDeposit(int userId, string itemId, int cellsDeposited, int totalInvested, long sequence, string levelId = "")
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+        if (string.IsNullOrWhiteSpace(itemId))
+            return;
+
+        var safeItemId = ClampProtocolText(itemId.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty), InterCollectorDepositEvent.MaxItemIdLength);
+        var safeCells = Math.Clamp(cellsDeposited, 0, InterCollectorDepositEvent.MaxDepositCells);
+        var safeTotal = Math.Clamp(totalInvested, 0, int.MaxValue);
+        var safeSeq = Math.Max(0L, sequence);
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw($"INTERCOLLECTOR_DEPOSIT|{userId.ToString(CultureInfo.InvariantCulture)}|{safeItemId}|{safeCells.ToString(CultureInfo.InvariantCulture)}|{safeTotal.ToString(CultureInfo.InvariantCulture)}|{safeSeq.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+    }
+
+    public void SendInterBlueprintUnlock(int userId, string itemId, long sequence, string levelId = "")
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+        if (string.IsNullOrWhiteSpace(itemId))
+            return;
+
+        var safeItemId = ClampProtocolText(itemId.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty), InterBlueprintUnlockEvent.MaxItemIdLength);
+        var safeSeq = Math.Max(0L, sequence);
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw($"INTERBLUEPRINT_UNLOCK|{userId.ToString(CultureInfo.InvariantCulture)}|{safeItemId}|{safeSeq.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+    }
+
+    public void SendInterForgeUpgrade(int userId, int upgradeLevel, int cellsDeposited, int totalInvested, long sequence, string levelId = "")
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+
+        var safeTier = Math.Clamp(upgradeLevel, 0, InterForgeUpgradeEvent.MaxForgeTier);
+        var safeCells = Math.Clamp(cellsDeposited, 0, InterForgeUpgradeEvent.MaxDepositCells);
+        var safeTotal = Math.Clamp(totalInvested, 0, int.MaxValue);
+        var safeSeq = Math.Max(0L, sequence);
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw($"INTERFORGE_UPGRADE|{userId.ToString(CultureInfo.InvariantCulture)}|{safeTier.ToString(CultureInfo.InvariantCulture)}|{safeCells.ToString(CultureInfo.InvariantCulture)}|{safeTotal.ToString(CultureInfo.InvariantCulture)}|{safeSeq.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+    }
+
+    public void SendInterCollectorLock(int userId, bool inUse, string kind, long sequence, string levelId = "")
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+
+        var safeKind = string.Equals(kind, "Forge", StringComparison.OrdinalIgnoreCase) ? "Forge" : "Collector";
+        var safeSeq = Math.Max(0L, sequence);
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw($"INTERCOLLECTOR_LOCK|{userId.ToString(CultureInfo.InvariantCulture)}|{(inUse ? 1 : 0)}|{safeKind}|{safeSeq.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+    }
+
+    public void SendInterShopPurchase(int userId, double x, double y, int price, long sequence, bool isMimic = false, string levelId = "")
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        var safePrice = Math.Clamp(price, 0, InterShopPurchaseEvent.MaxPrice);
+        var safeSeq = Math.Max(0L, sequence);
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw($"INTERSHOP_BUY|{userId.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safePrice.ToString(CultureInfo.InvariantCulture)}|{safeSeq.ToString(CultureInfo.InvariantCulture)}|{(isMimic ? 1 : 0)}|{safeLevel}");
+    }
+
+    public void SendInterShopReroll(int userId, double x, double y, int cost, int remainUses, long sequence, string levelId = "")
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        var safeCost = Math.Clamp(cost, 0, InterShopRerollEvent.MaxCost);
+        var safeUses = Math.Clamp(remainUses, 0, InterShopRerollEvent.MaxRemainUses);
+        var safeSeq = Math.Max(0L, sequence);
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw($"INTERREROLL|{userId.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeCost.ToString(CultureInfo.InvariantCulture)}|{safeUses.ToString(CultureInfo.InvariantCulture)}|{safeSeq.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+    }
+
+    public void SendInterPedestalPickup(int userId, double x, double y, long sequence, string levelId = "")
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        var safeSeq = Math.Max(0L, sequence);
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw($"INTERPEDESTAL|{userId.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeSeq.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+    }
+
+    public void SendInterShopReject(int userId, double x, double y, long sequence, string levelId = "")
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        var safeSeq = Math.Max(0L, sequence);
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw($"INTERSHOP_REJECT|{userId.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeSeq.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+    }
+
+    public void SendInterPedestalReject(int userId, double x, double y, long sequence, string levelId = "")
+    {
+        if (!HasAnyConnection())
+            return;
+        if (userId <= 0)
+            return;
+
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        var safeSeq = Math.Max(0L, sequence);
+        var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        SendRaw($"INTERPEDESTAL_REJECT|{userId.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeSeq.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
     private void SendRaw(string payload)

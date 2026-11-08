@@ -1,4 +1,6 @@
+using System;
 using System.Diagnostics;
+using dc;
 using dc.en;
 using dc.pr;
 
@@ -32,6 +34,13 @@ namespace DeadCellsMultiplayerMod
         private long _joinSpawnArmedTicks;
         private string _joinSpawnLevelId = string.Empty;
         private long _nextJoinSpawnAttemptTicks;
+
+        public bool IsJoinSpawnArmed => _joinSpawnArmed;
+
+        internal void ResetHostSpawnAnchorTimer()
+        {
+            _nextHostSpawnAnchorTicks = 0;
+        }
 
         /// <summary>Give the level a moment to finish building before reading its collision data.</summary>
         private const double JoinSpawnRetryIntervalSeconds = 0.25;
@@ -87,22 +96,33 @@ namespace DeadCellsMultiplayerMod
                 return;
 
             var hero = me;
-            if (hero == null)
+            if (hero == null || hero.destroyed || hero.life <= 0)
                 return;
 
-            Level? level;
+            if (hero._level == null || hero._level.destroyed)
+                return;
+
+            var level = hero._level;
+            if (level.map == null)
+                return;
+
             string currentLevelId;
             try
             {
-                level = hero._level;
-                currentLevelId = level?.map?.id?.ToString() ?? string.Empty;
-                if (level?.map == null || hero.destroyed || hero.life <= 0)
-                    return;
+                currentLevelId = level.map.id?.ToString() ?? string.Empty;
             }
             catch
             {
                 return;
             }
+
+            if (string.IsNullOrWhiteSpace(currentLevelId))
+                return;
+
+            // Viewport pointer guard: ensure the level viewport has fully initialized before moving hero
+            var vp = level.viewport;
+            if (vp == null)
+                return;
 
             if (!net.TryGetHostSpawnAnchor(out var anchor))
                 return;
@@ -115,11 +135,21 @@ namespace DeadCellsMultiplayerMod
                 return;
             }
 
+            // Combat safety guard: if host is in combat (or fighting a boss), keep client safely at the native entrance.
+            if (anchor.InCombat)
+            {
+                _joinSpawnArmed = false;
+                Logger.Information(
+                    "[NetMod][Session] Host is actively in combat in level={Level}; keeping client safely at native entrance instead of teleporting into fight.",
+                    currentLevelId);
+                return;
+            }
+
             // Validate against this client's own map. A missing room here means the worlds diverged.
-            object? room;
+            object? hostRoom;
             try
             {
-                room = level!.map!.getRoomAt(anchor.Cx, anchor.Cy);
+                hostRoom = level.map.getRoomAt(anchor.Cx, anchor.Cy);
             }
             catch (Exception ex)
             {
@@ -128,7 +158,7 @@ namespace DeadCellsMultiplayerMod
                 return;
             }
 
-            if (room == null)
+            if (hostRoom == null)
             {
                 Logger.Error(
                     "[NetMod][Session] WORLD DESYNC: host stands at {Cx}:{Cy} in {Level}, but this client has no room there. " +
@@ -140,15 +170,41 @@ namespace DeadCellsMultiplayerMod
                 return;
             }
 
-            try
+            // Find a safe, non-solid anchor point near host with solid ground beneath to avoid clipping into tiles or void.
+            if (!TryFindSafeSpawnAnchor(level.map, anchor.Cx, anchor.Cy, out var safeCx, out var safeCy))
             {
-                hero.setPosCase(anchor.Cx, anchor.Cy, null, null);
-                _joinSpawnArmed = false;
-                Logger.Information(
-                    "[NetMod][Session] Applied host-approved join spawn at {Cx}:{Cy} in {Level}",
+                Logger.Warning(
+                    "[NetMod][Session] No safe non-solid ground found near host at {Cx}:{Cy} in {Level}; " +
+                    "keeping native entrance to avoid clipping.",
                     anchor.Cx,
                     anchor.Cy,
                     currentLevelId);
+                _joinSpawnArmed = false;
+                return;
+            }
+
+            try
+            {
+                hero.setPosCase(safeCx, safeCy, null, null);
+                _joinSpawnArmed = false;
+                Logger.Information(
+                    "[NetMod][Session] Applied host-approved safe join spawn at {Cx}:{Cy} (host was at {HostCx}:{HostCy}) in {Level}",
+                    safeCx,
+                    safeCy,
+                    anchor.Cx,
+                    anchor.Cy,
+                    currentLevelId);
+
+                // Snap camera and viewport immediately to the newly placed hero
+                try
+                {
+                    vp.track(hero, true);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warning("[NetMod][Session] Viewport tracking after join spawn failed: {Message}", ex.Message);
+                }
+
                 MarkDiveNetGuardAfterSpawnOrRoomChange();
                 SendCurrentRoomTarget(force: true);
             }
@@ -156,6 +212,111 @@ namespace DeadCellsMultiplayerMod
             {
                 _joinSpawnArmed = false;
                 Logger.Warning("[NetMod][Session] Join spawn relocation failed: {Message}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Finds a safe anchor point near the target tile that is inside a room, non-solid for the hero body/head,
+        /// and has solid ground or a platform directly beneath to prevent clipping into void or death pits.
+        /// </summary>
+        internal static bool TryFindSafeSpawnAnchor(dc.level.LevelMap? map, int targetCx, int targetCy, out int safeCx, out int safeCy)
+        {
+            safeCx = targetCx;
+            safeCy = targetCy;
+
+            if (map == null || map.wid <= 0 || map.hei <= 0)
+                return false;
+
+            // Search offsets starting at target position (0,0), then horizontally adjacent, then vertically
+            // to find a non-solid position inside a valid room that has solid ground beneath it.
+            var offsets = new (int dx, int dy)[]
+            {
+                (0, 0),
+                (0, 1),
+                (0, -1),
+                (-1, 0),
+                (1, 0),
+                (-1, 1),
+                (1, 1),
+                (-2, 0),
+                (2, 0),
+                (-2, 1),
+                (2, 1),
+                (-3, 0),
+                (3, 0),
+                (0, 2),
+                (-1, -1),
+                (1, -1)
+            };
+
+            for (int i = 0; i < offsets.Length; i++)
+            {
+                var candidateX = targetCx + offsets[i].dx;
+                var candidateY = targetCy + offsets[i].dy;
+
+                // Candidate must allow room for head (candidateY - 1 >= 0) and ground beneath (candidateY + 1 < map.hei)
+                if (candidateX < 0 || candidateX >= map.wid || candidateY < 1 || candidateY + 1 >= map.hei)
+                    continue;
+
+                // 1. Must be in a valid room
+                object? room;
+                try
+                {
+                    room = map.getRoomAt(candidateX, candidateY);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (room == null)
+                    continue;
+
+                // 2. Head and body space must NOT be solid (not embedded in wall or ceiling)
+                if (Ghost.CombatSyncHelpers.IsSolidTile(map, candidateX, candidateY))
+                    continue;
+
+                if (Ghost.CombatSyncHelpers.IsSolidTile(map, candidateX, candidateY - 1))
+                    continue;
+
+                // 3. Must have solid ground or wood platform beneath (not empty void or death pit)
+                if (Ghost.CombatSyncHelpers.IsSolidTile(map, candidateX, candidateY + 1) ||
+                    Ghost.CombatSyncHelpers.IsWoodTile(map, candidateX, candidateY + 1))
+                {
+                    safeCx = candidateX;
+                    safeCy = candidateY;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsHostInCombat(Hero? hero)
+        {
+            if (hero == null)
+                return false;
+
+            try
+            {
+                if (hero.destroyed || hero.life <= 0)
+                    return false;
+
+                if (IsLocalBossIntroCineActive())
+                    return true;
+
+                if (DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.HasLivingTrackedBoss())
+                    return true;
+
+                var level = hero._level;
+                if (level?.boss != null && !level.boss.destroyed && level.boss.life > 0)
+                    return true;
+
+                return DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.IsHostHeroEngagedInCombat(hero);
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -177,11 +338,15 @@ namespace DeadCellsMultiplayerMod
                 if (hero == null || hero.destroyed || hero.life <= 0)
                     return;
 
-                var levelId = hero._level?.map?.id?.ToString() ?? string.Empty;
+                if (hero._level == null || hero._level.destroyed || hero._level.map == null)
+                    return;
+
+                var levelId = hero._level.map.id?.ToString() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(levelId))
                     return;
 
-                net.SendHostSpawnAnchor(hero.cx, hero.cy, levelId);
+                var inCombat = IsHostInCombat(hero);
+                net.SendHostSpawnAnchor(hero.cx, hero.cy, levelId, inCombat);
             }
             catch
             {

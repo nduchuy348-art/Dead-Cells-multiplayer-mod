@@ -1,5 +1,7 @@
 using DeadCellsMultiplayerMod.Interface.ModuleInitializing;
+using DeadCellsMultiplayerMod.Interaction;
 using ModCore.Events;
+using Math = System.Math;
 using dc;
 using dc.level;
 using dc.pr;
@@ -23,17 +25,18 @@ namespace DeadCellsMultiplayerMod
         static Serilog.ILogger? _log;
         static public int Seed;
 
-        static public virtual_baseLootLevel_biome_bonusTripleScrollAfterBC_cellBonus_dlc_doubleUps_eliteRoomChance_eliteWanderChance_flagsProps_group_icon_id_index_loreDescriptions_mapDepth_minGold_mobDensity_mobs_name_nextLevels_parallax_props_quarterUpsBC3_quarterUpsBC4_specificLoots_specificSubBiome_transitionTo_tripleUps_worldDepth_ _isTwitch = default!;
+        static public object? _isTwitch;
         static public bool _isCustom;
         static public bool _mode;
 
-        static public LaunchMode _launch = default!;
+        static public object? _launch;
         private static readonly object _sameRunRestartSync = new();
         private static bool _sameRunRestartPending;
         private static int _sameRunRestartSeed;
         private static readonly object _bossRuneLock = new();
         private static int? _remoteBossRune;
         private static int? _hostBossRune;
+        private static int? _hostMaxUnlockedBossRune;
         private static readonly object _bossRuneHudRefreshLock = new();
         private static int? _pendingBossRuneHudValue;
         private static long _bossRuneHudRefreshUntilTickMs;
@@ -177,6 +180,7 @@ namespace DeadCellsMultiplayerMod
                     restartSeed = committedSeed;
                     BeginSameRunRestart(committedSeed);
                     sameRunRestart = true;
+                    try { ModEntry.ResetDownedPlayersForRestart(); } catch { }
 
                     _log?.Information(
                         "[NetMod][RunLaunch] Native same-run restart detected from phase={Phase}; reusing committed seed={Seed}",
@@ -591,6 +595,14 @@ namespace DeadCellsMultiplayerMod
             if (_hasRemoteBossRune && _origBossRuneCaptured)
             {
                 user.bossRuneActivated = _origBossRune;
+                try { user.br_setActivated(_origBossRune); } catch { }
+                try
+                {
+                    var gameData = user.game?.data;
+                    if (gameData?.cgData != null)
+                        gameData.cgData.numBossCells = _origBossRune;
+                }
+                catch { }
                 swapped = true;
             }
 
@@ -603,6 +615,14 @@ namespace DeadCellsMultiplayerMod
             if (_origBossRuneCaptured)
             {
                 user.bossRuneActivated = _origBossRune;
+                try { user.br_setActivated(_origBossRune); } catch { }
+                try
+                {
+                    var gameData = user.game?.data;
+                    if (gameData?.cgData != null)
+                        gameData.cgData.numBossCells = _origBossRune;
+                }
+                catch { }
                 restored = true;
             }
 
@@ -615,8 +635,11 @@ namespace DeadCellsMultiplayerMod
                 lock (_bossRuneLock)
                 {
                     _remoteBossRune = null;
+                    _hostBossRune = null;
+                    _hostMaxUnlockedBossRune = null;
                 }
                 ClearPendingBossRuneReloadState();
+                Mobs.Bosses.BossHpScaling.ResetAll();
                 RestoreLocalSerializerSyncIfCaptured();
                 _origHeroCosmeticsCaptured = false;
                 _origHeroSkin = null;
@@ -630,6 +653,17 @@ namespace DeadCellsMultiplayerMod
             }
 
             return restored;
+        }
+
+        internal static void ResetBossRuneStateForTesting()
+        {
+            lock (_bossRuneLock)
+            {
+                _remoteBossRune = null;
+                _hostBossRune = null;
+                _hostMaxUnlockedBossRune = null;
+            }
+            _hasRemoteBossRune = false;
         }
 
         public static void CaptureOriginalUserData(User user, bool allowReplaceWhenBetter = false)
@@ -647,7 +681,7 @@ namespace DeadCellsMultiplayerMod
             if (user != null && !_origBossRuneCaptured)
             {
                 _origBossRuneCaptured = true;
-                _origBossRune = user.bossRuneActivated;
+                _origBossRune = Math.Clamp(user.bossRuneActivated, 0, 5);
             }
         }
 
@@ -1214,6 +1248,18 @@ namespace DeadCellsMultiplayerMod
                 restoreLocal);
         }
 
+        /// <summary>
+        /// Validates that a profile save targets only the local player's configured save slot.
+        /// Prevents co-op interaction state or remote cell transactions from corrupting another player's save slot.
+        /// </summary>
+        public static bool ValidateProfileSaveIsolation(object? user, int slotIndex)
+        {
+            if (user == null)
+                return false;
+
+            return MUser.ValidateProfileSaveIsolation(slotIndex);
+        }
+
         public static void SendSerializerSync(NetNode? net)
         {
             if (net == null || !net.IsAlive || !net.IsHost)
@@ -1244,36 +1290,97 @@ namespace DeadCellsMultiplayerMod
             return user == null ? 0 : GetEffectiveBossRune(user);
         }
 
+        internal static int GetHostMaxUnlockedBossRune(User? user)
+        {
+            if (user == null)
+                return 0;
+
+            try
+            {
+                var unlocked = user.br_numGot();
+                if (unlocked >= 0)
+                    return Math.Clamp(unlocked, 0, 5);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var activated = user.bossRuneActivated;
+                return Math.Clamp(activated, 0, 5);
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
         public static void SendBossRune(User self, NetNode? net)
         {
             if (self == null)
                 return;
 
-            var bossRune = GetEffectiveBossRune(self);
+            if (net != null && !net.IsHost)
+                return;
+
+            var unlocked = GetHostMaxUnlockedBossRune(self);
+            var effective = GetEffectiveBossRune(self);
+            var bossRune = Interaction.BossStemCellSync.ClampBossCells(effective, unlocked);
+
+            if (effective != bossRune)
+            {
+                try
+                {
+                    self.bossRuneActivated = bossRune;
+                    self.br_setActivated(bossRune);
+                    self.bossRuneActivated = bossRune;
+                }
+                catch { }
+
+                try
+                {
+                    var gd = self.game?.data;
+                    if (gd?.cgData != null)
+                        gd.cgData.numBossCells = bossRune;
+                }
+                catch { }
+            }
+
             lock (_bossRuneLock)
             {
                 _hostBossRune = bossRune;
+                _hostMaxUnlockedBossRune = unlocked;
             }
 
             if (net == null || !net.IsAlive)
                 return;
 
-            net.SendBossRune(bossRune);
+            net.SendBossRune(bossRune, unlocked);
+
+            try
+            {
+                Mobs.MobsSynchronization.MobsSynchronization.ReinitializeMonsterScaling("host_send_boss_rune");
+            }
+            catch
+            {
+            }
         }
 
         public static void ReceiveBossRune(string payload)
         {
-            if (string.IsNullOrWhiteSpace(payload))
+            if (!DeadCellsMultiplayerMod.Interaction.BossStemCellSync.TryParseBossRunePayload(payload, out var bossRune, out var maxAllowed, out var hasExplicitMax))
                 return;
-
-            if (!int.TryParse(payload, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bossRune))
-            {
-                return;
-            }
 
             int? previousRemote;
             lock (_bossRuneLock)
             {
+                if (!hasExplicitMax && _hostMaxUnlockedBossRune.HasValue)
+                {
+                    maxAllowed = _hostMaxUnlockedBossRune.Value;
+                }
+                _hostMaxUnlockedBossRune = maxAllowed;
+                bossRune = Interaction.BossStemCellSync.ClampBossCells(bossRune, maxAllowed);
                 previousRemote = _remoteBossRune;
                 _remoteBossRune = bossRune;
             }
@@ -1291,8 +1398,25 @@ namespace DeadCellsMultiplayerMod
             // The client must rebuild only when an established remote boss-rune value changes.
             // Treating the first sync as a change causes a redundant startup reload; skipping a real
             // change lets the client load the host graph against stale boss-cell state.
+            // Mid-run changes outside the starting hub are rejected to prevent mid-run corruption.
             if (previousRemote.HasValue && previousRemote.Value != bossRune)
+            {
+                var curLvl = TryGetCurrentLevelId();
+                if (LobbySession.IsInActualRun() && !Interaction.BossStemCellSync.IsStartingHubLevel(curLvl))
+                {
+                    _log?.Warning(
+                        "[GameDataSync] Suppressed mid-run Boss Stem Cell modification from {OldBc} to {NewBc} while in active biome {LevelId}",
+                        previousRemote.Value,
+                        bossRune,
+                        curLvl);
+                    lock (_bossRuneLock)
+                    {
+                        _remoteBossRune = previousRemote.Value;
+                    }
+                    return;
+                }
                 MarkPendingBossRuneReload(bossRune);
+            }
             // _log?.Information("[NetMod] Received remote boss rune {BossRune}", bossRune);
 
             MainThreadPump.EnqueueCriticalMainThreadCoalesced("game:boss-rune-apply", () =>
@@ -1331,12 +1455,27 @@ namespace DeadCellsMultiplayerMod
             {
                 if (_hostBossRune.HasValue)
                 {
-                    bossRune = _hostBossRune.Value;
+                    bossRune = Math.Clamp(_hostBossRune.Value, 0, 5);
                     return true;
                 }
             }
 
             bossRune = 0;
+            return false;
+        }
+
+        public static bool TryGetHostMaxUnlockedBossRune(out int maxUnlocked)
+        {
+            lock (_bossRuneLock)
+            {
+                if (_hostMaxUnlockedBossRune.HasValue)
+                {
+                    maxUnlocked = Math.Clamp(_hostMaxUnlockedBossRune.Value, 0, 5);
+                    return true;
+                }
+            }
+
+            maxUnlocked = 5;
             return false;
         }
 
@@ -1346,7 +1485,7 @@ namespace DeadCellsMultiplayerMod
             {
                 if (_remoteBossRune.HasValue)
                 {
-                    bossRune = _remoteBossRune.Value;
+                    bossRune = Math.Clamp(_remoteBossRune.Value, 0, 5);
                     return true;
                 }
             }
@@ -1515,11 +1654,21 @@ namespace DeadCellsMultiplayerMod
 
         private static void ApplyRemoteBossRune(User user, int bossRune)
         {
+            lock (_bossRuneLock)
+            {
+                if (_hostMaxUnlockedBossRune.HasValue)
+                    bossRune = Interaction.BossStemCellSync.ClampBossCells(bossRune, _hostMaxUnlockedBossRune.Value);
+                else
+                    bossRune = Interaction.BossStemCellSync.ClampBossCells(bossRune, Interaction.BossStemCellSync.MaxBossCells);
+            }
+
             CaptureOriginalUserData(user);
 
             try
             {
+                user.bossRuneActivated = bossRune;
                 user.br_setActivated(bossRune);
+                user.bossRuneActivated = bossRune;
             }
             catch
             {
@@ -1535,6 +1684,9 @@ namespace DeadCellsMultiplayerMod
             catch
             {
             }
+
+            // Always reset local mob scaling table so any cached monster scale ratios are cleared
+            Mobs.Bosses.BossHpScaling.ResetAll();
 
             _hasRemoteBossRune = true;
             RequestBossRuneHudRefresh(bossRune);
@@ -1552,10 +1704,18 @@ namespace DeadCellsMultiplayerMod
             if (net == null || !net.IsAlive || net.IsHost)
                 return;
 
+            var maxAllowed = Interaction.BossStemCellSync.MaxBossCells;
+            lock (_bossRuneLock)
+            {
+                if (_hostMaxUnlockedBossRune.HasValue)
+                    maxAllowed = _hostMaxUnlockedBossRune.Value;
+            }
+            var clamped = Interaction.BossStemCellSync.ClampBossCells(bossRune, maxAllowed);
+
             var now = Environment.TickCount64;
             lock (_bossRuneHudRefreshLock)
             {
-                _pendingBossRuneHudValue = bossRune;
+                _pendingBossRuneHudValue = clamped;
                 _bossRuneHudRefreshUntilTickMs = now + BossRuneHudRefreshDurationMs;
                 _nextBossRuneHudRefreshTickMs = 0;
             }
@@ -1797,7 +1957,7 @@ namespace DeadCellsMultiplayerMod
             if (user == null)
                 return 0;
 
-            var fallback = ToInt(user.bossRuneActivated);
+            var fallback = Math.Clamp(ToInt(user.bossRuneActivated), 0, 5);
 
             // During active runs the currently selected BC is mirrored in cgData.numBossCells (>=0).
             // Prefer that when available so decreases are propagated too.
@@ -1808,7 +1968,7 @@ namespace DeadCellsMultiplayerMod
                 {
                     var cgBossRune = ToInt(gameData.cgData.numBossCells);
                     if (cgBossRune >= 0)
-                        return cgBossRune;
+                        return Math.Clamp(cgBossRune, 0, 5);
                 }
             }
             catch
@@ -1821,7 +1981,7 @@ namespace DeadCellsMultiplayerMod
                 // br_numActivated() can return 0 in scoring contexts when cgData is unavailable.
                 if (activated == 0 && fallback > 0)
                     return fallback;
-                return activated;
+                return Math.Clamp(activated, 0, 5);
             }
             catch
             {

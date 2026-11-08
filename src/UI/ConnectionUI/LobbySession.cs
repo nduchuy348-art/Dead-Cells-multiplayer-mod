@@ -143,7 +143,7 @@ namespace DeadCellsMultiplayerMod
             RunLaunchCoordinator.OnRoleChanged(previous, role);
             if (previous == NetRole.Client && role != NetRole.Client)
             {
-                GameDataSync.SwapToLocalSerializerSync();
+                try { GameDataSync.SwapToLocalSerializerSync(); } catch { }
                 MainThreadPump.EnqueueCriticalMainThreadCoalesced("game:restore-original-user", () =>
                 {
                     try
@@ -233,6 +233,12 @@ namespace DeadCellsMultiplayerMod
 
             MainThreadPump.EnqueueCriticalMainThreadCoalesced("game:host-restart", () =>
             {
+                if (string.Equals(reason, "all_players_downed", StringComparison.Ordinal) && !ModEntry.AreAllPlayersDowned())
+                {
+                    _log?.Information("[NetMod] Canceling host restart from death: a player was revived before execution");
+                    return;
+                }
+
                 ModEntry.ResetDownedPlayersForRestart();
 
                 var game = ModEntry.Instance?.game;
@@ -282,6 +288,8 @@ namespace DeadCellsMultiplayerMod
 
         internal static void PrepareCurrentWorldForRestartTransition(dc.pr.Game game)
         {
+            try { ModEntry.ResetDownedPlayersForRestart(); } catch { }
+
             // A restart tears the world down exactly like a biome transition does, so it needs the
             // same fence: freeze mob sync mutation before the old registries are destroyed, and let
             // the new level's registry commit reopen it. Without this, packets addressed to the
@@ -1527,6 +1535,7 @@ namespace DeadCellsMultiplayerMod
             ResetLobbyReadyState();
             _menuSelection = NetRole.None;
             ResetSteamState();
+            try { ModEntry.ResetDownedPlayersForRestart(); } catch { }
 
             if (roleBefore == NetRole.Client)
             {

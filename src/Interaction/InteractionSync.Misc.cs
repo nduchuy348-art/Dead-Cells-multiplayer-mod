@@ -15,16 +15,56 @@ namespace DeadCellsMultiplayerMod.Interaction;
 
 public partial class InteractionSync
 {
-    private bool Hook_SwitchBossRune_canBeActivated(Hook_SwitchBossRune.orig_canBeActivated orig, SwitchBossRune self, Hero by)
+    private static bool IsLocalHostAuthority()
     {
         var net = LobbySession.NetRef;
-        if(net != null && !net.IsHost)
+        if (net != null && net.IsAlive)
+            return net.IsHost;
+
+        if (RunLaunchCoordinator.CurrentRole == NetRole.Client || LobbySession.CurrentRole == NetRole.Client)
             return false;
+
+        return true;
+    }
+
+    private bool Hook_SwitchBossRune_canBeActivated(Hook_SwitchBossRune.orig_canBeActivated orig, SwitchBossRune self, Hero by)
+    {
+        var currentLevel = GetCurrentInteractionLevelId();
+        if (!BossStemCellSync.CanModifyBossCells(IsLocalHostAuthority(), currentLevel))
+            return false;
+
         return orig(self, by);
+    }
+
+    private void Hook_SwitchBossRune_onActivate(Hook_SwitchBossRune.orig_onActivate orig, SwitchBossRune self, Hero by, bool lp)
+    {
+        var currentLevel = GetCurrentInteractionLevelId();
+        if (!BossStemCellSync.CanModifyBossCells(IsLocalHostAuthority(), currentLevel))
+        {
+            _log.Information("[InteractionSync] Suppressed SwitchBossRune.onActivate: not host authority or not in starting hub ({LevelId})", currentLevel);
+            return;
+        }
+
+        orig(self, by, lp);
     }
 
     private void Hook_SwitchBossRune_close(Hook_SwitchBossRune.orig_close orig, SwitchBossRune self)
     {
+        var isHost = IsLocalHostAuthority();
+        if (!isHost && !_applyingRemoteBossRuneEvents)
+        {
+            orig(self);
+            return;
+        }
+
+        var currentLevel = GetCurrentInteractionLevelId();
+        if (!BossStemCellSync.IsStartingHubLevel(currentLevel))
+        {
+            _log.Warning("[InteractionSync] Suppressed SwitchBossRune.close sync outside starting hub ({LevelId})", currentLevel);
+            orig(self);
+            return;
+        }
+
         orig(self);
 
         var net = LobbySession.NetRef;
@@ -33,6 +73,9 @@ public partial class InteractionSync
 
         try
         {
+            // Authoritative re-scale when host finishes tuning boss cells at altar close
+            DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ReinitializeMonsterScaling("switch_boss_rune_close");
+
             // updateCells already sends the visual +/- edge. close publishes only the final
             // authoritative value so the peer cannot process duplicate boss-cell changes or
             // schedule overlapping reloads.
@@ -48,16 +91,39 @@ public partial class InteractionSync
 
     private void Hook_SwitchBossRune_updateCells(Hook_SwitchBossRune.orig_updateCells orig, SwitchBossRune self, bool add)
     {
+        if (self == null)
+            return;
+
+        var isHost = IsLocalHostAuthority();
+
+        // In multiplayer, non-host peers must never initiate boss rune changes locally.
+        // They may only execute updateCells when replaying authoritative events from the host.
+        if (!isHost && !_applyingRemoteBossRuneEvents)
+        {
+            _log.Warning("[InteractionSync] Suppressed local SwitchBossRune.updateCells on non-host peer.");
+            return;
+        }
+
+        var currentLevel = GetCurrentInteractionLevelId();
+        if (!BossStemCellSync.IsStartingHubLevel(currentLevel))
+        {
+            _log.Warning("[InteractionSync] Suppressed SwitchBossRune.updateCells outside starting hub ({LevelId})", currentLevel);
+            return;
+        }
+
         var net = LobbySession.NetRef;
 
         // updateCells performs a native main-level rebuild. Dispose the old remote render shells
         // before that rebuild starts; otherwise Boot.tryRender can visit a GhostKing whose sprite
         // group has already been destroyed and crash Game.loadMainLevel with Null access .groupName.
-        if (IsNetReadyForSend(net) && net!.IsHost)
+        if (_applyingRemoteBossRuneEvents || (IsNetReadyForSend(net) && net!.IsHost))
         {
             ModEntry.PrepareAndDisposeRemoteKingsForBossCellReload(
                 add ? "boss-rune-update:add" : "boss-rune-update:remove");
         }
+
+        // Reset stale mob scaling baseline before native main-level rebuild
+        Mobs.Bosses.BossHpScaling.ResetAll();
 
         orig(self, add);
 
@@ -66,9 +132,30 @@ public partial class InteractionSync
 
         try
         {
-            var (x, y) = GetEntityPixelPos(self);
-            net.SendInterBossRuneUpdateCells(x, y, add, GetCurrentInteractionLevelId());
+            // Clamp and sanitize host state right after updateCells to prevent desync
             var user = self?._level?.game?.user ?? dc.Main.Class.ME?.user;
+            var hostMax = GameDataSync.GetHostMaxUnlockedBossRune(user);
+            var effectiveBc = user != null ? GameDataSync.GetBossRuneInt(user) : 0;
+            var clampedBc = BossStemCellSync.ClampBossCells(effectiveBc, hostMax);
+
+            if (user != null && effectiveBc != clampedBc)
+            {
+                try { user.bossRuneActivated = clampedBc; } catch { }
+                try { user.br_setActivated(clampedBc); } catch { }
+                try
+                {
+                    var gd = user.game?.data;
+                    if (gd?.cgData != null)
+                        gd.cgData.numBossCells = clampedBc;
+                }
+                catch { }
+            }
+
+            // Re-initialize mob scaling immediately when host updates cells at the altar
+            DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ReinitializeMonsterScaling("switch_boss_rune_update");
+
+            var (x, y) = GetEntityPixelPos(self!);
+            net.SendInterBossRuneUpdateCells(x, y, add, currentLevel, clampedBc, hostMax);
             if (user != null)
                 GameDataSync.SendBossRune(user, net);
         }
@@ -178,7 +265,7 @@ public partial class InteractionSync
             return;
         try
         {
-            var (x, y) = GetEntityPixelPos(self);
+            var (x, y) = GetEntityPixelPos(self!);
             net!.SendInterPortal(x, y, action, GetCurrentInteractionLevelId());
         }
         catch (Exception ex)
@@ -193,27 +280,80 @@ public partial class InteractionSync
         if (level?.entities == null || events == null || events.Count == 0)
             return;
 
-        foreach (var ev in events)
+        _applyingRemoteBossRuneEvents = true;
+        try
         {
-            if (!IsInteractionEventForCurrentLevel(ev.LevelId))
-                continue;
+            foreach (var ev in events)
+            {
+                if (!IsInteractionEventForCurrentLevel(ev.LevelId))
+                    continue;
 
-            var altar = FindSwitchBossRuneByPos(level, ev.X, ev.Y);
-            if (altar == null)
-            {
-                _log.Warning("[InteractionSync] No SwitchBossRune found at x={X} y={Y}", ev.X, ev.Y);
-                continue;
+                var effectiveLevelId = string.IsNullOrWhiteSpace(ev.LevelId) ? GetCurrentInteractionLevelId() : ev.LevelId;
+                if (!BossStemCellSync.IsStartingHubLevel(effectiveLevelId))
+                {
+                    _log.Warning("[InteractionSync] Suppressed remote boss rune updateCells for non-hub level {LevelId}", effectiveLevelId);
+                    continue;
+                }
+
+                var maxAllowed = ev.MaxAllowedBossCells ??
+                    (GameDataSync.TryGetHostMaxUnlockedBossRune(out var hm) ? hm : BossStemCellSync.MaxBossCells);
+
+                var altar = FindSwitchBossRuneByPos(level, ev.X, ev.Y);
+                if (altar == null)
+                {
+                    _log.Warning("[InteractionSync] No SwitchBossRune found at x={X} y={Y}; applying authoritative target BC directly.", ev.X, ev.Y);
+                    if (ev.TargetBossCells.HasValue)
+                    {
+                        GameDataSync.ReceiveBossRune($"{ev.TargetBossCells.Value}|{maxAllowed}");
+                    }
+                    Mobs.Bosses.BossHpScaling.ResetAll();
+                    continue;
+                }
+                try
+                {
+                    altar.updateCells(ev.Add);
+
+                    var user = altar._level?.game?.user ?? dc.Main.Class.ME?.user;
+
+                    if (user != null)
+                    {
+                        var currentBc = GameDataSync.GetBossRuneInt(user);
+                        var clampedBc = BossStemCellSync.ClampBossCells(currentBc, maxAllowed);
+                        if (currentBc != clampedBc)
+                        {
+                            try { user.bossRuneActivated = clampedBc; } catch { }
+                            try { user.br_setActivated(clampedBc); } catch { }
+                            try
+                            {
+                                var gd = user.game?.data;
+                                if (gd?.cgData != null)
+                                    gd.cgData.numBossCells = clampedBc;
+                            }
+                            catch { }
+                        }
+                    }
+
+                    if (ev.TargetBossCells.HasValue)
+                    {
+                        GameDataSync.ReceiveBossRune($"{ev.TargetBossCells.Value}|{maxAllowed}");
+                    }
+                    else
+                    {
+                        GameDataSync.RequestBossRuneHudRefreshFromRemoteState();
+                        GameDataSync.PumpBossRuneHudRefresh();
+                    }
+
+                    Mobs.Bosses.BossHpScaling.ResetAll();
+                }
+                catch (Exception ex)
+                {
+                    _log.Warning(ex, "[InteractionSync] updateCells(add={Add}) failed", ev.Add);
+                }
             }
-            try
-            {
-                altar.updateCells(ev.Add);
-                GameDataSync.RequestBossRuneHudRefreshFromRemoteState();
-                GameDataSync.PumpBossRuneHudRefresh();
-            }
-            catch (Exception ex)
-            {
-                _log.Warning(ex, "[InteractionSync] updateCells(add={Add}) failed", ev.Add);
-            }
+        }
+        finally
+        {
+            _applyingRemoteBossRuneEvents = false;
         }
     }
 
@@ -301,9 +441,29 @@ public partial class InteractionSync
                 if (!IsInteractionEventForCurrentLevel(ev.LevelId))
                     continue;
 
+                if (ev.RequiresMissingLocalDlc(out var missingDlc))
+                {
+                    _log.Warning("[InteractionSync] Dropping remote portal event: level '{Level}' requires missing DLC '{Dlc}'", ev.LevelId, missingDlc);
+                    continue;
+                }
+
                 var portal = FindPortalByPos(level, ev.X, ev.Y);
                 if (portal == null)
                     continue;
+
+                // Protect against native crashes if portal leads to an unowned DLC biome
+                var portalDest = ResolvePortalDestinationLevelId(portal);
+                if (!string.IsNullOrEmpty(portalDest) && !DlcEntitlementManager.IsLevelAccessibleLocally(portalDest, out var destReqDlc, out var destDispName))
+                {
+                    _log.Warning(
+                        "[InteractionSync] Dropping remote portal event at x={X} y={Y}: destination '{Dest}' requires missing DLC '{Dlc}' ({DispName})",
+                        ev.X,
+                        ev.Y,
+                        portalDest,
+                        destReqDlc,
+                        destDispName);
+                    continue;
+                }
 
                 try
                 {
@@ -437,6 +597,26 @@ public partial class InteractionSync
     private static Portal? FindPortalInTriggers(Level level, double x, double y) =>
         FindNearestTriggerByPos<Portal>(level, x, y, PortalPosTolerance * PortalPosTolerance * 4);
 
+    private static string ResolvePortalDestinationLevelId(Portal? portal)
+    {
+        if (portal == null)
+            return string.Empty;
+        try
+        {
+            var dest = portal.destMap?.id?.ToString() ?? portal.destMap?.infos?.id?.ToString();
+            if (!string.IsNullOrWhiteSpace(dest))
+                return dest;
+            string? dlc = portal.destMap?.infos?.dlc?.ToString() ?? (portal as dynamic)?.dlc?.ToString();
+            if (!string.IsNullOrWhiteSpace(dlc))
+                return dlc;
+            string? dynDest = (portal as dynamic)?.destLevel?.ToString() ?? (portal as dynamic)?.destName?.ToString() ?? (portal as dynamic)?.destination?.ToString();
+            if (!string.IsNullOrWhiteSpace(dynDest))
+                return dynDest;
+        }
+        catch { }
+        return string.Empty;
+    }
+
     private static Teleport? FindTeleportInTriggers(Level level, double x, double y) =>
         FindNearestTriggerByPos<Teleport>(level, x, y, TeleportPosTolerance * TeleportPosTolerance * 4);
 
@@ -557,7 +737,7 @@ public partial class InteractionSync
             {
                 try
                 {
-                    var (x, y) = GetEntityPixelPos(self);
+                    var (x, y) = GetEntityPixelPos(self!);
                     if (x == 0 && y == 0 && self != null)
                     {
                         x = (self.cx + self.xr) * TileSizePx;
@@ -581,7 +761,7 @@ public partial class InteractionSync
 
         try
         {
-            var (x, y) = GetEntityPixelPos(self);
+            var (x, y) = GetEntityPixelPos(self!);
             if (x == 0 && y == 0 && self != null)
             {
                 x = (self.cx + self.xr) * TileSizePx;

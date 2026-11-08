@@ -106,6 +106,13 @@ public sealed partial class NetNode
             $"EXITCOMMIT|{commit.Sequence}|{commit.DoorCx}|{commit.DoorCy}|{Safe(commit.FromLevelId)}|{Safe(commit.DestinationLevelId)}\n");
     }
 
+    private static string BuildDlcMaskLine(int userId, int mask)
+    {
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"DLCMASK|{userId}|{mask}\n");
+    }
+
     private static string BuildExitReadyLine(ExitReadyState state)
     {
         var safeLevelId = (state.LevelId ?? string.Empty)

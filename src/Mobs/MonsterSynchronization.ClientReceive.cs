@@ -2693,12 +2693,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         out var boundMob,
                         out _) && boundMob != null)
                 {
-                    if (TryGetMobLifeAndMaxSafe(boundMob, out var life, out var maxLife) && life > 0 && maxLife > 0 && life >= maxLife)
-                    {
-                        InvalidateTrackedSyncCacheLocked(die.MobIndex, "death_unbound_healthy_rejected");
-                        return null;
-                    }
-
+                    // Host is authoritative for mob deaths. When an unbound candidate matching type and spawn
+                    // position is bound from MOBDIE (e.g. dead monster cull list resend during mid-run join or
+                    // peer reconnection, or instantaneous one-shot kill), accept the death immediately so
+                    // dead mobs are never rejected into unkillable ghosts.
                     return boundMob;
                 }
 

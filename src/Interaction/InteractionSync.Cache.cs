@@ -16,6 +16,10 @@ public partial class InteractionSync
         public readonly List<dc.en.inter.button.Button> Buttons = new();
         public readonly List<TreasureChest> TreasureChests = new();
         public readonly List<SwitchBossRune> SwitchBossRunes = new();
+        public readonly List<ShopBooth> ShopBooths = new();
+        public readonly List<ItemAltar> ItemAltars = new();
+        public readonly List<ShopReroll> ShopRerolls = new();
+        public readonly List<ItemDrop> ItemDrops = new();
         public readonly List<Elevator> TriggerElevators = new();
         public readonly List<Teleport> TriggerTeleports = new();
         public readonly List<Portal> TriggerPortals = new();
@@ -32,6 +36,10 @@ public partial class InteractionSync
             Buttons.Clear();
             TreasureChests.Clear();
             SwitchBossRunes.Clear();
+            ShopBooths.Clear();
+            ItemAltars.Clear();
+            ShopRerolls.Clear();
+            ItemDrops.Clear();
             TriggerElevators.Clear();
             TriggerTeleports.Clear();
             TriggerPortals.Clear();

@@ -658,6 +658,8 @@ public sealed partial class NetNode
             return;
 
         int? cachedBossRune;
+        int? cachedMaxUnlockedBossRune;
+        int? cachedDlcMask;
         int? cachedSeed;
         int? cachedRunSeedSequence;
         string? cachedLaunchKind;
@@ -681,6 +683,8 @@ public sealed partial class NetNode
         lock (_hostCacheSync)
         {
             cachedBossRune = _cachedHostBossRune;
+            cachedMaxUnlockedBossRune = _cachedHostMaxUnlockedBossRune;
+            cachedDlcMask = _cachedHostDlcMask;
             cachedSeed = _cachedHostSeed;
             cachedRunSeedSequence = _cachedHostRunSeedSequence;
             cachedLaunchKind = _cachedHostLaunchKind;
@@ -707,7 +711,23 @@ public sealed partial class NetNode
         if (cachedSerializerSeq.HasValue && cachedSerializerUid.HasValue)
             await SendLineToSteamClientSafe(connection, $"HXSYNC|{cachedSerializerSeq.Value}|{cachedSerializerUid.Value}\n").ConfigureAwait(false);
         if (cachedBossRune.HasValue)
-            await SendLineToSteamClientSafe(connection, $"BOSSRUNE|{cachedBossRune.Value}\n").ConfigureAwait(false);
+        {
+            var clamped = Math.Clamp(cachedBossRune.Value, 0, 5);
+            var payload = cachedMaxUnlockedBossRune.HasValue
+                ? $"{clamped}|{Math.Clamp(cachedMaxUnlockedBossRune.Value, 0, 5)}"
+                : clamped.ToString(CultureInfo.InvariantCulture);
+            await SendLineToSteamClientSafe(connection, $"BOSSRUNE|{payload}\n").ConfigureAwait(false);
+        }
+        var hostDlc = cachedDlcMask ?? DlcEntitlementManager.GetLocalDlcMask();
+        await SendLineToSteamClientSafe(connection, $"DLCMASK|1|{hostDlc}\n").ConfigureAwait(false);
+        foreach (var peer in DlcEntitlementManager.GetAllPeerDlcMasks())
+        {
+            if (peer.Key != 1 && peer.Key != connection.AssignedId)
+            {
+                await SendLineToSteamClientSafe(connection, $"DLCMASK|{peer.Key}|{peer.Value}\n").ConfigureAwait(false);
+            }
+        }
+
         if (cachedCoopId != null)
             await SendLineToSteamClientSafe(connection, BuildCoopStateLine(1, cachedCoopId, cachedHasContinueSave)).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(cachedCustomGameDataPayload))

@@ -20,6 +20,15 @@ public static class BossHpScaling
         if (mob == null)
             return;
 
+        try
+        {
+            if (mob.destroyed || mob.life <= 0)
+                return;
+        }
+        catch
+        {
+        }
+
         // The host owns authoritative mob HP. Scaling client proxies locally can briefly create a
         // different max-life value and can multiply the same boss more than once before the first
         // host snapshot arrives.
@@ -84,6 +93,91 @@ public static class BossHpScaling
         catch
         {
             // Boss HP scaling is optional. Never let a proxy/version mismatch break the fight.
+        }
+    }
+
+    /// <summary>
+    /// Resets a mob back to its unscaled baseline maxLife and life, removing it from the scaling table.
+    /// Preserves current health percentage and avoids double-scaling when difficulty changes.
+    /// </summary>
+    public static void ResetMobScaling(Mob mob)
+    {
+        if (mob == null)
+            return;
+
+        try
+        {
+            if (ScaleStates.TryGetValue(mob, out var state))
+            {
+                if (state.BaseMaxLife > 0 && state.AppliedMaxLife > 0)
+                {
+                    try
+                    {
+                        if (mob.destroyed || mob.life <= 0)
+                        {
+                            ScaleStates.Remove(mob);
+                            return;
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    var currentMax = System.Math.Max(1, mob.maxLife);
+                    var currentLife = System.Math.Clamp(mob.life, 0, currentMax);
+                    var ratio = currentLife / (double)currentMax;
+
+                    var restoredMax = state.BaseMaxLife;
+                    var restoredLife = System.Math.Clamp((int)System.Math.Round(restoredMax * ratio), 0, restoredMax);
+
+                    mob.maxLife = restoredMax;
+                    mob.life = restoredLife;
+                    try { mob.initLife(restoredLife, restoredMax); } catch { }
+                }
+                ScaleStates.Remove(mob);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>
+    /// Clears all stored mob scaling states. Restores tracked mobs to baseline first to prevent
+    /// double-scaling when difficulty changes while mobs are active.
+    /// </summary>
+    /// <summary>
+    /// Clears all stored mob scaling states. Restores tracked mobs to baseline first to prevent
+    /// double-scaling when difficulty changes while mobs are active.
+    /// </summary>
+    public static void ResetAll()
+    {
+        try
+        {
+            ResetAllInternal();
+        }
+        catch
+        {
+        }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void ResetAllInternal()
+    {
+        try
+        {
+            DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ResetAllTrackedMobScaling();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            ScaleStates.Clear();
+        }
+        catch
+        {
         }
     }
 }

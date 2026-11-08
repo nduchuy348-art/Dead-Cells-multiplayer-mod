@@ -108,6 +108,7 @@ public sealed class CoopAdvancedHardening :
             var level = ModEntry.me?._level?.map?.id?.ToString() ?? ModEntry.Instance?.levelId ?? string.Empty;
             var seed = LobbySession.TryGetKnownSeed(out var knownSeed) ? knownSeed : 0;
             net.SendLobbyState(LobbySession.Username, level, seed, GetLocalPermanentProgressSignature());
+            net.SendDlcMask(DlcEntitlementManager.GetLocalDlcMask());
         }
         catch (Exception ex)
         {

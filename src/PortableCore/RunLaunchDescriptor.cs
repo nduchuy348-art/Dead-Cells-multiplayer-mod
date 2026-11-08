@@ -66,10 +66,10 @@ internal sealed record RunLaunchDescriptor(
         {
             return Fail("InitialLevelSeed is invalid.", out error);
         }
-        if (Difficulty < 0)
-            return Fail("Difficulty cannot be negative.", out error);
-        if (BossCells < 0)
-            return Fail("BossCells cannot be negative.", out error);
+        if (Difficulty < 0 || Difficulty > 5)
+            return Fail("Difficulty must be between 0 and 5.", out error);
+        if (BossCells < 0 || BossCells > 5)
+            return Fail("BossCells must be between 0 and 5.", out error);
         if (SaveSlot < 0)
             return Fail("SaveSlot cannot be negative.", out error);
 

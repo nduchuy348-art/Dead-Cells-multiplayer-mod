@@ -311,6 +311,33 @@ public sealed partial class NetNode
     public bool TryConsumeInterEliteShrineEvents(out List<InterEliteShrineEvent> events)
         => TryConsumePending(_pendingInterEliteShrineEvents, out events);
 
+    public bool TryConsumeInterCollectorDepositEvents(out List<InterCollectorDepositEvent> events)
+        => TryConsumePending(_pendingInterCollectorDeposits, out events);
+
+    public bool TryConsumeInterBlueprintUnlockEvents(out List<InterBlueprintUnlockEvent> events)
+        => TryConsumePending(_pendingInterBlueprintUnlocks, out events);
+
+    public bool TryConsumeInterForgeUpgradeEvents(out List<InterForgeUpgradeEvent> events)
+        => TryConsumePending(_pendingInterForgeUpgrades, out events);
+
+    public bool TryConsumeInterCollectorLockEvents(out List<InterCollectorLockEvent> events)
+        => TryConsumePending(_pendingInterCollectorLocks, out events);
+
+    public bool TryConsumeInterShopPurchaseEvents(out List<InterShopPurchaseEvent> events)
+        => TryConsumePending(_pendingInterShopPurchaseEvents, out events);
+
+    public bool TryConsumeInterShopRerollEvents(out List<InterShopRerollEvent> events)
+        => TryConsumePending(_pendingInterShopRerollEvents, out events);
+
+    public bool TryConsumeInterPedestalPickupEvents(out List<InterPedestalPickupEvent> events)
+        => TryConsumePending(_pendingInterPedestalPickupEvents, out events);
+
+    public bool TryConsumeInterShopRejectEvents(out List<InterShopRejectEvent> events)
+        => TryConsumePending(_pendingInterShopRejectEvents, out events);
+
+    public bool TryConsumeInterPedestalRejectEvents(out List<InterPedestalRejectEvent> events)
+        => TryConsumePending(_pendingInterPedestalRejectEvents, out events);
+
     public bool TryGetRemoteHpSnapshots(out List<RemoteHpSnapshot> snapshot)
     {
         lock (_sync)

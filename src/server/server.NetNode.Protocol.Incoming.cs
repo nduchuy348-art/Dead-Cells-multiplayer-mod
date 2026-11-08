@@ -409,7 +409,7 @@ public sealed partial class NetNode
         return value.Length <= maxChars ? value : value[..maxChars];
     }
 
-    private bool HandleLine(string line, int? senderId, out string? forwardLine)
+    internal bool HandleLine(string line, int? senderId, out string? forwardLine)
     {
         forwardLine = null;
         if (string.IsNullOrWhiteSpace(line))
@@ -436,6 +436,7 @@ public sealed partial class NetNode
                             _primaryRemoteId = 1;
                     }
                     _log.Information("[NetNode] Assigned ID {Id}", ID);
+                    SendDlcMask(DlcEntitlementManager.GetLocalDlcMask());
                     if (!_useSteamTransport)
                     {
                         MainThreadPump.EnqueueCriticalMainThreadCoalesced("net:client-connected", () =>
@@ -507,22 +508,7 @@ public sealed partial class NetNode
                     hostGameTimeS >= 0)
                 {
                     var hostStopGameTime = parts[1] == "1" || parts[1].Equals("true", StringComparison.OrdinalIgnoreCase);
-                    try
-                    {
-                        var gameData = (ModEntry.Instance?.game ?? dc.pr.Game.Class.ME)?.data;
-                        if (gameData != null)
-                        {
-                            if (hostStopGameTime || System.Math.Abs(gameData.gameTimeS - hostGameTimeS) > 0.25)
-                            {
-                                gameData.gameTimeS = hostGameTimeS;
-                            }
-                            gameData.stopGameTime = hostStopGameTime;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _log.Warning("[NetNode] Failed to apply GTIME: {msg}", ex.Message);
-                    }
+                    ApplyHostGameTime(hostGameTimeS, hostStopGameTime);
                 }
                 else
                 {
@@ -628,6 +614,12 @@ public sealed partial class NetNode
 
             if (line.StartsWith("BOSSRUNE|"))
             {
+                if (_role == NetRole.Host)
+                {
+                    _log.Warning("[NetNode] Host received unexpected BOSSRUNE from client; ignoring.");
+                    return true;
+                }
+
                 var payload = line["BOSSRUNE|".Length..];
                 lock (_sync) _hasRemote = true;
                 GameDataSync.ReceiveBossRune(payload);
@@ -636,6 +628,12 @@ public sealed partial class NetNode
 
             if (line.StartsWith("BOSSRUNE_UPDATE_CELLS|", StringComparison.OrdinalIgnoreCase))
             {
+                if (_role == NetRole.Host)
+                {
+                    _log.Warning("[NetNode] Host received unexpected BOSSRUNE_UPDATE_CELLS from client; ignoring.");
+                    return true;
+                }
+
                 var payload = line["BOSSRUNE_UPDATE_CELLS|".Length..].Trim();
                 if (TryParseInterBossRuneUpdateCellsPayload(payload, out var ev))
                 {
@@ -643,12 +641,6 @@ public sealed partial class NetNode
                     {
                         AddBoundedLocked(_pendingBossRuneUpdateCells, ev, PendingInteractionLimit);
                         _hasRemote = true;
-                    }
-
-                    if (_role == NetRole.Host && senderId.HasValue)
-                    {
-                        forwardLine =
-                            $"BOSSRUNE_UPDATE_CELLS|{ev.X.ToString(CultureInfo.InvariantCulture)}|{ev.Y.ToString(CultureInfo.InvariantCulture)}|{(ev.Add ? 1 : 0)}|{ev.LevelId}\n";
                     }
                 }
                 else
@@ -1294,9 +1286,15 @@ public sealed partial class NetNode
                     int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var anchorCy))
                 {
                     var anchorLevel = ClampProtocolText(parts[2], MaxIdentityFieldChars);
+                    var inCombat = false;
+                    if (parts.Length >= 4)
+                    {
+                        var trimmed = parts[3].Trim();
+                        inCombat = trimmed == "1" || string.Equals(trimmed, "true", StringComparison.OrdinalIgnoreCase);
+                    }
                     lock (_sync)
                     {
-                        _latestHostSpawnAnchor = new HostSpawnAnchor(anchorCx, anchorCy, anchorLevel);
+                        _latestHostSpawnAnchor = new HostSpawnAnchor(anchorCx, anchorCy, anchorLevel, inCombat);
                         _hasRemote = true;
                     }
                 }
@@ -1348,6 +1346,25 @@ public sealed partial class NetNode
                 else
                 {
                     _log.Warning("[NetNode] Malformed EXITREADY line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
+            if (line.StartsWith("DLCMASK|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["DLCMASK|".Length..];
+                var parts = payload.Split('|');
+                if (parts.Length >= 2 &&
+                    int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var uid) &&
+                    int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var mask))
+                {
+                    var resolvedId = (forceSenderId && senderId.HasValue) ? senderId.Value : uid;
+                    if (resolvedId <= 0 && _role == NetRole.Client)
+                        resolvedId = 1;
+                    if (resolvedId > 0)
+                        DlcEntitlementManager.SetPeerDlcMask(resolvedId, mask);
+                    if (_role == NetRole.Host && senderId.HasValue)
+                        forwardLine = BuildDlcMaskLine(resolvedId, mask);
                 }
                 return true;
             }
@@ -1659,6 +1676,180 @@ public sealed partial class NetNode
                 return true;
             }
 
+            if (line.StartsWith("INTERCOLLECTOR_DEPOSIT|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["INTERCOLLECTOR_DEPOSIT|".Length..];
+                if (TryParseInterCollectorDepositPayload(payload, senderId, forceSenderId, out var ev))
+                {
+                    lock (_sync)
+                    {
+                        AddBoundedLocked(_pendingInterCollectorDeposits, ev, PendingInteractionLimit);
+                        _hasRemote = true;
+                    }
+
+                    if (_role == NetRole.Host && senderId.HasValue)
+                        forwardLine = $"INTERCOLLECTOR_DEPOSIT|{ev.UserId.ToString(CultureInfo.InvariantCulture)}|{ev.ItemId}|{ev.CellsDeposited.ToString(CultureInfo.InvariantCulture)}|{ev.TotalInvested.ToString(CultureInfo.InvariantCulture)}|{ev.Sequence.ToString(CultureInfo.InvariantCulture)}|{ev.LevelId}\n";
+                }
+                else
+                {
+                    _log.Warning("[NetNode] Malformed INTERCOLLECTOR_DEPOSIT line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
+            if (line.StartsWith("INTERBLUEPRINT_UNLOCK|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["INTERBLUEPRINT_UNLOCK|".Length..];
+                if (TryParseInterBlueprintUnlockPayload(payload, senderId, forceSenderId, out var ev))
+                {
+                    lock (_sync)
+                    {
+                        AddBoundedLocked(_pendingInterBlueprintUnlocks, ev, PendingInteractionLimit);
+                        _hasRemote = true;
+                    }
+
+                    if (_role == NetRole.Host && senderId.HasValue)
+                        forwardLine = $"INTERBLUEPRINT_UNLOCK|{ev.UserId.ToString(CultureInfo.InvariantCulture)}|{ev.ItemId}|{ev.Sequence.ToString(CultureInfo.InvariantCulture)}|{ev.LevelId}\n";
+                }
+                else
+                {
+                    _log.Warning("[NetNode] Malformed INTERBLUEPRINT_UNLOCK line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
+            if (line.StartsWith("INTERFORGE_UPGRADE|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["INTERFORGE_UPGRADE|".Length..];
+                if (TryParseInterForgeUpgradePayload(payload, senderId, forceSenderId, out var ev))
+                {
+                    lock (_sync)
+                    {
+                        AddBoundedLocked(_pendingInterForgeUpgrades, ev, PendingInteractionLimit);
+                        _hasRemote = true;
+                    }
+
+                    if (_role == NetRole.Host && senderId.HasValue)
+                        forwardLine = $"INTERFORGE_UPGRADE|{ev.UserId.ToString(CultureInfo.InvariantCulture)}|{ev.UpgradeLevel.ToString(CultureInfo.InvariantCulture)}|{ev.CellsDeposited.ToString(CultureInfo.InvariantCulture)}|{ev.TotalInvested.ToString(CultureInfo.InvariantCulture)}|{ev.Sequence.ToString(CultureInfo.InvariantCulture)}|{ev.LevelId}\n";
+                }
+                else
+                {
+                    _log.Warning("[NetNode] Malformed INTERFORGE_UPGRADE line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
+            if (line.StartsWith("INTERCOLLECTOR_LOCK|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["INTERCOLLECTOR_LOCK|".Length..];
+                if (TryParseInterCollectorLockPayload(payload, senderId, forceSenderId, out var ev))
+                {
+                    lock (_sync)
+                    {
+                        AddBoundedLocked(_pendingInterCollectorLocks, ev, PendingInteractionLimit);
+                        _hasRemote = true;
+                    }
+
+                    if (_role == NetRole.Host && senderId.HasValue)
+                        forwardLine = $"INTERCOLLECTOR_LOCK|{ev.UserId.ToString(CultureInfo.InvariantCulture)}|{(ev.InUse ? 1 : 0)}|{ev.Kind}|{ev.Sequence.ToString(CultureInfo.InvariantCulture)}|{ev.LevelId}\n";
+                }
+                else
+                {
+                    _log.Warning("[NetNode] Malformed INTERCOLLECTOR_LOCK line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
+            if (line.StartsWith("INTERSHOP_BUY|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["INTERSHOP_BUY|".Length..];
+                if (TryParseInterShopPurchasePayload(payload, senderId, forceSenderId, out var ev))
+                {
+                    lock (_sync)
+                    {
+                        AddBoundedLocked(_pendingInterShopPurchaseEvents, ev, PendingInteractionLimit);
+                        _hasRemote = true;
+                    }
+                }
+                else
+                {
+                    _log.Warning("[NetNode] Malformed INTERSHOP_BUY line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
+            if (line.StartsWith("INTERSHOP_REJECT|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["INTERSHOP_REJECT|".Length..];
+                if (TryParseInterShopRejectPayload(payload, senderId, forceSenderId, out var ev))
+                {
+                    lock (_sync)
+                    {
+                        AddBoundedLocked(_pendingInterShopRejectEvents, ev, PendingInteractionLimit);
+                        _hasRemote = true;
+                    }
+                }
+                else
+                {
+                    _log.Warning("[NetNode] Malformed INTERSHOP_REJECT line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
+            if (line.StartsWith("INTERREROLL|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["INTERREROLL|".Length..];
+                if (TryParseInterShopRerollPayload(payload, senderId, forceSenderId, out var ev))
+                {
+                    lock (_sync)
+                    {
+                        AddBoundedLocked(_pendingInterShopRerollEvents, ev, PendingInteractionLimit);
+                        _hasRemote = true;
+                    }
+                }
+                else
+                {
+                    _log.Warning("[NetNode] Malformed INTERREROLL line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
+            if (line.StartsWith("INTERPEDESTAL|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["INTERPEDESTAL|".Length..];
+                if (TryParseInterPedestalPickupPayload(payload, senderId, forceSenderId, out var ev))
+                {
+                    lock (_sync)
+                    {
+                        AddBoundedLocked(_pendingInterPedestalPickupEvents, ev, PendingInteractionLimit);
+                        _hasRemote = true;
+                    }
+                }
+                else
+                {
+                    _log.Warning("[NetNode] Malformed INTERPEDESTAL line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
+            if (line.StartsWith("INTERPEDESTAL_REJECT|", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = line["INTERPEDESTAL_REJECT|".Length..];
+                if (TryParseInterPedestalRejectPayload(payload, senderId, forceSenderId, out var ev))
+                {
+                    lock (_sync)
+                    {
+                        AddBoundedLocked(_pendingInterPedestalRejectEvents, ev, PendingInteractionLimit);
+                        _hasRemote = true;
+                    }
+                }
+                else
+                {
+                    _log.Warning("[NetNode] Malformed INTERPEDESTAL_REJECT line: \"{Line}\"", ClampProtocolText(line, 64));
+                }
+                return true;
+            }
+
             if (line.StartsWith("DIED", StringComparison.OrdinalIgnoreCase))
             {
                 if (_role == NetRole.Host)
@@ -1733,6 +1924,27 @@ public sealed partial class NetNode
         {
             _log.Warning("[NetNode] Protocol line processing failed: {msg}", ex.Message);
             return true;
+        }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private void ApplyHostGameTime(double hostGameTimeS, bool hostStopGameTime)
+    {
+        try
+        {
+            var gameData = (ModEntry.Instance?.game ?? dc.pr.Game.Class.ME)?.data;
+            if (gameData != null)
+            {
+                if (hostStopGameTime || System.Math.Abs(gameData.gameTimeS - hostGameTimeS) > 0.25)
+                {
+                    gameData.gameTimeS = hostGameTimeS;
+                }
+                gameData.stopGameTime = hostStopGameTime;
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.Warning("[NetNode] Failed to apply GTIME: {msg}", ex.Message);
         }
     }
 }

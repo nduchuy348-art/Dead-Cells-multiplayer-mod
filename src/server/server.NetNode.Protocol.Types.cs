@@ -381,12 +381,14 @@ public sealed partial class NetNode
         public readonly int Cx;
         public readonly int Cy;
         public readonly string LevelId;
+        public readonly bool InCombat;
 
-        public HostSpawnAnchor(int cx, int cy, string? levelId)
+        public HostSpawnAnchor(int cx, int cy, string? levelId, bool inCombat = false)
         {
             Cx = Math.Max(0, cx);
             Cy = Math.Max(0, cy);
             LevelId = levelId ?? string.Empty;
+            InCombat = inCombat;
         }
     }
 

@@ -89,6 +89,7 @@ public sealed partial class NetNode
             _cachedHostRunReadyPayload = null;
             _cachedHostRunLaunchSequence = null;
             _cachedHostBossRune = null;
+            _cachedHostMaxUnlockedBossRune = null;
             _cachedHostSerializerSeq = null;
             _cachedHostSerializerUid = null;
             _cachedHostLevelDescPayload = null;
@@ -137,7 +138,17 @@ public sealed partial class NetNode
             _pendingBossRuneUpdateCells.Clear();
             _pendingInterPortalEvents.Clear();
             _pendingInterEliteShrineEvents.Clear();
+            _pendingInterCollectorDeposits.Clear();
+            _pendingInterBlueprintUnlocks.Clear();
+            _pendingInterForgeUpgrades.Clear();
+            _pendingInterCollectorLocks.Clear();
+            _pendingInterShopPurchaseEvents.Clear();
+            _pendingInterShopRerollEvents.Clear();
+            _pendingInterPedestalPickupEvents.Clear();
+            _pendingInterShopRejectEvents.Clear();
+            _pendingInterPedestalRejectEvents.Clear();
             _hasLocalHpSnapshot = false;
+            DlcEntitlementManager.Reset();
         }
         lock (_usedClientIds)
         {

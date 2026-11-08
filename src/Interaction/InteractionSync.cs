@@ -100,6 +100,8 @@ public partial class InteractionSync :
 
     private bool _applyingRemoteElevatorStateEvents;
 
+    private bool _applyingRemoteBossRuneEvents;
+
     /// <summary>Throttle elevator activation pulses — onStep can fire every frame while riding.</summary>
     private readonly Dictionary<Elevator, long> _elevatorLastInterSendTickMs = new();
 
@@ -121,9 +123,12 @@ public partial class InteractionSync :
 
     private long _nextPressurePlateSequence;
 
+    public static InteractionSync? Instance { get; private set; }
+
     public InteractionSync(ModEntry entry)
     {
         _log = entry.Logger;
+        Instance = this;
         EventSystem.AddReceiver(this);
     }
 
@@ -162,6 +167,8 @@ public partial class InteractionSync :
         Hook_PurpleElevatorButton.canBeActivated += Hook_PurpleElevatorButton_canBeActivated;
         Hook_PurpleElevatorButton.onFocus += Hook_PurpleElevatorButton_onFocus;
         Hook_PurpleElevatorButton.onActivate += Hook_PurpleElevatorButton_onActivate;
+        InitializeCollectorForgeHooks();
+        InitializeShopHooks();
     }
 
     private static (double x, double y) GetEntityPixelPos(Entity e)
@@ -280,6 +287,33 @@ public partial class InteractionSync :
         if (net.TryConsumeInterEliteShrineEvents(out var eliteShrineEvents))
             ApplyAndRelease(eliteShrineEvents, ApplyRemoteEliteShrineEvents);
 
+        if (net.TryConsumeInterCollectorDepositEvents(out var collectorDepositEvents))
+            ApplyAndRelease(collectorDepositEvents, ApplyRemoteCollectorDepositEvents);
+
+        if (net.TryConsumeInterBlueprintUnlockEvents(out var blueprintUnlockEvents))
+            ApplyAndRelease(blueprintUnlockEvents, ApplyRemoteBlueprintUnlockEvents);
+
+        if (net.TryConsumeInterForgeUpgradeEvents(out var forgeUpgradeEvents))
+            ApplyAndRelease(forgeUpgradeEvents, ApplyRemoteForgeUpgradeEvents);
+
+        if (net.TryConsumeInterCollectorLockEvents(out var collectorLockEvents))
+            ApplyAndRelease(collectorLockEvents, ApplyRemoteCollectorLockEvents);
+
+        if (net.TryConsumeInterShopPurchaseEvents(out var shopPurchaseEvents))
+            ApplyAndRelease(shopPurchaseEvents, ApplyRemoteShopPurchaseEvents);
+
+        if (net.TryConsumeInterShopRerollEvents(out var shopRerollEvents))
+            ApplyAndRelease(shopRerollEvents, ApplyRemoteShopRerollEvents);
+
+        if (net.TryConsumeInterPedestalPickupEvents(out var pedestalPickupEvents))
+            ApplyAndRelease(pedestalPickupEvents, ApplyRemotePedestalPickupEvents);
+
+        if (net.TryConsumeInterShopRejectEvents(out var shopRejectEvents))
+            ApplyAndRelease(shopRejectEvents, ApplyRemoteShopRejectEvents);
+
+        if (net.TryConsumeInterPedestalRejectEvents(out var pedestalRejectEvents))
+            ApplyAndRelease(pedestalRejectEvents, ApplyRemotePedestalRejectEvents);
+
         if (net.IsHost)
         {
             CheckAndCloseDoorsWhenNoOneNearby();
@@ -351,7 +385,37 @@ public partial class InteractionSync :
         _cachedInteractionLevel = null;
         _cachedInteractionEntityCount = -1;
         _cachedInteractionTriggerCount = -1;
+        ShopReservations.ClearAll();
+        CollectorLedger.ResetLocks();
         ClearPersistentInteractionStateForLevel();
+    }
+
+    /// <summary>
+    /// Idempotently clears all interaction locks, shop reservations, and level interaction states
+    /// during run restart, guaranteeing that no old interaction locks persist into Prisoners' Quarters.
+    /// </summary>
+    public static void ResetForRunRestart()
+    {
+        CollectorLedger.ResetLocks();
+        ShopReservations.ClearAll();
+
+        var instance = Instance;
+        if (instance != null)
+        {
+            try
+            {
+                instance.ClearRuntimeStateForLevel();
+                instance._openedDoors.Clear();
+                instance._doorHadAutoClose.Clear();
+                instance._doorStableAnchors.Clear();
+                instance._scratchDoorsToClose.Clear();
+                instance._scratchDoorsToRemove.Clear();
+                instance._interactionRuntimeLevel = null;
+            }
+            catch
+            {
+            }
+        }
     }
 
 }

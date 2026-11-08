@@ -10,6 +10,7 @@ public sealed partial class NetNode
             _hasRemote = false;
             _connectedClientCount = 0;
             _remotes.Clear();
+            DlcEntitlementManager.Reset();
             _primaryRemoteId = 0;
             _pendingAttacks.Clear();
             _pendingHeroAffects.Clear();
@@ -36,6 +37,15 @@ public sealed partial class NetNode
             _pendingBossRuneUpdateCells.Clear();
             _pendingInterPortalEvents.Clear();
             _pendingInterEliteShrineEvents.Clear();
+            _pendingInterCollectorDeposits.Clear();
+            _pendingInterBlueprintUnlocks.Clear();
+            _pendingInterForgeUpgrades.Clear();
+            _pendingInterCollectorLocks.Clear();
+            _pendingInterShopPurchaseEvents.Clear();
+            _pendingInterShopRerollEvents.Clear();
+            _pendingInterPedestalPickupEvents.Clear();
+            _pendingInterShopRejectEvents.Clear();
+            _pendingInterPedestalRejectEvents.Clear();
         }
         if (_useSteamTransport)
         {
@@ -66,6 +76,7 @@ public sealed partial class NetNode
     private void RemoveRemoteLocked(int id)
     {
         _remotes.Remove(id);
+        DlcEntitlementManager.RemovePeerDlcMask(id);
         if (_primaryRemoteId == id)
         {
             _primaryRemoteId = 0;
@@ -100,5 +111,45 @@ public sealed partial class NetNode
             return parsedId;
         }
         return senderId;
+    }
+
+    /// <summary>
+    /// Atomically clears pending control queues, revive requests, downed states, transition commits,
+    /// and interaction locks when restarting a run, guaranteeing no stale packets bleed into the new run.
+    /// </summary>
+    public void ClearPendingStateForRunRestart()
+    {
+        lock (_sync)
+        {
+            _pendingPlayerDownStates.Clear();
+            _pendingPlayerReviveRequests.Clear();
+            _pendingExitReadyStates.Clear();
+            _pendingExitTransitionCommits.Clear();
+            _pendingBossCineLevelIds.Clear();
+            _pendingBossHeroTeleports.Clear();
+            _pendingInterCollectorLocks.Clear();
+            _pendingInterShopPurchaseEvents.Clear();
+            _pendingInterShopRerollEvents.Clear();
+            _pendingInterPedestalPickupEvents.Clear();
+            _pendingInterShopRejectEvents.Clear();
+            _pendingInterPedestalRejectEvents.Clear();
+            _pendingInterDoorEvents.Clear();
+            _pendingInterElevatorEvents.Clear();
+            _pendingInterElevatorStateEvents.Clear();
+            _pendingInterPressurePlateEvents.Clear();
+            _pendingInterTreasureChestEvents.Clear();
+            _pendingInterVineLadderEvents.Clear();
+            _pendingInterTeleportEvents.Clear();
+            _pendingInterBreakableGroundEvents.Clear();
+            _pendingInterPortalEvents.Clear();
+            _pendingInterEliteShrineEvents.Clear();
+            _pendingInterCollectorDeposits.Clear();
+            _pendingInterBlueprintUnlocks.Clear();
+            _pendingInterForgeUpgrades.Clear();
+            _pendingBossRuneUpdateCells.Clear();
+            _pendingHeroAffects.Clear();
+            _pendingAttacks.Clear();
+        }
+        ClearCachedGeneratedLevelStateForRestart();
     }
 }

@@ -252,6 +252,7 @@ namespace DeadCellsMultiplayerMod
             public bool HasHeadAnim;
             public string HeadAnim = string.Empty;
             public string LevelId = string.Empty;
+            public long FirstDownedAtTicks;
             public long UpdatedAtTicks;
         }
 
@@ -1577,6 +1578,15 @@ namespace DeadCellsMultiplayerMod
                 me = hero;
                 me._targetable = true;
                 ApplyDebugHeroRuntimeOptions();
+            }
+
+            var currentLevel = GetCurrentLevelId();
+            if (string.Equals(currentLevel, "PrisonStart", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(currentLevel))
+            {
+                if (_localFakeDead || _remoteDowned.Count > 0)
+                {
+                    ResetDownedPlayersForRestart();
+                }
             }
 
             LobbySession.MarkInRun();

@@ -9,6 +9,7 @@ using dc.pr;
 using dc.ui;
 using DeadCellsMultiplayerMod.Interface.ModuleInitializing;
 using DeadCellsMultiplayerMod.MultiplayerModUI.lifeUI;
+using DeadCellsMultiplayerMod;
 using HaxeProxy.Runtime;
 using ModCore.Events;
 using ModCore.Events.Interfaces.Game.Hero;
@@ -128,6 +129,7 @@ public class LevelExitSync :
     private const double ClientTransitionTimeoutSeconds = 15.0;
     private long _hostAwaitingPeersSinceTicks;
     private const double HostTransitionTimeoutSeconds = 15.0;
+    private long _lastHostDlcWarningTick;
 
     /// <summary>Exit/portal/boss-door entities only — avoids scanning <c>level.entities</c> every hero frame.</summary>
     private readonly List<Entity?> _exitTargetCandidates = new();
@@ -153,10 +155,62 @@ public class LevelExitSync :
     private const double NearestExitCacheReuseDistancePx = 18.0;
     private const double NearestExitCacheReuseDistanceSq = NearestExitCacheReuseDistancePx * NearestExitCacheReuseDistancePx;
 
+    public static LevelExitSync? Instance { get; private set; }
+
     public LevelExitSync(ModEntry entry)
     {
         _log = entry.Logger;
+        Instance = this;
         EventSystem.AddReceiver(this);
+    }
+
+    /// <summary>
+    /// Resets the Boss Rush transition gate, unpauses run timer, clears pending transition keys,
+    /// and unlocks local player controls. Called by watchdogs, disconnect handlers, or timeout handlers.
+    /// </summary>
+    public void ResetBossRushGateAndUnlock(string reason)
+    {
+        ClearBossRushGate();
+        _localPressed = false;
+        _transitionDoorKey = string.Empty;
+        _hostAwaitingPeersSinceTicks = 0;
+        _clientAwaitingCommitSinceTicks = 0;
+        _suppressDoorActivateHook = false;
+        ApplyLocalTimerPause(false);
+
+        var hero = ModEntry.me;
+        try { hero?.cancelSkillControlLock(); } catch { }
+        try { hero?.unlockControls(); } catch { }
+
+        _log.Information("[ExitSync] Boss Rush gate and player controls reset cleanly ({Reason})", reason);
+    }
+
+    /// <summary>
+    /// Idempotently clears all transition tokens, gate locks, door wait states, and timers during run restart.
+    /// </summary>
+    public void ResetForRunRestart()
+    {
+        ResetLevelState(null);
+        _transitionDoorKey = string.Empty;
+        _localPressed = false;
+        _localInsideCircle = false;
+        _suppressDoorActivateHook = false;
+        _clientAwaitingCommitSinceTicks = 0;
+        _hostAwaitingPeersSinceTicks = 0;
+        _exitStallDoorKey = string.Empty;
+        _exitStallStartedTicks = 0;
+        _nextExitStallLogTicks = 0;
+        _downedExitFollowDoorKey = string.Empty;
+        _downedExitFollowStartedTicks = 0;
+        ClearBossRushGate();
+        ClearExitPointer();
+        ApplyLocalTimerPause(false);
+
+        var hero = ModEntry.me;
+        try { hero?.cancelSkillControlLock(); } catch { }
+        try { hero?.unlockControls(); } catch { }
+
+        _log.Information("[ExitSync] Run restart reset complete: transition tokens and exit states wiped.");
     }
 
     void IOnAdvancedModuleInitializing.OnAdvancedModuleInitializing(ModEntry entry)
@@ -214,6 +268,12 @@ public class LevelExitSync :
             return;
         }
 
+        if (door.cx < 0 || door.cy < 0)
+        {
+            _log.Warning("[ExitSync][BossRushSeed] Refusing to precommit Boss Rush seed: invalid door coordinates {DoorCx}:{DoorCy}", door.cx, door.cy);
+            return;
+        }
+
         if (SafeRead(() => door.locked, true) || !IsEntityInsideExitCircle(localHero, door))
             return;
 
@@ -225,6 +285,14 @@ public class LevelExitSync :
             return;
 
         var bossRushType = SafeRead(() => door.bossRushType?.ToString() ?? string.Empty, string.Empty);
+        if (!string.IsNullOrWhiteSpace(bossRushType) &&
+            (!LobbySession.TryParseBossRushDoorIndex(bossRushType, out var doorIndex) ||
+             !LobbySession.IsValidBossRushDoorIndex(doorIndex)))
+        {
+            _log.Warning("[ExitSync][BossRushSeed] Refusing to precommit Boss Rush seed: invalid/out-of-range door index (raw='{Type}')", bossRushType);
+            return;
+        }
+
         if (LobbySession.PrecommitHostBossRushRunSeed(
                 bossRushType,
                 door.cx,
@@ -309,10 +377,64 @@ public class LevelExitSync :
             return;
         }
 
-        if (!IsEntityInsideExitCircle(localHero, target))
+        // DLC Entitlement check: verify destination biome does not require an uninstalled DLC pack
+        var destLevel = ResolveExitDestinationLevelId(target);
+        if (!DlcEntitlementManager.IsLevelAccessibleLocally(destLevel, out var requiredDlc, out var dlcDisplayName))
         {
-            origActivate();
+            _log.Warning(
+                "[ExitSync] Local player cannot enter exit {DoorKey}: destination '{DestLevel}' requires DLC '{RequiredDlc}' ({DisplayName}) which is not installed.",
+                BuildDoorKey(target.cx, target.cy),
+                destLevel,
+                requiredDlc,
+                dlcDisplayName);
+
+            MultiplayerUI.PushSystemMessage(
+                FormatLocalized("Cannot enter: '{0}' DLC is required.", dlcDisplayName),
+                6.0,
+                1.0);
+
+            _localPressed = false;
+            _localDoorKey = string.Empty;
+            _transitionDoorKey = string.Empty;
+            ApplyLocalTimerPause(false);
+            try { localHero?.cancelSkillControlLock(); } catch { }
+            try { localHero?.unlockControls(); } catch { }
+            try { UpdateLocalPlayerState(net, forceSend: true); } catch { }
             return;
+        }
+
+        // DLC Entitlement peer verification: ensure all connected active peers possess the requisite DLC BEFORE committing readiness or pausing timer!
+        if (net != null && net.IsAlive)
+        {
+            RefreshActivePlayers(net);
+            if (DlcEntitlementManager.RequiresDlc(destLevel, out var hostReqMask, out var hostReqDlcId, out var hostReqDlcDisplayName))
+            {
+                if (!DlcEntitlementManager.IsLevelAccessibleForActivePeers(_activePlayerIds, net.id, destLevel, out var missingPeerId))
+                {
+                    _log.Warning(
+                        "[ExitSync] Activation of exit {DoorKey} to '{DestLevel}' blocked: peer #{PeerId} does not possess required DLC '{DlcId}' ({DlcName}).",
+                        BuildDoorKey(target.cx, target.cy),
+                        destLevel,
+                        missingPeerId,
+                        hostReqDlcId,
+                        hostReqDlcDisplayName);
+
+                    var missingPlayerLabel = missingPeerId == 1 ? Localize("Host") : ResolveUserDisplayName(missingPeerId, net);
+                    MultiplayerUI.PushSystemMessage(
+                        FormatLocalized("Cannot enter: {0} is missing '{1}' DLC.", missingPlayerLabel, hostReqDlcDisplayName),
+                        7.0,
+                        1.0);
+
+                    _localPressed = false;
+                    _localDoorKey = string.Empty;
+                    _transitionDoorKey = string.Empty;
+                    ApplyLocalTimerPause(false);
+                    try { localHero?.cancelSkillControlLock(); } catch { }
+                    try { localHero?.unlockControls(); } catch { }
+                    try { UpdateLocalPlayerState(net, forceSend: true); } catch { }
+                    return;
+                }
+            }
         }
 
         // Prevent boss arena doors from opening for clients during active boss fights.
@@ -324,6 +446,12 @@ public class LevelExitSync :
                 FormatLocalized("The exit stays sealed until the boss falls."),
                 4.0,
                 1.0);
+            return;
+        }
+
+        if (!IsEntityInsideExitCircle(localHero, target))
+        {
+            origActivate();
             return;
         }
 
@@ -343,11 +471,13 @@ public class LevelExitSync :
         if (!wasReadyHere)
             PushReachedExitMessage(net!.id, target, net!);
 
-        if (AreAllPlayersReadyForDoor(_localDoorKey, net!) &&
-            TryBeginCoordinatedTransition(net!, target, localHero))
+        if (AreAllPlayersReadyForDoor(_localDoorKey, net!))
         {
-            ApplyLocalTimerPause(false);
-            TriggerExitTransition(target, localHero, origActivate);
+            if (TryBeginCoordinatedTransition(net!, target, localHero))
+            {
+                ApplyLocalTimerPause(false);
+                TriggerExitTransition(target, localHero, origActivate);
+            }
             return;
         }
 
@@ -438,6 +568,7 @@ public class LevelExitSync :
                         _hostAwaitingPeersSinceTicks = 0;
                         _localPressed = false;
                         _transitionDoorKey = string.Empty;
+                        _suppressDoorActivateHook = false;
                         ApplyLocalTimerPause(false);
                         _log.Warning(
                             "[ExitSync] Host timeout waiting for peers at door={DoorKey}. Releasing lock and unpausing timer.",
@@ -446,6 +577,13 @@ public class LevelExitSync :
                             Localize("Teammate has not reached the exit. Resuming game."),
                             6.0,
                             1.0);
+                        try { hero?.cancelSkillControlLock(); } catch { }
+                        try { hero?.unlockControls(); } catch { }
+                        if (nearestTarget is BossRushDoor)
+                        {
+                            ClearBossRushGate();
+                            LobbySession.CancelBossRushLaunchGate("host_transition_timeout");
+                        }
                     }
                 }
             }
@@ -478,6 +616,50 @@ public class LevelExitSync :
 
         if (net.IsHost)
         {
+            RefreshActivePlayers(net);
+            var destLevel = ResolveExitDestinationLevelId(target);
+            if (!DlcEntitlementManager.IsLevelAccessibleLocally(destLevel, out var hostReqDlc, out var hostDlcName))
+            {
+                _log.Warning("[ExitSync] Host lacks required DLC '{Dlc}' for destination '{DestLevel}'. Aborting transition.", hostReqDlc, destLevel);
+                MultiplayerUI.PushSystemMessage(FormatLocalized("Cannot enter: '{0}' DLC is required.", hostDlcName), 6.0, 1.0);
+                _localPressed = false;
+                _localDoorKey = string.Empty;
+                _transitionDoorKey = string.Empty;
+                ApplyLocalTimerPause(false);
+                try { hero?.cancelSkillControlLock(); } catch { }
+                try { hero?.unlockControls(); } catch { }
+                try { UpdateLocalPlayerState(net, forceSend: true); } catch { }
+                return false;
+            }
+
+            if (DlcEntitlementManager.RequiresDlc(destLevel, out var reqMask, out var reqDlcId, out var reqDlcDisplayName))
+            {
+                if (!DlcEntitlementManager.IsLevelAccessibleForActivePeers(_activePlayerIds, net.id, destLevel, out var missingPeerId))
+                {
+                    _log.Warning(
+                        "[ExitSync] Transition to '{DestLevel}' blocked: peer #{PeerId} does not possess the required DLC '{DlcId}' ({DlcName}).",
+                        destLevel,
+                        missingPeerId,
+                        reqDlcId,
+                        reqDlcDisplayName);
+
+                    var missingPeerLabel = ResolveUserDisplayName(missingPeerId, net);
+                    MultiplayerUI.PushSystemMessage(
+                        FormatLocalized("Cannot enter: {0} is missing '{1}' DLC.", missingPeerLabel, reqDlcDisplayName),
+                        7.0,
+                        1.0);
+
+                    _localPressed = false;
+                    _localDoorKey = string.Empty;
+                    _transitionDoorKey = string.Empty;
+                    ApplyLocalTimerPause(false);
+                    try { hero?.cancelSkillControlLock(); } catch { }
+                    try { hero?.unlockControls(); } catch { }
+                    try { UpdateLocalPlayerState(net, forceSend: true); } catch { }
+                    return false;
+                }
+            }
+
             // Only commit to something we are actually going to do. TriggerExitTransition refuses a
             // fresh Boss Rush entry until its launch gate is synchronized, and that refusal can last
             // seconds. Minting the commit first meant two failures at once: EXITCOMMIT was
@@ -515,6 +697,26 @@ public class LevelExitSync :
         {
             _clientAwaitingCommitSinceTicks = 0;
             _hostAwaitingPeersSinceTicks = 0;
+            var disconnectedDest = ResolveExitDestinationLevelId(target);
+            if (!DlcEntitlementManager.IsLevelAccessibleLocally(disconnectedDest, out var discReqDlc, out var discDlcName))
+            {
+                _log.Warning(
+                    "[ExitSync] Host disconnected; aborting transition to destination '{Dest}': missing required DLC '{Dlc}' ({DlcName})",
+                    disconnectedDest,
+                    discReqDlc,
+                    discDlcName);
+                MultiplayerUI.PushSystemMessage(
+                    FormatLocalized("Cannot enter: '{0}' DLC is required.", discDlcName),
+                    6.0,
+                    1.0);
+                _localPressed = false;
+                _localDoorKey = string.Empty;
+                _transitionDoorKey = string.Empty;
+                ApplyLocalTimerPause(false);
+                try { hero?.cancelSkillControlLock(); } catch { }
+                try { hero?.unlockControls(); } catch { }
+                return false;
+            }
             _log.Information("[ExitSync] Host disconnected; proceeding with local exit transition to avoid deadlock");
             return true;
         }
@@ -523,7 +725,16 @@ public class LevelExitSync :
         if (_clientAwaitingCommitSinceTicks == 0)
         {
             _clientAwaitingCommitSinceTicks = Stopwatch.GetTimestamp();
+            if (target is BossRushDoor)
+            {
+                TryPassBossRushLaunchGate(target);
+            }
             return false;
+        }
+
+        if (target is BossRushDoor)
+        {
+            TryPassBossRushLaunchGate(target);
         }
 
         var elapsedSeconds = Stopwatch.GetElapsedTime(_clientAwaitingCommitSinceTicks).TotalSeconds;
@@ -552,6 +763,12 @@ public class LevelExitSync :
 
             try { hero?.cancelSkillControlLock(); } catch { }
             try { hero?.unlockControls(); } catch { }
+
+            if (target is BossRushDoor)
+            {
+                ClearBossRushGate();
+                LobbySession.CancelBossRushLaunchGate("client_transition_timeout");
+            }
 
             return false;
         }
@@ -617,7 +834,56 @@ public class LevelExitSync :
             if (hasSelected)
             {
                 var commit = selected;
+                var destLevel = commit.DestinationLevelId;
                 var target = FindExitTargetByCoordinates(currentLevel, commit.DoorCx, commit.DoorCy);
+                if (string.IsNullOrWhiteSpace(destLevel) && target != null)
+                {
+                    destLevel = ResolveExitDestinationLevelId(target);
+                }
+
+                // Safe guard: reject transition if destination biome requires a DLC not owned by this client
+                if (!DlcEntitlementManager.IsLevelAccessibleLocally(destLevel, out var reqDlc, out var dlcDisplayName))
+                {
+                    _log.Warning(
+                        "[ExitSync] REJECTING host transition commit seq={Sequence}: destination '{DestLevel}' requires DLC '{RequiredDlc}' ({DisplayName}), which is NOT installed on this client. Aborting transition to avoid native crash / black screen.",
+                        commit.Sequence,
+                        destLevel,
+                        reqDlc,
+                        dlcDisplayName);
+
+                    MultiplayerUI.PushSystemMessage(
+                        FormatLocalized("Host entered a '{0}' DLC biome which is not installed. Transition aborted.", dlcDisplayName),
+                        8.0,
+                        1.0);
+
+                    _lastAppliedExitTransitionSequence = commit.Sequence;
+                    _clientAwaitingCommitSinceTicks = 0;
+                    _hostAwaitingPeersSinceTicks = 0;
+                    _localPressed = false;
+                    _transitionDoorKey = string.Empty;
+                    _suppressDoorActivateHook = false;
+                    ApplyLocalTimerPause(false);
+                    try { hero?.cancelSkillControlLock(); } catch { }
+                    try { hero?.unlockControls(); } catch { }
+                    try { UpdateLocalPlayerState(net, forceSend: true); } catch { }
+                    return;
+                }
+
+                if (target == null && !string.IsNullOrWhiteSpace(destLevel))
+                {
+                    target = FindExitTargetByDestination(currentLevel, destLevel);
+                    if (target != null)
+                    {
+                        _log.Information(
+                            "[ExitSync] Fallback located exit target by destination '{DestLevel}' at {DoorCx}:{DoorCy} (host commit was {CommitCx}:{CommitCy})",
+                            destLevel,
+                            target.cx,
+                            target.cy,
+                            commit.DoorCx,
+                            commit.DoorCy);
+                    }
+                }
+
                 if (target == null)
                 {
                     // The host committed to a door this peer does not have. That is a world
@@ -668,13 +934,88 @@ public class LevelExitSync :
         }
     }
 
-    /// <summary>Destination level id of an exit, for cross-peer validation. Empty when unknown.</summary>
+    /// <summary>Destination level id of an exit or portal, for cross-peer validation. Empty when unknown.</summary>
     private static string ResolveExitDestinationLevelId(Entity? target)
     {
-        if (target is not Exit exit)
+        if (target == null)
             return string.Empty;
 
-        return SafeRead(() => exit.destLevel?.ToString() ?? string.Empty, string.Empty);
+        if (target is Exit exit)
+        {
+            var dest = SafeRead(() => exit.destLevel?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(dest))
+                return dest;
+
+            dest = SafeRead(() => exit.getDestBasedOnNextLevels()?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(dest))
+                return dest;
+
+            dest = SafeRead(() => exit.destName?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(dest))
+                return dest;
+
+            dest = SafeRead(() => exit.getDestName()?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(dest))
+                return dest;
+
+            var dlc = SafeRead(() => (exit as dynamic)?.destMap?.infos?.dlc?.ToString() ?? (exit as dynamic)?.dlc?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(dlc))
+                return dlc;
+        }
+
+        if (target is Portal portal)
+        {
+            var dest = SafeRead(() => portal.destMap?.id?.ToString() ?? portal.destMap?.infos?.id?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(dest))
+                return dest;
+
+            var dlc = SafeRead(() => portal.destMap?.infos?.dlc?.ToString() ?? (portal as dynamic)?.dlc?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(dlc))
+                return dlc;
+
+            dest = SafeRead(() => (portal as dynamic)?.destLevel?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(dest))
+                return dest;
+
+            dest = SafeRead(() => (portal as dynamic)?.destName?.ToString() ?? (portal as dynamic)?.destination?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(dest))
+                return dest;
+        }
+
+        if (target is BossRushDoor)
+            return "BossRushZone";
+
+        var typeName = target.GetType().Name;
+        if (typeName.Contains("RichterCastle", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ExitToRichter", StringComparison.OrdinalIgnoreCase))
+            return "RichterCastle";
+        if (typeName.Contains("ExitToQueen", StringComparison.OrdinalIgnoreCase) || typeName.Contains("LighthouseExit", StringComparison.OrdinalIgnoreCase))
+            return "QueenArena";
+        if (typeName.Contains("ExitToDeath", StringComparison.OrdinalIgnoreCase))
+            return "DeathArena";
+        if (typeName.Contains("ExitToDooku", StringComparison.OrdinalIgnoreCase))
+            return "DookuArena";
+        if (typeName.Contains("FisherBarque", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ExitToShipwreck", StringComparison.OrdinalIgnoreCase))
+            return "Shipwreck";
+        if (typeName.Contains("ExitToCastlevania", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ExitToPurple", StringComparison.OrdinalIgnoreCase))
+            return "PurpleGarden";
+        if (typeName.Contains("ExitToGreenhouse", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ArboretumExit", StringComparison.OrdinalIgnoreCase))
+            return "Greenhouse";
+        if (typeName.Contains("ExitToSwamp", StringComparison.OrdinalIgnoreCase))
+            return "Swamp";
+        if (typeName.Contains("ExitToTumulus", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ShrinesExit", StringComparison.OrdinalIgnoreCase))
+            return "Tumulus";
+        if (typeName.Contains("ExitToCliff", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ShoresExit", StringComparison.OrdinalIgnoreCase))
+            return "Cliff";
+        if (typeName.Contains("ExitToCavern", StringComparison.OrdinalIgnoreCase))
+            return "Cavern";
+        if (typeName.Contains("ExitToGiant", StringComparison.OrdinalIgnoreCase))
+            return "Giant";
+
+        var dynDest = SafeRead(() => (target as dynamic)?.destLevel?.ToString() ?? (target as dynamic)?.destMap?.id?.ToString() ?? string.Empty, string.Empty);
+        if (!string.IsNullOrWhiteSpace(dynDest))
+            return dynDest;
+
+        return string.Empty;
     }
 
     /// <summary>
@@ -768,8 +1109,19 @@ public class LevelExitSync :
                 !string.IsNullOrEmpty(localLevelId) &&
                 !string.Equals(state.LevelId, localLevelId, StringComparison.Ordinal))
             {
-                var followTarget = FindExitTargetByDestination(level, state.LevelId) ??
-                                   FindNearestExitTarget(hero, level, out _);
+                if (!DlcEntitlementManager.IsLevelAccessibleLocally(state.LevelId, out var followDlc, out var followDlcName))
+                {
+                    _log.Warning(
+                        "[ExitSync] Downed player cannot follow teammate #{TeammateId} to level={DestLevel}: required DLC '{Dlc}' is not installed",
+                        state.UserId,
+                        state.LevelId,
+                        followDlc);
+                    _downedExitFollowStartedTicks = 0;
+                    _downedExitFollowDoorKey = string.Empty;
+                    continue;
+                }
+
+                var followTarget = FindExitTargetByDestination(level, state.LevelId);
                 if (followTarget != null)
                 {
                     _log.Warning(
@@ -777,6 +1129,7 @@ public class LevelExitSync :
                         state.UserId,
                         state.LevelId);
                     TriggerExitTransition(followTarget, hero, null);
+                    _downedExitFollowDoorKey = string.Empty;
                     _downedExitFollowStartedTicks = 0;
                     return;
                 }
@@ -800,6 +1153,14 @@ public class LevelExitSync :
         var target = FindExitTargetByDoorKey(level, candidateKey);
         if (target == null)
             return;
+
+        var targetDest = ResolveExitDestinationLevelId(target);
+        if (!DlcEntitlementManager.IsLevelAccessibleLocally(targetDest, out var downedReqDlc, out var downedDlcName))
+        {
+            _downedExitFollowDoorKey = string.Empty;
+            _downedExitFollowStartedTicks = 0;
+            return;
+        }
 
         if (!string.Equals(_downedExitFollowDoorKey, candidateKey, StringComparison.Ordinal))
         {
@@ -825,6 +1186,7 @@ public class LevelExitSync :
             if (TryBeginCoordinatedTransition(net, target, hero))
             {
                 TriggerExitTransition(target, hero, null);
+                _downedExitFollowDoorKey = string.Empty;
                 _downedExitFollowStartedTicks = 0;
             }
         }
@@ -838,6 +1200,35 @@ public class LevelExitSync :
     {
         if (target == null || hero == null)
             return;
+
+        // Safe guard: verify target destination does not require an uninstalled DLC pack
+        var dest = ResolveExitDestinationLevelId(target);
+        if (!DlcEntitlementManager.IsLevelAccessibleLocally(dest, out var reqDlc, out var dlcName))
+        {
+            _log.Warning(
+                "[ExitSync] Aborting TriggerExitTransition: destination '{Dest}' requires DLC '{Dlc}' ({DlcName}) which is not installed.",
+                dest,
+                reqDlc,
+                dlcName);
+            MultiplayerUI.PushSystemMessage(
+                FormatLocalized("Cannot transition: '{0}' DLC is required.", dlcName),
+                6.0,
+                1.0);
+
+            _localPressed = false;
+            _localDoorKey = string.Empty;
+            _transitionDoorKey = string.Empty;
+            _suppressDoorActivateHook = false;
+            ApplyLocalTimerPause(false);
+            try { hero?.cancelSkillControlLock(); } catch { }
+            try { hero?.unlockControls(); } catch { }
+            var net = LobbySession.NetRef;
+            if (net != null)
+            {
+                try { UpdateLocalPlayerState(net, forceSend: true); } catch { }
+            }
+            return;
+        }
 
         // Protocol 17 Boss Rush barrier: never begin a fresh Boss Rush native load until the launch
         // is synchronized (client holds the authoritative host seed; host has the client's RUNQUEUED).
@@ -907,13 +1298,65 @@ public class LevelExitSync :
         if (net == null || !net.IsAlive)
             return true;
 
+        if (target == null)
+            return false;
+
+        // Guard against negative door coordinates
+        if (target.cx < 0 || target.cy < 0)
+        {
+            BossSyncDiag.Warn("launch gate rejected door with negative coordinates {DoorCx}:{DoorCy}", target.cx, target.cy);
+            return false;
+        }
+
+        // Guard against invalid, negative, or out-of-range Boss Rush door index
+        if (target is BossRushDoor bossDoor)
+        {
+            var rawType = SafeRead(() => bossDoor.bossRushType?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrWhiteSpace(rawType) &&
+                (!LobbySession.TryParseBossRushDoorIndex(rawType, out var doorIndex) ||
+                 !LobbySession.IsValidBossRushDoorIndex(doorIndex)))
+            {
+                BossSyncDiag.Warn("launch gate rejected door with invalid/out-of-range index (raw='{Raw}')", rawType);
+                return false;
+            }
+        }
+
         // Internal Boss Rush arena progression reuses the running run; only a fresh entry from the
         // normal world is gated (mirrors TryPrecommitBossRushEntranceSeed).
         var alreadyInBossRush = SafeRead(() => ModEntry.me?._level?.game?.isBossRush() ?? false, false);
         if (alreadyInBossRush)
         {
+            var currentLevelId = SafeRead(() => ModEntry.me?._level?.map?.id?.ToString() ?? string.Empty, string.Empty);
+            if (!string.IsNullOrEmpty(currentLevelId) && !LobbySession.IsValidBossRushLevelId(currentLevelId))
+            {
+                BossSyncDiag.Warn("launch gate rejected invalid in-progress boss rush level id '{Level}'", currentLevelId);
+                return false;
+            }
+
             ClearBossRushGate();
             return true;
+        }
+
+        // Guard against invalid destination level ID
+        var destLevel = ResolveExitDestinationLevelId(target);
+        if (!string.IsNullOrEmpty(destLevel) && !LobbySession.IsValidBossRushLevelId(destLevel))
+        {
+            BossSyncDiag.Warn("launch gate rejected door with invalid destination level id '{Level}'", destLevel);
+            return false;
+        }
+
+        // Watchdog: if peer dropped connection while waiting at the gate,
+        // reset cleanly and unlock players without freezing.
+        if (_bossRushGateStartTicks != 0 && (!net.HasRemote || !net.IsConnected))
+        {
+            BossSyncDiag.Warn("launch gate: peer disconnected while waiting at door {Door}; resetting cleanly", _bossRushGateDoorKey);
+            ResetBossRushGateAndUnlock("peer disconnected at launch gate");
+            LobbySession.CancelBossRushLaunchGate("peer disconnected during boss rush gate wait");
+            MultiplayerUI.PushSystemMessage(
+                Localize("Friend disconnected during Boss Rush launch. Controls restored."),
+                6.0,
+                1.0);
+            return false;
         }
 
         if (LobbySession.TryBeginLocalBossRushLoad(out var reason))
@@ -924,6 +1367,13 @@ public class LevelExitSync :
             if (!net.IsHost)
             {
                 var localVariant = SafeRead(() => (target as BossRushDoor)?.bossRushType?.ToString() ?? string.Empty, string.Empty);
+                if (!string.IsNullOrWhiteSpace(localVariant) &&
+                    (!LobbySession.TryParseBossRushDoorIndex(localVariant, out var localDoorIndex) ||
+                     !LobbySession.IsValidBossRushDoorIndex(localDoorIndex)))
+                {
+                    BossSyncDiag.Warn("launch gate rejected client door with out-of-range index (raw='{Raw}')", localVariant);
+                    return false;
+                }
                 LobbySession.ValidateClientBossRushVariant(localVariant);
             }
             if (!string.IsNullOrEmpty(_bossRushGateDoorKey))
@@ -945,21 +1395,21 @@ public class LevelExitSync :
             return false;
         }
 
+        // Host/Client watchdog: if synchronization times out, reset cleanly and unlock players.
         if (Stopwatch.GetElapsedTime(_bossRushGateStartTicks).TotalSeconds >= BossRushLaunchGateTimeoutSeconds)
         {
-            ClearBossRushGate();
-            _localPressed = false;
-            _transitionDoorKey = string.Empty;
             BossSyncDiag.Warn(
                 "launch gate TIMEOUT role={Role} door={Door} reason={Reason}",
                 BossSyncDiag.Role(net),
                 key,
                 reason);
+            ResetBossRushGateAndUnlock($"boss rush launch sync timed out ({reason})");
             LobbySession.CancelBossRushLaunchGate($"boss rush launch sync timed out ({reason})");
             MultiplayerUI.PushSystemMessage(
                 Localize("Boss Rush could not synchronize with your friend. Approach the door again to retry."),
                 7.0,
                 1.0);
+            return false;
         }
 
         return false;
@@ -1022,11 +1472,38 @@ public class LevelExitSync :
                     // Follow the host immediately to avoid deadlock and party separation!
                     if (!net.IsHost && state.UserId == 1 && currentLevel != null)
                     {
+                        if (!DlcEntitlementManager.IsLevelAccessibleLocally(reportedLevelId, out var hostFollowDlc, out var hostFollowDlcName))
+                        {
+                            var nowTick = Stopwatch.GetTimestamp();
+                            if (_lastHostDlcWarningTick == 0 || Stopwatch.GetElapsedTime(_lastHostDlcWarningTick).TotalSeconds >= 6.0)
+                            {
+                                _lastHostDlcWarningTick = nowTick;
+                                _log.Warning(
+                                    "[ExitSync] Host advanced to level={HostLevel} requiring DLC '{Dlc}', but this client lacks that DLC. Cannot follow.",
+                                    reportedLevelId,
+                                    hostFollowDlc);
+                                MultiplayerUI.PushSystemMessage(
+                                    FormatLocalized("Host advanced to '{0}' DLC biome which is not installed.", hostFollowDlcName),
+                                    6.0,
+                                    1.0);
+                            }
+
+                            // Recover client state: unpause timer and restore controls so client isn't trapped frozen
+                            _localPressed = false;
+                            _localDoorKey = string.Empty;
+                            _transitionDoorKey = string.Empty;
+                            ApplyLocalTimerPause(false);
+                            var hero = ModEntry.me;
+                            try { hero?.cancelSkillControlLock(); } catch { }
+                            try { hero?.unlockControls(); } catch { }
+                            try { UpdateLocalPlayerState(net, forceSend: true); } catch { }
+                            continue;
+                        }
+
                         var isDowned = ModEntry.IsLocalPlayerDowned();
                         if (isDowned || _localPressed || _localInsideCircle)
                         {
-                            var target = FindExitTargetByDestination(currentLevel, reportedLevelId) ??
-                                         FindNearestExitTarget(ModEntry.me!, currentLevel, out _);
+                            var target = FindExitTargetByDestination(currentLevel, reportedLevelId);
                             if (target != null)
                             {
                                 _log.Warning(
@@ -1413,6 +1890,10 @@ public class LevelExitSync :
         if (level == null || string.IsNullOrWhiteSpace(destinationLevelId))
             return null;
 
+        // If destination requires DLC not installed locally, never match an exit target to prevent native crash
+        if (!DlcEntitlementManager.IsLevelAccessibleLocally(destinationLevelId, out _, out _))
+            return null;
+
         EnsureExitTargetCandidates(level);
         for (int i = 0; i < _exitTargetCandidates.Count; i++)
         {
@@ -1420,19 +1901,24 @@ public class LevelExitSync :
             if (!IsTrackedExitTargetCandidate(level, candidate) || !IsAvailableExitTarget(candidate))
                 continue;
 
-            if (candidate is Exit exit)
-            {
-                var dest = SafeRead(() => exit.destLevel?.ToString() ?? string.Empty, string.Empty);
-                if (string.Equals(dest, destinationLevelId, StringComparison.OrdinalIgnoreCase))
-                    return exit;
-            }
+            var dest = ResolveExitDestinationLevelId(candidate);
+            if (string.Equals(dest, destinationLevelId, StringComparison.OrdinalIgnoreCase))
+                return candidate;
         }
         return null;
     }
 
     private static bool IsSupportedExitTarget(Entity? entity)
     {
-        return entity is Exit || entity is Portal || entity is BossRushDoor;
+        if (entity is Exit || entity is Portal || entity is BossRushDoor)
+            return true;
+        if (entity == null)
+            return false;
+        var name = entity.GetType().Name;
+        return name.Contains("Exit", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("Portal", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("Barque", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("Richter", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsAvailableExitTarget(Entity? entity)
@@ -1823,6 +2309,14 @@ public class LevelExitSync :
             return;
         }
 
+        var watchedDest = ResolveExitDestinationLevelId(door);
+        if (!DlcEntitlementManager.IsLevelAccessibleLocally(watchedDest, out _, out _))
+        {
+            ClearExitPointer();
+            _exitPointerDirty = false;
+            return;
+        }
+
         if (_exitPointer != null && !SafeRead(() => _exitPointer.destroyed, true))
         {
             _exitPointer.e = door;
@@ -2000,6 +2494,7 @@ public class LevelExitSync :
         _activePlayerScratchIds.Clear();
         _readyPlayerCounts.Clear();
         ClearExitPointer();
+        ClearBossRushGate();
         ApplyLocalTimerPause(false);
     }
 

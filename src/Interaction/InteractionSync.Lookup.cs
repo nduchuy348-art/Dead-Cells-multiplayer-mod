@@ -166,6 +166,18 @@ public partial class InteractionSync
                     case SwitchBossRune switchBossRune:
                         CachedInteractionLevelData.SwitchBossRunes.Add(switchBossRune);
                         break;
+                    case ShopBooth shopBooth:
+                        CachedInteractionLevelData.ShopBooths.Add(shopBooth);
+                        break;
+                    case ItemAltar itemAltar:
+                        CachedInteractionLevelData.ItemAltars.Add(itemAltar);
+                        break;
+                    case ShopReroll shopReroll:
+                        CachedInteractionLevelData.ShopRerolls.Add(shopReroll);
+                        break;
+                    case ItemDrop itemDrop:
+                        CachedInteractionLevelData.ItemDrops.Add(itemDrop);
+                        break;
                 }
             }
         }
@@ -214,6 +226,14 @@ public partial class InteractionSync
             return (IReadOnlyList<T>)(object)cache.TreasureChests;
         if (typeof(T) == typeof(SwitchBossRune))
             return (IReadOnlyList<T>)(object)cache.SwitchBossRunes;
+        if (typeof(T) == typeof(ShopBooth))
+            return (IReadOnlyList<T>)(object)cache.ShopBooths;
+        if (typeof(T) == typeof(ItemAltar))
+            return (IReadOnlyList<T>)(object)cache.ItemAltars;
+        if (typeof(T) == typeof(ShopReroll))
+            return (IReadOnlyList<T>)(object)cache.ShopRerolls;
+        if (typeof(T) == typeof(ItemDrop))
+            return (IReadOnlyList<T>)(object)cache.ItemDrops;
         return null;
     }
 

@@ -1149,7 +1149,7 @@ public sealed partial class NetNode
         return true;
     }
 
-    private static bool TryParseInterBossRuneUpdateCellsPayload(string payload, out InterBossRuneUpdateCellsEvent ev)
+    internal static bool TryParseInterBossRuneUpdateCellsPayload(string payload, out InterBossRuneUpdateCellsEvent ev)
     {
         ev = default;
         if (string.IsNullOrWhiteSpace(payload))
@@ -1159,6 +1159,27 @@ public sealed partial class NetNode
         if (parts.Length < 3)
             return false;
 
+        if (parts.Length >= 5 &&
+            int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedUid) &&
+            double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var uX) && double.IsFinite(uX) &&
+            double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var uY) && double.IsFinite(uY) &&
+            int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var uAdd))
+        {
+            var levelId = ClampProtocolText(parts[4], MaxIdentityFieldChars);
+            int? targetBc = null;
+            int? maxAllowed = null;
+            if (parts.Length >= 6 && int.TryParse(parts[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedBc))
+            {
+                if (parts.Length >= 7 && int.TryParse(parts[6], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMax))
+                {
+                    maxAllowed = Math.Clamp(parsedMax, 0, 5);
+                }
+                targetBc = Math.Clamp(parsedBc, 0, maxAllowed ?? 5);
+            }
+            ev = new InterBossRuneUpdateCellsEvent(parsedUid, uX, uY, uAdd != 0, levelId, targetBc, maxAllowed);
+            return true;
+        }
+
         if (!double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var x) || !double.IsFinite(x))
             return false;
         if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y) || !double.IsFinite(y))
@@ -1166,8 +1187,18 @@ public sealed partial class NetNode
         if (!int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var addInt))
             return false;
 
-        var levelId = parts.Length >= 4 ? ClampProtocolText(parts[3], MaxIdentityFieldChars) : string.Empty;
-        ev = new InterBossRuneUpdateCellsEvent(x, y, addInt != 0, levelId);
+        var lvlId = parts.Length >= 4 ? ClampProtocolText(parts[3], MaxIdentityFieldChars) : string.Empty;
+        int? targetBc4 = null;
+        int? maxAllowed4 = null;
+        if (parts.Length >= 5 && int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedBc4))
+        {
+            if (parts.Length >= 6 && int.TryParse(parts[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMax4))
+            {
+                maxAllowed4 = Math.Clamp(parsedMax4, 0, 5);
+            }
+            targetBc4 = Math.Clamp(parsedBc4, 0, maxAllowed4 ?? 5);
+        }
+        ev = new InterBossRuneUpdateCellsEvent(0, x, y, addInt != 0, lvlId, targetBc4, maxAllowed4);
         return true;
     }
 
@@ -1201,6 +1232,355 @@ public sealed partial class NetNode
 
         var levelId = parts.Length >= 4 ? ClampProtocolText(parts[3], MaxIdentityFieldChars) : string.Empty;
         ev = new InterEliteShrineEvent(userId, x, y, levelId);
+        return true;
+    }
+
+    internal static bool TryParseInterCollectorDepositPayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterCollectorDepositEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 5)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        var itemId = ClampProtocolText(parts[1].Trim(), InterCollectorDepositEvent.MaxItemIdLength);
+        if (string.IsNullOrWhiteSpace(itemId))
+            return false;
+
+        if (!int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var cellsDeposited) || cellsDeposited < 0)
+            return false;
+
+        if (!int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var totalInvested) || totalInvested < 0)
+            return false;
+
+        if (!long.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var sequence) || sequence < 0)
+            return false;
+
+        var levelId = parts.Length >= 6 ? ClampProtocolText(parts[5], MaxIdentityFieldChars) : string.Empty;
+        ev = new InterCollectorDepositEvent(userId, itemId, cellsDeposited, totalInvested, sequence, levelId);
+        return true;
+    }
+
+    internal static bool TryParseInterBlueprintUnlockPayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterBlueprintUnlockEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 3)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        var itemId = ClampProtocolText(parts[1].Trim(), InterBlueprintUnlockEvent.MaxItemIdLength);
+        if (string.IsNullOrWhiteSpace(itemId))
+            return false;
+
+        if (!long.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var sequence) || sequence < 0)
+            return false;
+
+        var levelId = parts.Length >= 4 ? ClampProtocolText(parts[3], MaxIdentityFieldChars) : string.Empty;
+        ev = new InterBlueprintUnlockEvent(userId, itemId, sequence, levelId);
+        return true;
+    }
+
+    internal static bool TryParseInterForgeUpgradePayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterForgeUpgradeEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 5)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var upgradeLevel) || upgradeLevel < 0 || upgradeLevel > InterForgeUpgradeEvent.MaxForgeTier)
+            return false;
+
+        if (!int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var cellsDeposited) || cellsDeposited < 0)
+            return false;
+
+        if (!int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var totalInvested) || totalInvested < 0)
+            return false;
+
+        if (!long.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var sequence) || sequence < 0)
+            return false;
+
+        var levelId = parts.Length >= 6 ? ClampProtocolText(parts[5], MaxIdentityFieldChars) : string.Empty;
+        ev = new InterForgeUpgradeEvent(userId, upgradeLevel, cellsDeposited, totalInvested, sequence, levelId);
+        return true;
+    }
+
+    internal static bool TryParseInterCollectorLockPayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterCollectorLockEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 4)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var inUseInt))
+            return false;
+
+        var kind = ClampProtocolText(parts[2].Trim(), 16);
+        if (!long.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var sequence) || sequence < 0)
+            return false;
+
+        var levelId = parts.Length >= 5 ? ClampProtocolText(parts[4], MaxIdentityFieldChars) : string.Empty;
+        ev = new InterCollectorLockEvent(userId, inUseInt != 0, kind, sequence, levelId);
+        return true;
+    }
+
+    private static bool TryParseInterShopPurchasePayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterShopPurchaseEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 4)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var x) || !double.IsFinite(x))
+            return false;
+        if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var y) || !double.IsFinite(y))
+            return false;
+
+        if (!int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var price) || price < 0)
+            return false;
+
+        long sequence = 0;
+        if (parts.Length >= 5)
+            long.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out sequence);
+
+        bool isMimic = false;
+        if (parts.Length >= 6)
+            TryParseBool(parts[5], out isMimic);
+
+        var levelId = parts.Length >= 7 ? ClampProtocolText(parts[6], MaxIdentityFieldChars) : string.Empty;
+        ev = new InterShopPurchaseEvent(userId, x, y, price, sequence, isMimic, levelId);
+        return true;
+    }
+
+    private static bool TryParseInterShopRerollPayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterShopRerollEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 5)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var x) || !double.IsFinite(x))
+            return false;
+        if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var y) || !double.IsFinite(y))
+            return false;
+
+        if (!int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var cost) || cost < 0)
+            return false;
+
+        if (!int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var remainUses) || remainUses < 0)
+            return false;
+
+        long sequence = 0;
+        if (parts.Length >= 6)
+            long.TryParse(parts[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out sequence);
+
+        var levelId = parts.Length >= 7 ? ClampProtocolText(parts[6], MaxIdentityFieldChars) : string.Empty;
+        ev = new InterShopRerollEvent(userId, x, y, cost, remainUses, sequence, levelId);
+        return true;
+    }
+
+    private static bool TryParseInterPedestalPickupPayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterPedestalPickupEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 3)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var x) || !double.IsFinite(x))
+            return false;
+        if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var y) || !double.IsFinite(y))
+            return false;
+
+        long sequence = 0;
+        if (parts.Length >= 4)
+            long.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out sequence);
+
+        var levelId = parts.Length >= 5 ? ClampProtocolText(parts[4], MaxIdentityFieldChars) : string.Empty;
+        ev = new InterPedestalPickupEvent(userId, x, y, sequence, levelId);
+        return true;
+    }
+
+    private static bool TryParseInterShopRejectPayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterShopRejectEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 3)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var x) || !double.IsFinite(x))
+            return false;
+        if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var y) || !double.IsFinite(y))
+            return false;
+
+        long sequence = 0;
+        if (parts.Length >= 4)
+            long.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out sequence);
+
+        var levelId = parts.Length >= 5 ? ClampProtocolText(parts[4], MaxIdentityFieldChars) : string.Empty;
+        ev = new InterShopRejectEvent(userId, x, y, sequence, levelId);
+        return true;
+    }
+
+    private static bool TryParseInterPedestalRejectPayload(
+        string payload,
+        int? senderId,
+        bool forceSenderId,
+        out InterPedestalRejectEvent ev)
+    {
+        ev = default;
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var parts = payload.Split('|');
+        if (parts.Length < 3)
+            return false;
+
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            return false;
+
+        if (forceSenderId && senderId.HasValue)
+            userId = senderId.Value;
+
+        if (userId <= 0)
+            return false;
+
+        if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var x) || !double.IsFinite(x))
+            return false;
+        if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var y) || !double.IsFinite(y))
+            return false;
+
+        long sequence = 0;
+        if (parts.Length >= 4)
+            long.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out sequence);
+
+        var levelId = parts.Length >= 5 ? ClampProtocolText(parts[4], MaxIdentityFieldChars) : string.Empty;
+        ev = new InterPedestalRejectEvent(userId, x, y, sequence, levelId);
         return true;
     }
 
@@ -1292,4 +1672,31 @@ public sealed partial class NetNode
         value = false;
         return false;
     }
+
+    internal bool TestTryParseInterCollectorDeposit(string payload, int? senderId, bool forceSenderId, out InterCollectorDepositEvent ev)
+        => TryParseInterCollectorDepositPayload(payload, senderId, forceSenderId, out ev);
+
+    internal bool TestTryParseInterBlueprintUnlock(string payload, int? senderId, bool forceSenderId, out InterBlueprintUnlockEvent ev)
+        => TryParseInterBlueprintUnlockPayload(payload, senderId, forceSenderId, out ev);
+
+    internal bool TestTryParseInterForgeUpgrade(string payload, int? senderId, bool forceSenderId, out InterForgeUpgradeEvent ev)
+        => TryParseInterForgeUpgradePayload(payload, senderId, forceSenderId, out ev);
+
+    internal bool TestTryParseInterCollectorLock(string payload, int? senderId, bool forceSenderId, out InterCollectorLockEvent ev)
+        => TryParseInterCollectorLockPayload(payload, senderId, forceSenderId, out ev);
+
+    internal bool TestTryParseInterShopPurchase(string payload, int? senderId, bool forceSenderId, out InterShopPurchaseEvent ev)
+        => TryParseInterShopPurchasePayload(payload, senderId, forceSenderId, out ev);
+
+    internal bool TestTryParseInterShopReroll(string payload, int? senderId, bool forceSenderId, out InterShopRerollEvent ev)
+        => TryParseInterShopRerollPayload(payload, senderId, forceSenderId, out ev);
+
+    internal bool TestTryParseInterPedestalPickup(string payload, int? senderId, bool forceSenderId, out InterPedestalPickupEvent ev)
+        => TryParseInterPedestalPickupPayload(payload, senderId, forceSenderId, out ev);
+
+    internal bool TestTryParseInterShopReject(string payload, int? senderId, bool forceSenderId, out InterShopRejectEvent ev)
+        => TryParseInterShopRejectPayload(payload, senderId, forceSenderId, out ev);
+
+    internal bool TestTryParseInterPedestalReject(string payload, int? senderId, bool forceSenderId, out InterPedestalRejectEvent ev)
+        => TryParseInterPedestalRejectPayload(payload, senderId, forceSenderId, out ev);
 }

@@ -345,6 +345,7 @@ namespace DeadCellsMultiplayerMod
         public static void NotifyRemoteConnected(NetRole role)
         {
             Tools.GameTrace.Event("net", "remote connected (local role={Role})", role);
+            try { RunLaunchCoordinator.OnRemoteConnected(role); } catch { }
             ResetHostDisconnectCountdown();
             SendUsernameToRemote();
             SendLocalReadyState();
@@ -359,6 +360,16 @@ namespace DeadCellsMultiplayerMod
                     if (_inActualRun)
                         SendCachedGeneratePayload();
                 }
+
+                var currentDescriptor = RunLaunchCoordinator.GetCurrentHostDescriptor();
+                if (currentDescriptor != null && !RunLaunchCoordinator.IsRemoteLaunchConfirmed(currentDescriptor.Sequence))
+                {
+                    StartHostRunLaunchBeacon(currentDescriptor.Sequence);
+                }
+
+                DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ArmHostMobRegistryResyncForClientJoin();
+                try { ModEntry.Instance?.ResetHostSpawnAnchorTimer(); } catch { }
+
                 ConnectionUI.NotifyConnectionsChanged();
 
                 if (_menuSelection == NetRole.Host)
@@ -426,6 +437,7 @@ namespace DeadCellsMultiplayerMod
             // This matters when one peer restarts its process while the other peer stays alive.
             try { RunLaunchCoordinator.OnRemoteDisconnected(role); } catch { }
             try { ModEntry.Instance?.HandleNetworkDisconnectGhostCleanup(role); } catch { }
+            try { DeadCellsMultiplayerMod.Interaction.InteractionSync.CollectorLedger.ReleaseRemoteLocks(NetRef?.id ?? 0); } catch { }
 
             if (role == NetRole.Host)
             {
@@ -439,6 +451,11 @@ namespace DeadCellsMultiplayerMod
                 }
                 _genArrived = false;
                 _seedArrived = false;
+                StopHostRunLaunchBeacon("remote_disconnected");
+                CancelBossRushLaunchGate("remote_disconnected");
+                DeadCellsMultiplayerMod.MultiplayerModUI.LevelExit.LevelExitSync.Instance?.ResetForRunRestart();
+                DeadCellsMultiplayerMod.MultiplayerModUI.LevelExit.LevelExitSync.Instance?.ResetBossRushGateAndUnlock("remote_disconnected");
+                try { DeadCellsMultiplayerMod.Interaction.InteractionSync.ResetForRunRestart(); } catch { }
                 if (_menuSelection == NetRole.Host)
                 {
                     var ts = GetTitleScreen();
@@ -456,6 +473,11 @@ namespace DeadCellsMultiplayerMod
                 wasInRun = _inActualRun;
                 ResetLobbyLaunchStateLocked();
             }
+
+            CancelBossRushLaunchGate("host_disconnected");
+            DeadCellsMultiplayerMod.MultiplayerModUI.LevelExit.LevelExitSync.Instance?.ResetForRunRestart();
+            DeadCellsMultiplayerMod.MultiplayerModUI.LevelExit.LevelExitSync.Instance?.ResetBossRushGateAndUnlock("host_disconnected");
+            try { ModEntry.ResetDownedPlayersForRestart(); } catch { }
 
             var saved = true;
             if (wasInRun)
@@ -734,7 +756,14 @@ namespace DeadCellsMultiplayerMod
 
         internal static string Localize(string message)
         {
-            return GetText.Instance.GetString(message);
+            try
+            {
+                return GetText.Instance?.GetString(message) ?? message;
+            }
+            catch
+            {
+                return message;
+            }
         }
 
         internal static string FormatLocalized(string format, params object[] args)

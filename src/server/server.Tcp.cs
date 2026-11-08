@@ -160,6 +160,8 @@ public sealed partial class NetNode
                 if (_role == NetRole.Host)
                 {
                     int? cachedBossRune;
+                    int? cachedMaxUnlockedBossRune;
+                    int? cachedDlcMask;
                     int? cachedSeed;
                     int? cachedRunSeedSequence;
                     string? cachedLaunchKind;
@@ -183,6 +185,8 @@ public sealed partial class NetNode
                     lock (_hostCacheSync)
                     {
                         cachedBossRune = _cachedHostBossRune;
+                        cachedMaxUnlockedBossRune = _cachedHostMaxUnlockedBossRune;
+                        cachedDlcMask = _cachedHostDlcMask;
                         cachedSeed = _cachedHostSeed;
                         cachedRunSeedSequence = _cachedHostRunSeedSequence;
                         cachedLaunchKind = _cachedHostLaunchKind;
@@ -212,7 +216,23 @@ public sealed partial class NetNode
                         await SendLineToClientSafe(connection, $"HXSYNC|{cachedSerializerSeq.Value}|{cachedSerializerUid.Value}\n").ConfigureAwait(false);
 
                     if (cachedBossRune.HasValue)
-                        await SendLineToClientSafe(connection, $"BOSSRUNE|{cachedBossRune.Value}\n").ConfigureAwait(false);
+                    {
+                        var clamped = Math.Clamp(cachedBossRune.Value, 0, 5);
+                        var payload = cachedMaxUnlockedBossRune.HasValue
+                            ? $"{clamped}|{Math.Clamp(cachedMaxUnlockedBossRune.Value, 0, 5)}"
+                            : clamped.ToString(CultureInfo.InvariantCulture);
+                        await SendLineToClientSafe(connection, $"BOSSRUNE|{payload}\n").ConfigureAwait(false);
+                    }
+
+                    var hostDlc = cachedDlcMask ?? DlcEntitlementManager.GetLocalDlcMask();
+                    await SendLineToClientSafe(connection, $"DLCMASK|1|{hostDlc}\n").ConfigureAwait(false);
+                    foreach (var peer in DlcEntitlementManager.GetAllPeerDlcMasks())
+                    {
+                        if (peer.Key != 1 && peer.Key != assignedId)
+                        {
+                            await SendLineToClientSafe(connection, $"DLCMASK|{peer.Key}|{peer.Value}\n").ConfigureAwait(false);
+                        }
+                    }
 
                     if (cachedCoopId != null)
                         await SendLineToClientSafe(connection, BuildCoopStateLine(1, cachedCoopId, cachedHasContinueSave)).ConfigureAwait(false);

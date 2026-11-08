@@ -1788,5 +1788,78 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             }
         }
 
+        /// <summary>
+        /// Restores all currently tracked mobs back to their unscaled baseline maxLife and life.
+        /// Called before wiping the scaling table to prevent double-scaling on difficulty changes.
+        /// </summary>
+        internal static void ResetAllTrackedMobScaling()
+        {
+            try
+            {
+                List<Mob> snapshot;
+                lock (Sync)
+                {
+                    if (trackedMobs.Count == 0)
+                        return;
+                    snapshot = new List<Mob>(trackedMobs);
+                }
+
+                for (var i = 0; i < snapshot.Count; i++)
+                {
+                    var mob = snapshot[i];
+                    if (mob != null)
+                        BossHpScaling.ResetMobScaling(mob);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>
+        /// Re-initializes monster scaling for all currently tracked mobs, restoring each mob to its unscaled
+        /// baseline first and re-applying multiplayer scaling. Called when Boss Stem Cells (BC) or difficulty changes.
+        /// </summary>
+        internal static void ReinitializeMonsterScaling(string reason = "bc_change")
+        {
+            var net = DeadCellsMultiplayerMod.LobbySession.NetRef;
+            if (net == null || !net.IsAlive || !net.IsHost)
+                return;
+
+            try
+            {
+                List<Mob> snapshot;
+                lock (Sync)
+                {
+                    if (trackedMobs.Count == 0)
+                    {
+                        BossHpScaling.ResetAll();
+                        return;
+                    }
+                    snapshot = new List<Mob>(trackedMobs);
+                }
+
+                for (var i = 0; i < snapshot.Count; i++)
+                {
+                    var mob = snapshot[i];
+                    if (mob == null)
+                        continue;
+
+                    try
+                    {
+                        BossHpScaling.ResetMobScaling(mob);
+                        BossHpScaling.ScaleForMultiplayer(mob);
+                        QueueHostMobDirty(mob, HostMobDirtyFlags.State | HostMobDirtyFlags.ForceState);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
     }
 }

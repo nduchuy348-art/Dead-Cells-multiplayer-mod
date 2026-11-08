@@ -46,6 +46,12 @@ namespace DeadCellsMultiplayerMod
             if (string.IsNullOrWhiteSpace(currentLevelId))
                 return;
 
+            // In Dead Cells, Boss Stem Cell reloads via reloadAfterBossRuneModif are strictly
+            // valid only in the starting hub (PrisonStart). Triggering an in-place boss-rune reload
+            // mid-run in other biomes causes mid-run state corruption.
+            if (!IsStartingHubLevel(currentLevelId))
+                return;
+
             if (!HasRemoteLevelGraphCached(currentLevelId))
                 return;
 
@@ -55,9 +61,12 @@ namespace DeadCellsMultiplayerMod
         internal static void MarkPendingBossRuneReload(int bossRune)
         {
             var levelId = TryGetCurrentLevelId();
+            if (!Interaction.BossStemCellSync.IsStartingHubLevel(levelId))
+                return;
+
             lock (_pendingBossRuneReloadLock)
             {
-                _pendingBossRuneReloadValue = bossRune;
+                _pendingBossRuneReloadValue = Interaction.BossStemCellSync.ClampBossCells(bossRune);
                 _pendingBossRuneReloadLevelId = levelId;
                 _pendingBossRuneReloadTick = Environment.TickCount64;
                 _hasPendingBossRuneReload = true;
@@ -206,17 +215,28 @@ namespace DeadCellsMultiplayerMod
                 if (user != null &&
                     TryGetRemoteBossRune(out remoteBossRune))
                 {
-                    var localBossRune = GetEffectiveBossRune(user);
-                    var forceByPending = ConsumePendingBossRuneReloadIfMatch(graphLevelId, remoteBossRune);
-                    bossApplies = forceByPending || localBossRune != remoteBossRune;
-                    if (bossApplies)
+                    // Confirm that the level is the starting hub to prevent mid-run corruption
+                    if (!IsStartingHubLevel(graphLevelId))
                     {
-                        _log?.Information(
-                            "[NetMod] Boss-rune graph reload candidate level={LevelId} local={LocalBossRune} remote={RemoteBossRune} pending={Pending}",
-                            graphLevelId,
-                            localBossRune,
-                            remoteBossRune,
-                            forceByPending);
+                        _log?.Warning(
+                            "[NetMod] Suppressing boss-rune level reload for non-hub level {LevelId} to prevent mid-run state corruption",
+                            graphLevelId);
+                        bossApplies = false;
+                    }
+                    else
+                    {
+                        var localBossRune = GetEffectiveBossRune(user);
+                        var forceByPending = ConsumePendingBossRuneReloadIfMatch(graphLevelId, remoteBossRune);
+                        bossApplies = forceByPending || localBossRune != remoteBossRune;
+                        if (bossApplies)
+                        {
+                            _log?.Information(
+                                "[NetMod] Boss-rune graph reload candidate level={LevelId} local={LocalBossRune} remote={RemoteBossRune} pending={Pending}",
+                                graphLevelId,
+                                localBossRune,
+                                remoteBossRune,
+                                forceByPending);
+                        }
                     }
                 }
             }
@@ -244,6 +264,7 @@ namespace DeadCellsMultiplayerMod
                 (offsetCx, offsetCy) = ComputeBossRuneReloadOffsets(hero, level);
                 ModEntry.PrepareAndDisposeRemoteKingsForBossCellReload(
                     "client-boss-rune-reload:" + targetLevelId);
+                Mobs.Bosses.BossHpScaling.ResetAll();
             }
             else
             {
@@ -397,18 +418,29 @@ namespace DeadCellsMultiplayerMod
             return string.IsNullOrWhiteSpace(fallbackLevelId) ? "PrisonStart" : fallbackLevelId;
         }
 
+        internal static bool IsStartingHubLevel(string? levelId)
+        {
+            return Interaction.BossStemCellSync.IsStartingHubLevel(levelId);
+        }
+
         private static string? TryGetCurrentLevelId()
         {
             try
             {
-                var levelId = ModEntry.me?._level?.map?.id?.ToString();
-                if (!string.IsNullOrWhiteSpace(levelId))
-                    return levelId;
+                return GetCurrentLevelIdInternal();
             }
             catch
             {
+                return null;
             }
+        }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static string? GetCurrentLevelIdInternal()
+        {
+            var levelId = ModEntry.me?._level?.map?.id?.ToString();
+            if (!string.IsNullOrWhiteSpace(levelId))
+                return levelId;
             return null;
         }
 
@@ -452,6 +484,9 @@ namespace DeadCellsMultiplayerMod
                 _lastLevelReloadReason = LevelReloadReason.None;
                 _lastLevelReloadTick = 0;
             }
+
+            ClearPendingBossRuneReloadState();
+            Mobs.Bosses.BossHpScaling.ResetAll();
         }
     }
 }

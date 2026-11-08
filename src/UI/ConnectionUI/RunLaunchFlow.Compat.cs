@@ -90,6 +90,27 @@ internal static partial class LobbySession
         seed = 0;
         sequence = 0;
 
+        // Guard against negative or invalid door coordinates
+        if (doorCx < 0 || doorCy < 0)
+        {
+            _log?.Warning(
+                "[NetMod][BossRushSeed] Refusing to precommit Boss Rush seed with negative door coordinates {DoorCx}:{DoorCy}",
+                doorCx,
+                doorCy);
+            return false;
+        }
+
+        // Guard against invalid or out-of-range door index
+        if (!string.IsNullOrWhiteSpace(bossRushType) &&
+            (!TryParseBossRushDoorIndex(bossRushType, out var doorIndex) ||
+             !IsValidBossRushDoorIndex(doorIndex)))
+        {
+            _log?.Warning(
+                "[NetMod][BossRushSeed] Refusing to precommit Boss Rush seed with invalid door index (raw='{Type}')",
+                bossRushType);
+            return false;
+        }
+
         var net = NetRef;
         if (net == null || !net.IsAlive || !net.IsHost)
             return false;
@@ -255,6 +276,14 @@ internal static partial class LobbySession
         _precommittedHostSeedSequence = 0;
         _precommittedHostLaunchKind = string.Empty;
         _precommittedHostSeedExpiresAtTicks = 0;
+    }
+
+    internal static void ClearPrecommittedHostBossRushLaunchForTesting()
+    {
+        lock (Sync)
+        {
+            ClearPrecommittedHostRunSeedLocked();
+        }
     }
 
     public static bool TryGetKnownSeed(out int seed)

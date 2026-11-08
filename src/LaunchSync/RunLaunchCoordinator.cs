@@ -133,6 +133,14 @@ internal static class RunLaunchCoordinator
         {
             if (_role != role)
                 ResetLocked(role, "remote_connected_role_repair");
+            else
+            {
+                // Reset remote handshake ack/queued/ready tracking for the newly connected peer
+                // without destroying the active host descriptor or session phase.
+                ClearAckLocked();
+                ClearQueuedLocked();
+                _remoteReadySequence = 0;
+            }
             EnsureLobbyLocked("remote_connected");
         }
     }
@@ -141,13 +149,17 @@ internal static class RunLaunchCoordinator
     {
         lock (Sync)
         {
-            if (_role == NetRole.Host && role == NetRole.Host)
+            ClearAckLocked();
+            ClearQueuedLocked();
+            _remoteReadySequence = 0;
+            if (!LobbySession.IsInActualRun() &&
+                _state.Phase is CoopSessionPhase.LaunchCommitted or
+                               CoopSessionPhase.TransitionCommitted or
+                               CoopSessionPhase.LoadingLevel)
             {
-                ClearAckLocked();
-                ClearQueuedLocked();
-                _remoteReadySequence = 0;
-                Monitor.PulseAll(Sync);
+                ReturnToLobbyLocked("remote_disconnected_during_launch");
             }
+            Monitor.PulseAll(Sync);
         }
     }
 
@@ -218,8 +230,8 @@ internal static class RunLaunchCoordinator
                 string.IsNullOrWhiteSpace(launchKind) ? "unknown" : launchKind,
                 string.IsNullOrWhiteSpace(initialLevelId) ? "PrisonStart" : initialLevelId,
                 initialLevelSeed,
-                Math.Max(0, difficulty),
-                Math.Max(0, bossCells),
+                Math.Clamp(difficulty, 0, 5),
+                Math.Clamp(bossCells, 0, 5),
                 isBossRush,
                 dlcFlags,
                 Math.Max(0, saveSlot),
@@ -233,6 +245,13 @@ internal static class RunLaunchCoordinator
 
             if (!descriptor.TryValidate(out var validationError))
                 throw new InvalidOperationException("Invalid host run descriptor: " + validationError);
+
+            if (!DlcEntitlementManager.IsLevelAccessibleLocally(descriptor.InitialLevelId, out var reqDlc, out var dlcName))
+                throw new InvalidOperationException($"Host lacks required DLC '{dlcName}' ({reqDlc}) for initial level '{descriptor.InitialLevelId}'.");
+
+            if (!string.IsNullOrEmpty(descriptor.TargetArena) &&
+                !DlcEntitlementManager.IsLevelAccessibleLocally(descriptor.TargetArena, out var arenaReqDlc, out var arenaDlcName))
+                throw new InvalidOperationException($"Host lacks required DLC '{arenaDlcName}' ({arenaReqDlc}) for target arena '{descriptor.TargetArena}'.");
 
             _hostDescriptor = descriptor;
             _hostExecutedSequence = 0;
@@ -294,6 +313,7 @@ internal static class RunLaunchCoordinator
                 var wasEnriched = !_remoteDescriptor.InitialLevelSeed.HasValue &&
                                   descriptor.InitialLevelSeed.HasValue;
                 _remoteDescriptor = descriptor;
+                DlcEntitlementManager.SetPeerDlcMask(1, (int)descriptor.DlcFlags);
                 Monitor.PulseAll(Sync);
 
                 ack = new RunLaunchAck(
@@ -340,6 +360,7 @@ internal static class RunLaunchCoordinator
             }
 
             _remoteDescriptor = descriptor;
+            DlcEntitlementManager.SetPeerDlcMask(1, (int)descriptor.DlcFlags);
             _remoteExecutedSequence = 0;
             _localReadySequence = 0;
             _remoteReadySequence = 0;
@@ -408,6 +429,12 @@ internal static class RunLaunchCoordinator
                     ack.RunId,
                     ack.Sequence,
                     _ackError);
+                if (_state.Phase is CoopSessionPhase.LaunchCommitted or
+                                   CoopSessionPhase.TransitionCommitted or
+                                   CoopSessionPhase.LoadingLevel)
+                {
+                    ReturnToLobbyLocked($"client_rejected_launch:{ack.Error}");
+                }
             }
         }
     }
@@ -897,6 +924,25 @@ internal static class RunLaunchCoordinator
             return "run sequence was reused with a different identity";
         }
 
+        if (descriptor.BossRush)
+        {
+            if (!LobbySession.TryValidateBossRushDescriptor(descriptor, out var bossRushError))
+            {
+                return bossRushError;
+            }
+        }
+
+        // DLC Entitlement reconciliation: ensure client possesses any requisite DLC for initial level or arena
+        if (!DlcEntitlementManager.IsLevelAccessibleLocally(descriptor.InitialLevelId, out var reqDlc, out var dlcName))
+        {
+            return $"client lacks required DLC '{dlcName}' ({reqDlc}) for initial level '{descriptor.InitialLevelId}'";
+        }
+        if (!string.IsNullOrEmpty(descriptor.TargetArena) &&
+            !DlcEntitlementManager.IsLevelAccessibleLocally(descriptor.TargetArena, out var arenaReqDlc, out var arenaDlcName))
+        {
+            return $"client lacks required DLC '{arenaDlcName}' ({arenaReqDlc}) for target arena '{descriptor.TargetArena}'";
+        }
+
         return string.Empty;
     }
 
@@ -1066,5 +1112,24 @@ internal static class RunLaunchCoordinator
         _queuedSequence = 0;
         _queuedAccepted = false;
         _queuedError = string.Empty;
+    }
+
+    internal static CoopSessionPhase CurrentPhase
+    {
+        get
+        {
+            lock (Sync)
+            {
+                return _state.Phase;
+            }
+        }
+    }
+
+    internal static void ResetForTesting(NetRole role = NetRole.None)
+    {
+        lock (Sync)
+        {
+            ResetLocked(role, "test-reset");
+        }
     }
 }

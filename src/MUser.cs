@@ -295,6 +295,27 @@ namespace DeadCellsMultiplayerMod
             return DefaultSlot;
         }
 
+        /// <summary>
+        /// Validates that a profile save targets only the local player's configured save slot.
+        /// Prevents co-op interaction state or remote cell transactions from corrupting another player's save slot.
+        /// </summary>
+        internal static bool ValidateProfileSaveIsolation(int targetSlot, int configuredSlot)
+        {
+            if (!IsValidSlot(targetSlot) || !IsValidSlot(configuredSlot))
+                return false;
+
+            return targetSlot == configuredSlot;
+        }
+
+        internal static bool ValidateProfileSaveIsolation(int targetSlot)
+        {
+            if (!IsValidSlot(targetSlot))
+                return false;
+
+            var expectedSlot = ResolveSaveSlotNumber(null);
+            return targetSlot == expectedSlot;
+        }
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private static int? TryGetGameOptionsSlot()
         {

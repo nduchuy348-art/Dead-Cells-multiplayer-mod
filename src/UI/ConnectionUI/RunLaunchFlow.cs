@@ -12,6 +12,124 @@ internal static partial class LobbySession
     internal static bool _structuredLaunchCommitArrived;
     internal static int _structuredLaunchExecuteSequence;
 
+    public const int MinBossRushDoorIndex = 0;
+    public const int MaxBossRushDoorIndex = 4;
+
+    /// <summary>
+    /// Checks whether the door index is within the valid Boss Rush door index range [0..4].
+    /// Negative numbers and indices > 4 are invalid/out-of-range.
+    /// </summary>
+    public static bool IsValidBossRushDoorIndex(int doorIndex)
+    {
+        return doorIndex >= MinBossRushDoorIndex && doorIndex <= MaxBossRushDoorIndex;
+    }
+
+    /// <summary>
+    /// Attempts to parse a Boss Rush door index from an integer string, "Tier X", or variant name (SS/SH/LS/LH/Custom).
+    /// Returns true if a valid door index was parsed. Returns false if the input is invalid, negative, or out-of-range.
+    /// </summary>
+    public static bool TryParseBossRushDoorIndex(string? typeOrIndex, out int doorIndex)
+    {
+        doorIndex = -1;
+        if (string.IsNullOrWhiteSpace(typeOrIndex))
+            return false;
+
+        var trimmed = typeOrIndex.Trim();
+
+        if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+        {
+            doorIndex = parsed;
+            return IsValidBossRushDoorIndex(parsed);
+        }
+
+        if (trimmed.StartsWith("Tier", StringComparison.OrdinalIgnoreCase))
+        {
+            var tierPart = trimmed.Substring(4).Trim();
+            if (int.TryParse(tierPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tierVal))
+            {
+                doorIndex = tierVal;
+                return IsValidBossRushDoorIndex(tierVal);
+            }
+        }
+
+        // Match known Dead Cells Boss Rush door variant identifiers
+        if (trimmed.IndexOf("Custom", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            doorIndex = 4;
+            return true;
+        }
+
+        if (trimmed.EndsWith("LH", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.IndexOf("DoorLH", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            trimmed.IndexOf("LongHard", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            doorIndex = 3;
+            return true;
+        }
+
+        if (trimmed.EndsWith("LS", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.IndexOf("DoorLS", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            trimmed.IndexOf("LongSimple", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            doorIndex = 2;
+            return true;
+        }
+
+        if (trimmed.EndsWith("SH", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.IndexOf("DoorSH", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            trimmed.IndexOf("ShortHard", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            doorIndex = 1;
+            return true;
+        }
+
+        if (trimmed.EndsWith("SS", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.IndexOf("DoorSS", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            trimmed.IndexOf("ShortSimple", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            doorIndex = 0;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Validates whether a level identifier represents a valid Dead Cells Boss Rush level.
+    /// Rejects null, empty, whitespace, non-BossRush levels (e.g. PrisonStart), or invalid characters.
+    /// </summary>
+    public static bool IsValidBossRushLevelId(string? levelId)
+    {
+        if (string.IsNullOrWhiteSpace(levelId))
+            return false;
+
+        var trimmed = levelId.Trim();
+
+        // Enforce valid identifier characters only (letters, digits, underscores)
+        for (int i = 0; i < trimmed.Length; i++)
+        {
+            var c = trimmed[i];
+            if (!char.IsLetterOrDigit(c) && c != '_')
+                return false;
+        }
+
+        // Common valid Boss Rush level IDs: "BossRushZone", "BossRushHUB", "BossRush", or arena stages like "BR_STAGE_1"
+        if (string.Equals(trimmed, "BossRushZone", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "BossRushHUB", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "BossRush", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (trimmed.StartsWith("BossRush", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("BR_", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     internal static void InitializeRunLaunchHandshake(ILogger logger)
     {
         RunLaunchCoordinator.Initialize(logger);
@@ -31,8 +149,9 @@ internal static partial class LobbySession
         string launchKind,
         string? bossRushType = null)
     {
-        var bossCells = ReadBossCellsForLaunch();
-        var initialLevelId = GameDataSync.IsBossRushLaunchKind(launchKind)
+        var isBossRush = GameDataSync.IsBossRushLaunchKind(launchKind);
+        var bossCells = Math.Clamp(ReadBossCellsForLaunch(), 0, 5);
+        var initialLevelId = isBossRush
             ? "BossRushZone"
             : "PrisonStart";
 
@@ -42,6 +161,11 @@ internal static partial class LobbySession
         // those are not re-invented here. Route carries the native Boss Rush variant read from the
         // door (BossRushDoor.bossRushType); TargetArena carries the concrete entry arena id.
         var route = string.IsNullOrWhiteSpace(bossRushType) ? string.Empty : bossRushType.Trim();
+        var bossRushTier = 0;
+        if (isBossRush && TryParseBossRushDoorIndex(route, out var parsedIndex) && IsValidBossRushDoorIndex(parsedIndex))
+        {
+            bossRushTier = parsedIndex;
+        }
 
         return RunLaunchCoordinator.CreateOrReuseHostDescriptor(
             seed,
@@ -51,8 +175,9 @@ internal static partial class LobbySession
             initialLevelSeed: null,
             difficulty: bossCells,
             bossCells: bossCells,
-            dlcFlags: 0,
+            dlcFlags: (ulong)DlcEntitlementManager.GetLocalDlcMask(),
             saveSlot: ResolveSaveSlotNumber(null),
+            bossRushTier: bossRushTier,
             route: route,
             targetArena: initialLevelId);
     }
@@ -61,8 +186,16 @@ internal static partial class LobbySession
     {
         try
         {
+            var user = dc.Main.Class.ME?.user;
+            if (user != null)
+            {
+                var effective = GameDataSync.GetBossRuneInt(user);
+                var unlocked = GameDataSync.GetHostMaxUnlockedBossRune(user);
+                return Interaction.BossStemCellSync.ClampBossCells(effective, unlocked);
+            }
+
             var value = dc.Main.Class.ME?.user?.bossRuneActivated;
-            return Math.Max(0, Convert.ToInt32(value, CultureInfo.InvariantCulture));
+            return Interaction.BossStemCellSync.ClampBossCells(Convert.ToInt32(value, CultureInfo.InvariantCulture));
         }
         catch
         {
@@ -175,7 +308,7 @@ internal static partial class LobbySession
         // the coordinator has not observed the role transition yet, adopt it here rather than
         // rejecting a valid launch that nothing would ever re-offer.
         var localNet = NetRef;
-        if (localNet != null && localNet.IsAlive && !localNet.IsHost)
+        if (localNet != null ? (!localNet.IsHost) : (RunLaunchCoordinator.CurrentRole != NetRole.Host))
             RunLaunchCoordinator.EnsureClientRoleForIncomingLaunch();
 
         var accepted = RunLaunchCoordinator.TryAcceptRemoteDescriptor(
@@ -192,6 +325,19 @@ internal static partial class LobbySession
                 "[NetMod][RunLaunch] Rejected host commit seq={Sequence}: {Error}",
                 descriptor.Sequence,
                 ack.Error);
+
+            try
+            {
+                MultiplayerUI.PushSystemMessage(
+                    string.IsNullOrWhiteSpace(ack.Error)
+                        ? Localize("Launch aborted: requirements not met.")
+                        : FormatLocalized("Launch aborted: {0}", ack.Error),
+                    7.0,
+                    1.0);
+            }
+            catch
+            {
+            }
             return;
         }
 
@@ -216,6 +362,17 @@ internal static partial class LobbySession
             SignalClientLaunchProgressLocked();
             Monitor.PulseAll(Sync);
         }
+
+        if (descriptor != null)
+        {
+            var clampedBc = Interaction.BossStemCellSync.ClampBossCells(descriptor.BossCells);
+            if (!GameDataSync.HasRemoteBossRune() ||
+                (GameDataSync.TryGetRemoteBossRune(out var currentBc) && currentBc != clampedBc))
+            {
+                var hostMax = GameDataSync.TryGetHostMaxUnlockedBossRune(out var max) ? Math.Max(max, clampedBc) : clampedBc;
+                GameDataSync.ReceiveBossRune($"{clampedBc}|{hostMax}");
+            }
+        }
     }
 
     internal static void ReceiveRunLaunchAckPayload(string payload)
@@ -227,6 +384,23 @@ internal static partial class LobbySession
         }
 
         RunLaunchCoordinator.ReceiveHostAck(ack);
+
+        if (!ack.Accepted)
+        {
+            _log?.Warning("[NetMod][RunLaunch] Client rejected launch seq={Sequence}: {Error}", ack.Sequence, ack.Error);
+            CancelHostStructuredLaunch(ack.Sequence, $"client_rejected_launch:{ack.Error}");
+            if (HasPrecommittedHostBossRushLaunch())
+            {
+                CancelBossRushLaunchGate($"client_rejected_launch:{ack.Error}");
+                DeadCellsMultiplayerMod.MultiplayerModUI.LevelExit.LevelExitSync.Instance?.ResetBossRushGateAndUnlock($"client_rejected_launch:{ack.Error}");
+            }
+            MultiplayerUI.PushSystemMessage(
+                string.IsNullOrWhiteSpace(ack.Error)
+                    ? Localize("Friend rejected co-op launch.")
+                    : FormatLocalized("Friend rejected co-op launch: {0}", ack.Error),
+                7.0,
+                1.0);
+        }
     }
 
     internal static void ReceiveRunLaunchExecutePayload(string payload)
@@ -315,6 +489,56 @@ internal static partial class LobbySession
     }
 
     /// <summary>
+    /// Validates an authoritative Boss Rush descriptor, checking that its level identifiers are recognized
+    /// Boss Rush levels and its door tiers / variant indices are within valid range [0..4].
+    /// </summary>
+    public static bool TryValidateBossRushDescriptor(RunLaunchDescriptor? descriptor, out string reason)
+    {
+        reason = string.Empty;
+        if (descriptor == null || !descriptor.BossRush)
+        {
+            reason = "authoritative Boss Rush launch not received yet";
+            return false;
+        }
+
+        // Guard against invalid, empty, or non-BossRush level identifiers
+        if (!IsValidBossRushLevelId(descriptor.InitialLevelId))
+        {
+            reason = $"invalid Boss Rush initial level identifier: '{descriptor.InitialLevelId}'";
+            _log?.Warning("[NetMod][BossRushSeed] {Reason}", reason);
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(descriptor.TargetArena) && !IsValidBossRushLevelId(descriptor.EffectiveTargetArena))
+        {
+            reason = $"invalid Boss Rush target arena identifier: '{descriptor.TargetArena}'";
+            _log?.Warning("[NetMod][BossRushSeed] {Reason}", reason);
+            return false;
+        }
+
+        // Guard against negative or out-of-range Boss Rush door index / tier
+        if (descriptor.BossRushTier < 0 || descriptor.BossRushTier > MaxBossRushDoorIndex)
+        {
+            reason = $"out-of-range Boss Rush door tier/index: {descriptor.BossRushTier}";
+            _log?.Warning("[NetMod][BossRushSeed] {Reason}", reason);
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(descriptor.Route))
+        {
+            if (!TryParseBossRushDoorIndex(descriptor.Route, out var routeIndex) ||
+                !IsValidBossRushDoorIndex(routeIndex))
+            {
+                reason = $"invalid Boss Rush route door index: {descriptor.Route}";
+                _log?.Warning("[NetMod][BossRushSeed] {Reason}", reason);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Gate used by the door coordinator before a peer begins a fresh Boss Rush native load. The
     /// client requires the executable authoritative launch (and confirms RUNQUEUED); the host requires
     /// the client's RUNQUEUED. Neither side ever generates its own Boss Rush.
@@ -323,10 +547,11 @@ internal static partial class LobbySession
     {
         reason = string.Empty;
         var net = NetRef;
-        if (net == null || !net.IsAlive)
+        if ((net == null || !net.IsAlive) && RunLaunchCoordinator.CurrentRole == NetRole.None)
             return true; // offline / solo: nothing to synchronize
 
-        if (net.IsHost)
+        bool isHost = net?.IsHost ?? (RunLaunchCoordinator.CurrentRole == NetRole.Host);
+        if (isHost)
         {
             int sequence;
             lock (Sync)
@@ -337,7 +562,16 @@ internal static partial class LobbySession
                 reason = "host Boss Rush launch not committed yet";
                 return false;
             }
-            if (!net.HasRemote)
+
+            var hostDescriptor = RunLaunchCoordinator.GetCurrentHostDescriptor();
+            if (hostDescriptor == null || !TryValidateBossRushDescriptor(hostDescriptor, out reason))
+            {
+                if (string.IsNullOrEmpty(reason))
+                    reason = "host Boss Rush launch descriptor is missing or invalid";
+                return false;
+            }
+
+            if (net != null && !net.HasRemote)
                 return true;
             if (RunLaunchCoordinator.HasClientQueued(sequence))
                 return true;
@@ -347,11 +581,9 @@ internal static partial class LobbySession
         }
 
         var descriptor = RunLaunchCoordinator.GetCurrentRemoteDescriptor();
-        if (descriptor == null || !descriptor.BossRush)
-        {
-            reason = "authoritative Boss Rush launch not received yet";
+        if (!TryValidateBossRushDescriptor(descriptor, out reason))
             return false;
-        }
+
         if (!HasPendingRemoteBossRushLaunch())
         {
             reason = "authoritative Boss Rush launch not executable yet";
@@ -359,7 +591,7 @@ internal static partial class LobbySession
         }
 
         // Ready: confirm to the host (idempotent) before we invoke newGame.
-        NotifyClientLaunchQueued(descriptor.Sequence);
+        NotifyClientLaunchQueued(descriptor!.Sequence);
         return true;
     }
 
@@ -405,6 +637,8 @@ internal static partial class LobbySession
     /// <summary>Cancel a Boss Rush launch cleanly when the gate cannot synchronize (never fall back to a local run).</summary>
     internal static void CancelBossRushLaunchGate(string reason)
     {
+        StopHostRunLaunchBeacon("boss_rush_gate_cancelled");
+
         var net = NetRef;
         if (net != null && net.IsAlive && net.IsHost)
         {
@@ -415,6 +649,19 @@ internal static partial class LobbySession
             CancelPrecommittedHostRunSeed(reason);
             if (sequence > 0)
                 CancelHostStructuredLaunch(sequence, reason);
+        }
+        else
+        {
+            lock (Sync)
+            {
+                _remoteSeed = null;
+                _remoteLaunchKind = string.Empty;
+                _seedArrived = false;
+                _pendingAutoStart = false;
+                _autoStartTriggered = false;
+                ClearStructuredLaunchFlagsLocked();
+                Monitor.PulseAll(Sync);
+            }
         }
 
         _log?.Warning("[NetMod][BossRushSeed] Boss Rush launch gate cancelled: {Reason}", reason);
@@ -436,7 +683,8 @@ internal static partial class LobbySession
         // required. The flag is consumed once, by the first level this client enters.
         lock (Sync)
         {
-            if (_role == NetRole.Client && !_inActualRun && !_midRunJoinSpawnPending)
+            var isClient = _role == NetRole.Client || (NetRef != null && NetRef.IsAlive && !NetRef.IsHost);
+            if (isClient && !_inActualRun && !_midRunJoinSpawnPending)
             {
                 _midRunJoinSpawnPending = true;
                 _log?.Information(
@@ -448,6 +696,7 @@ internal static partial class LobbySession
     }
 
     internal static bool _midRunJoinSpawnPending;
+    internal static bool IsMidRunJoinPending => _midRunJoinSpawnPending;
 
     /// <summary>Consumed once by the joining client's first level; false for every normal launch.</summary>
     internal static bool TryConsumeMidRunJoinSpawn()
@@ -483,6 +732,9 @@ internal static partial class LobbySession
             ClearStructuredLaunchFlagsLocked();
             Monitor.PulseAll(Sync);
         }
+
+        CancelBossRushLaunchGate("host_cancelled");
+        DeadCellsMultiplayerMod.MultiplayerModUI.LevelExit.LevelExitSync.Instance?.ResetBossRushGateAndUnlock("host_cancelled");
 
         MultiplayerUI.PushSystemMessage(Localize("Host cancelled the co-op run launch."));
     }

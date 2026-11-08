@@ -664,5 +664,60 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             s_livingTrackedBossCacheTickMs = now;
             return alive;
         }
+
+        /// <summary>
+        /// Host-side query: checks if the host hero is actively engaged in combat (targeted by or within immediate detection range of active enemies).
+        /// Used to avoid spawning late-joining clients into active crossfire or boss encounters.
+        /// </summary>
+        internal static bool IsHostHeroEngagedInCombat(dc.en.Hero? hero)
+        {
+            if (hero == null)
+                return false;
+
+            try
+            {
+                if (hero.destroyed || hero.life <= 0)
+                    return false;
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (HasLivingTrackedBoss())
+                return true;
+
+            lock (Sync)
+            {
+                for (var i = 0; i < trackedMobs.Count; i++)
+                {
+                    var mob = trackedMobs[i];
+                    if (mob == null)
+                        continue;
+
+                    try
+                    {
+                        if (mob.destroyed || mob.life <= 0)
+                            continue;
+
+                        // Check if mob has chosen the host hero as its current attack or nemesis target
+                        if (ReferenceEquals(mob.aTarget, hero) || ReferenceEquals(mob.nemesisTarget, hero))
+                            return true;
+
+                        // Check if an awake mob is within combat range (12 tiles horizontally, 6 tiles vertically) and detects the hero
+                        if (IsWithinRangeBox(mob, hero, 24.0 * 12.0, 24.0 * 6.0))
+                        {
+                            if (mob.inDetectArea(hero))
+                                return true;
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+
+            return false;
+        }
     }
 }

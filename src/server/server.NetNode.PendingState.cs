@@ -144,5 +144,14 @@ public sealed partial class NetNode
     private readonly PendingQueue<InterBossRuneUpdateCellsEvent> _pendingBossRuneUpdateCells = new(PendingInteractionLimit);
     private readonly PendingQueue<InterPortalEvent> _pendingInterPortalEvents = new(PendingInteractionLimit);
     private readonly PendingQueue<InterEliteShrineEvent> _pendingInterEliteShrineEvents = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterCollectorDepositEvent> _pendingInterCollectorDeposits = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterBlueprintUnlockEvent> _pendingInterBlueprintUnlocks = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterForgeUpgradeEvent> _pendingInterForgeUpgrades = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterCollectorLockEvent> _pendingInterCollectorLocks = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterShopPurchaseEvent> _pendingInterShopPurchaseEvents = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterShopRerollEvent> _pendingInterShopRerollEvents = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterPedestalPickupEvent> _pendingInterPedestalPickupEvents = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterShopRejectEvent> _pendingInterShopRejectEvents = new(PendingInteractionLimit);
+    private readonly PendingQueue<InterPedestalRejectEvent> _pendingInterPedestalRejectEvents = new(PendingInteractionLimit);
     private int _primaryRemoteId;
 }

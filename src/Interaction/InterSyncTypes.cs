@@ -162,17 +162,56 @@ public readonly struct InterBreakableGroundEvent
 
 public readonly struct InterBossRuneUpdateCellsEvent
 {
+    public readonly int UserId;
     public readonly double X;
     public readonly double Y;
     public readonly bool Add;
     public readonly string LevelId;
+    public readonly int? TargetBossCells;
+    public readonly int? MaxAllowedBossCells;
 
     public InterBossRuneUpdateCellsEvent(double x, double y, bool add, string levelId = "")
+        : this(0, x, y, add, levelId, null, null)
     {
+    }
+
+    public InterBossRuneUpdateCellsEvent(int userId, double x, double y, bool add, string levelId = "")
+        : this(userId, x, y, add, levelId, null, null)
+    {
+    }
+
+    public InterBossRuneUpdateCellsEvent(
+        int userId,
+        double x,
+        double y,
+        bool add,
+        string levelId,
+        int? targetBossCells,
+        int? maxAllowedBossCells = null)
+    {
+        UserId = System.Math.Max(0, userId);
         X = double.IsFinite(x) ? x : 0.0;
         Y = double.IsFinite(y) ? y : 0.0;
         Add = add;
         LevelId = levelId ?? string.Empty;
+
+        if (targetBossCells.HasValue)
+        {
+            var max = maxAllowedBossCells.HasValue
+                ? BossStemCellSync.ClampBossCells(maxAllowedBossCells.Value, BossStemCellSync.MaxBossCells)
+                : BossStemCellSync.MaxBossCells;
+            TargetBossCells = BossStemCellSync.ClampBossCells(targetBossCells.Value, max);
+            MaxAllowedBossCells = maxAllowedBossCells.HasValue
+                ? BossStemCellSync.ClampBossCells(maxAllowedBossCells.Value, BossStemCellSync.MaxBossCells)
+                : null;
+        }
+        else
+        {
+            TargetBossCells = null;
+            MaxAllowedBossCells = maxAllowedBossCells.HasValue
+                ? BossStemCellSync.ClampBossCells(maxAllowedBossCells.Value, BossStemCellSync.MaxBossCells)
+                : null;
+        }
     }
 }
 
@@ -187,8 +226,33 @@ public readonly struct InterPortalEvent
     {
         X = double.IsFinite(x) ? x : 0.0;
         Y = double.IsFinite(y) ? y : 0.0;
-        Action = action ?? string.Empty;
-        LevelId = levelId ?? string.Empty;
+        Action = SanitizeString(action, 64);
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    /// <summary>
+    /// Checks whether this portal interaction requires a DLC pack that the local client does not possess.
+    /// </summary>
+    public bool RequiresMissingLocalDlc(out string missingDlcName)
+    {
+        missingDlcName = string.Empty;
+        if (DlcEntitlementManager.RequiresDlc(LevelId, out _, out var internalId, out var displayName))
+        {
+            if (!DlcEntitlementManager.IsLevelAccessibleLocally(LevelId, out _, out _))
+            {
+                missingDlcName = displayName ?? internalId;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
     }
 }
 
@@ -205,5 +269,312 @@ public readonly struct InterEliteShrineEvent
         X = double.IsFinite(x) ? x : 0.0;
         Y = double.IsFinite(y) ? y : 0.0;
         LevelId = levelId ?? string.Empty;
+    }
+}
+
+public readonly struct InterCollectorDepositEvent
+{
+    public const int MaxItemIdLength = 64;
+    public const int MaxDepositCells = 100_000;
+
+    public readonly int UserId;
+    public readonly string ItemId;
+    public readonly int CellsDeposited;
+    public readonly int TotalInvested;
+    public readonly long Sequence;
+    public readonly string LevelId;
+
+    public InterCollectorDepositEvent(
+        int userId,
+        string itemId,
+        int cellsDeposited,
+        int totalInvested,
+        long sequence,
+        string levelId = "")
+    {
+        UserId = System.Math.Max(0, userId);
+        ItemId = SanitizeString(itemId, MaxItemIdLength);
+        CellsDeposited = System.Math.Clamp(cellsDeposited, 0, MaxDepositCells);
+        TotalInvested = System.Math.Clamp(totalInvested, 0, int.MaxValue);
+        Sequence = System.Math.Max(0L, sequence);
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+    }
+}
+
+public readonly struct InterBlueprintUnlockEvent
+{
+    public const int MaxItemIdLength = 64;
+
+    public readonly int UserId;
+    public readonly string ItemId;
+    public readonly long Sequence;
+    public readonly string LevelId;
+
+    public InterBlueprintUnlockEvent(
+        int userId,
+        string itemId,
+        long sequence,
+        string levelId = "")
+    {
+        UserId = System.Math.Max(0, userId);
+        ItemId = SanitizeString(itemId, MaxItemIdLength);
+        Sequence = System.Math.Max(0L, sequence);
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+    }
+}
+
+public readonly struct InterForgeUpgradeEvent
+{
+    public const int MaxDepositCells = 100_000;
+    public const int MaxForgeTier = 2; // Dead Cells has 3 tiers: +, ++, S (indices 0, 1, 2)
+
+    public readonly int UserId;
+    public readonly int UpgradeLevel;
+    public readonly int CellsDeposited;
+    public readonly int TotalInvested;
+    public readonly long Sequence;
+    public readonly string LevelId;
+
+    public InterForgeUpgradeEvent(
+        int userId,
+        int upgradeLevel,
+        int cellsDeposited,
+        int totalInvested,
+        long sequence,
+        string levelId = "")
+    {
+        UserId = System.Math.Max(0, userId);
+        UpgradeLevel = System.Math.Clamp(upgradeLevel, 0, MaxForgeTier);
+        CellsDeposited = System.Math.Clamp(cellsDeposited, 0, MaxDepositCells);
+        TotalInvested = System.Math.Clamp(totalInvested, 0, int.MaxValue);
+        Sequence = System.Math.Max(0L, sequence);
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+    }
+}
+
+public readonly struct InterCollectorLockEvent
+{
+    public readonly int UserId;
+    public readonly bool InUse;
+    public readonly string Kind;
+    public readonly long Sequence;
+    public readonly string LevelId;
+
+    public InterCollectorLockEvent(
+        int userId,
+        bool inUse,
+        string kind,
+        long sequence,
+        string levelId = "")
+    {
+        UserId = System.Math.Max(0, userId);
+        InUse = inUse;
+        Kind = string.Equals(kind, "Forge", System.StringComparison.OrdinalIgnoreCase) ? "Forge" : "Collector";
+        Sequence = System.Math.Max(0L, sequence);
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+    }
+}
+
+public readonly struct InterShopPurchaseEvent
+{
+    public const int MaxPrice = 2_000_000_000;
+
+    public readonly int UserId;
+    public readonly double X;
+    public readonly double Y;
+    public readonly int Price;
+    public readonly long Sequence;
+    public readonly bool IsMimic;
+    public readonly string LevelId;
+
+    public InterShopPurchaseEvent(
+        int userId,
+        double x,
+        double y,
+        int price,
+        long sequence,
+        bool isMimic = false,
+        string levelId = "")
+    {
+        UserId = System.Math.Max(0, userId);
+        X = double.IsFinite(x) ? x : 0.0;
+        Y = double.IsFinite(y) ? y : 0.0;
+        Price = System.Math.Clamp(price, 0, MaxPrice);
+        Sequence = System.Math.Max(0L, sequence);
+        IsMimic = isMimic;
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+    }
+}
+
+public readonly struct InterShopRerollEvent
+{
+    public const int MaxCost = 2_000_000_000;
+    public const int MaxRemainUses = 10_000;
+
+    public readonly int UserId;
+    public readonly double X;
+    public readonly double Y;
+    public readonly int Cost;
+    public readonly int RemainUses;
+    public readonly long Sequence;
+    public readonly string LevelId;
+
+    public InterShopRerollEvent(
+        int userId,
+        double x,
+        double y,
+        int cost,
+        int remainUses,
+        long sequence,
+        string levelId = "")
+    {
+        UserId = System.Math.Max(0, userId);
+        X = double.IsFinite(x) ? x : 0.0;
+        Y = double.IsFinite(y) ? y : 0.0;
+        Cost = System.Math.Clamp(cost, 0, MaxCost);
+        RemainUses = System.Math.Clamp(remainUses, 0, MaxRemainUses);
+        Sequence = System.Math.Max(0L, sequence);
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+    }
+}
+
+public readonly struct InterPedestalPickupEvent
+{
+    public readonly int UserId;
+    public readonly double X;
+    public readonly double Y;
+    public readonly long Sequence;
+    public readonly string LevelId;
+
+    public InterPedestalPickupEvent(
+        int userId,
+        double x,
+        double y,
+        long sequence,
+        string levelId = "")
+    {
+        UserId = System.Math.Max(0, userId);
+        X = double.IsFinite(x) ? x : 0.0;
+        Y = double.IsFinite(y) ? y : 0.0;
+        Sequence = System.Math.Max(0L, sequence);
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+    }
+}
+
+public readonly struct InterShopRejectEvent
+{
+    public readonly int UserId;
+    public readonly double X;
+    public readonly double Y;
+    public readonly long Sequence;
+    public readonly string LevelId;
+
+    public InterShopRejectEvent(
+        int userId,
+        double x,
+        double y,
+        long sequence,
+        string levelId = "")
+    {
+        UserId = System.Math.Max(0, userId);
+        X = double.IsFinite(x) ? x : 0.0;
+        Y = double.IsFinite(y) ? y : 0.0;
+        Sequence = System.Math.Max(0L, sequence);
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+    }
+}
+
+public readonly struct InterPedestalRejectEvent
+{
+    public readonly int UserId;
+    public readonly double X;
+    public readonly double Y;
+    public readonly long Sequence;
+    public readonly string LevelId;
+
+    public InterPedestalRejectEvent(
+        int userId,
+        double x,
+        double y,
+        long sequence,
+        string levelId = "")
+    {
+        UserId = System.Math.Max(0, userId);
+        X = double.IsFinite(x) ? x : 0.0;
+        Y = double.IsFinite(y) ? y : 0.0;
+        Sequence = System.Math.Max(0L, sequence);
+        LevelId = SanitizeString(levelId, 128);
+    }
+
+    private static string SanitizeString(string? raw, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+        var trimmed = raw.Trim().Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
     }
 }

@@ -836,4 +836,53 @@ public static class CombatSyncHelpers
             return Math.Max(1, expected);
         }
     }
+
+    public static bool ValidateGoldTransaction(
+        int currentMoney,
+        int price,
+        out int newMoney,
+        out string? rejectionReason)
+    {
+        return DeadCellsMultiplayerMod.Interaction.ShopSyncHelpers.ValidateGoldTransaction(
+            currentMoney,
+            price,
+            out newMoney,
+            out rejectionReason);
+    }
+
+    public static bool ValidateRerollCounter(
+        int currentRemainUses,
+        out int newRemainUses,
+        out string? rejectionReason)
+    {
+        return DeadCellsMultiplayerMod.Interaction.ShopSyncHelpers.ValidateRerollCounter(
+            currentRemainUses,
+            out newRemainUses,
+            out rejectionReason);
+    }
+
+    public static int ClampNonNegative(int value)
+    {
+        return DeadCellsMultiplayerMod.Interaction.ShopSyncHelpers.ClampNonNegative(value);
+    }
+
+    public static int ClampNonNegative(long value)
+    {
+        return DeadCellsMultiplayerMod.Interaction.ShopSyncHelpers.ClampNonNegative(value);
+    }
+
+    /// <summary>
+    /// Determines whether a revive request from a teammate should be accepted even if the reviver
+    /// is currently marked as downed (guarding against the exact-tick bleed-out vs revive race condition).
+    /// </summary>
+    public static bool CanHonorSimultaneousRevive(bool reviverIsDowned, double reviverDownedDurationSec, double simultaneousGraceSec = 2.5)
+    {
+        if (!reviverIsDowned)
+            return true;
+
+        if (simultaneousGraceSec <= 0.0)
+            return false;
+
+        return reviverDownedDurationSec >= 0.0 && reviverDownedDurationSec <= simultaneousGraceSec;
+    }
 }

@@ -148,6 +148,12 @@ internal static partial class LobbySession
                     RunLaunchBeaconMaxDurationMs / 1000,
                     sequence,
                     RunLaunchCoordinator.DescribeHostLaunchState());
+
+                if (HasPrecommittedHostBossRushLaunch())
+                {
+                    CancelBossRushLaunchGate("launch_beacon_timeout");
+                    DeadCellsMultiplayerMod.MultiplayerModUI.LevelExit.LevelExitSync.Instance?.ResetBossRushGateAndUnlock("launch_beacon_timeout");
+                }
             }
         }
         catch (OperationCanceledException)
