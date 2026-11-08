@@ -732,6 +732,16 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         {
             if (mob == null)
                 return false;
+            try
+            {
+                if (mob.destroyed)
+                    return false;
+            }
+            catch
+            {
+                return false;
+            }
+
             if (IsHost(LobbySession.NetRef))
                 return false;
 
@@ -744,11 +754,69 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             // Defer death execution to postUpdate when the mob is simulated, without pre-zeroing life early
             lock (Sync)
             {
+                if (s_pendingCulledMobDeaths.Count >= MaxPendingCulledMobDeaths)
+                {
+                    PrunePendingCulledMobDeathsLocked();
+                }
+
                 s_pendingCulledMobDeaths.Add(mob);
                 if (!s_pendingCulledMobDeathFirstFrame.ContainsKey(mob))
                     s_pendingCulledMobDeathFirstFrame[mob] = GetCurrentFrame(mob);
             }
             return true;
+        }
+
+        private static void PrunePendingCulledMobDeathsLocked()
+        {
+            s_pendingCulledMobDeathsScratch.Clear();
+            foreach (var m in s_pendingCulledMobDeaths)
+            {
+                bool deadOrDestroyed = false;
+                try { deadOrDestroyed = m == null || m.destroyed; } catch { deadOrDestroyed = true; }
+                if (deadOrDestroyed)
+                    s_pendingCulledMobDeathsScratch.Add(m!);
+            }
+
+            for (int i = 0; i < s_pendingCulledMobDeathsScratch.Count; i++)
+            {
+                var m = s_pendingCulledMobDeathsScratch[i];
+                s_pendingCulledMobDeaths.Remove(m);
+                s_pendingCulledMobDeathFirstFrame.Remove(m);
+            }
+            s_pendingCulledMobDeathsScratch.Clear();
+
+            while (s_pendingCulledMobDeaths.Count >= MaxPendingCulledMobDeaths)
+            {
+                Mob? oldest = null;
+                double oldestFrame = double.MaxValue;
+                foreach (var m in s_pendingCulledMobDeaths)
+                {
+                    if (s_pendingCulledMobDeathFirstFrame.TryGetValue(m, out var frame))
+                    {
+                        if (frame < oldestFrame)
+                        {
+                            oldestFrame = frame;
+                            oldest = m;
+                        }
+                    }
+                    else
+                    {
+                        oldest = m;
+                        break;
+                    }
+                }
+
+                if (oldest != null)
+                {
+                    s_pendingCulledMobDeaths.Remove(oldest);
+                    s_pendingCulledMobDeathFirstFrame.Remove(oldest);
+                    HideClientDeadGhost(oldest);
+                }
+                else
+                {
+                    break;
+                }
+            }
         }
 
         /// <summary>
@@ -909,9 +977,19 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         while (animManager.stack.length > 0)
                             animManager.stack.pop();
                     }
+
+                    try
+                    {
+                        mob.onDieDone = true;
+                        mob.destroy();
+                    }
+                    catch
+                    {
+                    }
                 }
                 catch
                 {
+                    HideClientDeadGhost(mob);
                 }
             }
         }
@@ -945,6 +1023,24 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         mob.onDie();
                     });
                 });
+
+                try
+                {
+                    var animManager = GetMobAnimManager(mob);
+                    if (animManager?.stack != null)
+                    {
+                        while (animManager.stack.length > 0)
+                            animManager.stack.pop();
+                    }
+                }
+                catch { }
+
+                try
+                {
+                    mob.onDieDone = true;
+                    mob.destroy();
+                }
+                catch { }
             }
             catch
             {
@@ -1078,7 +1174,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     if (!SpriteHasAnimGroup(spr, parsed.Group))
                         return false;
 
-                    animManager.play(parsed.Group.AsHaxeString(), null, null).loop(null);
+                    animManager.play(parsed.Group.AsHaxeString(), null, null)?.loop(null);
                     top = GetTopAnimInstance(animManager);
                 }
 

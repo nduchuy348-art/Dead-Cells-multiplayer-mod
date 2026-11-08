@@ -213,7 +213,29 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
         private static AnimManager? GetMobAnimManager(Mob mob)
         {
-            var spr = mob.spr;
+            if (mob == null)
+                return null;
+
+            try
+            {
+                if (mob.destroyed)
+                    return null;
+            }
+            catch
+            {
+                return null;
+            }
+
+            HSprite? spr = null;
+            try
+            {
+                spr = mob.spr;
+            }
+            catch
+            {
+                return null;
+            }
+
             if (spr == null)
                 return null;
 
@@ -223,7 +245,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             }
             catch
             {
-                return spr._animManager;
+                try { return spr._animManager; } catch { return null; }
             }
         }
 
@@ -245,7 +267,20 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
         private static string BuildAnimPayload(Mob mob)
         {
-            var spr = mob.spr;
+            if (mob == null)
+                return string.Empty;
+            try
+            {
+                if (mob.destroyed)
+                    return string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+
+            HSprite? spr = null;
+            try { spr = mob.spr; } catch { return string.Empty; }
             if (spr == null)
                 return string.Empty;
 
@@ -390,6 +425,15 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         {
             if (mob == null || string.IsNullOrWhiteSpace(payload))
                 return false;
+            try
+            {
+                if (mob.destroyed)
+                    return false;
+            }
+            catch
+            {
+                return false;
+            }
 
             if (!TryGetParsedAnimPayloadCached(payload, out var parsed))
                 return false;
@@ -428,7 +472,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     if (!TryBeginForcedBossAnimGroup(mob, parsed.Group))
                         return false;
 
-                    animManager.play(parsed.Group.AsHaxeString(), null, null).loop(null);
+                    animManager.play(parsed.Group.AsHaxeString(), null, null)?.loop(null);
                     top = GetTopAnimInstance(animManager);
                 }
 

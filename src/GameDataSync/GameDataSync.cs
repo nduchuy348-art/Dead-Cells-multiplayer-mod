@@ -86,6 +86,22 @@ namespace DeadCellsMultiplayerMod
         private static bool _localSerializerCaptured;
         private static int _localSerializerSeq;
         private static int _localSerializerUid;
+        private static int _localSerializerScopeDepth;
+        private static int _scopeRootPreviousSeq;
+        private static int _scopeRootPreviousUid;
+        private static bool _scopeRootRestorePrevious;
+        private static string _scopeRootReason = string.Empty;
+
+        internal static int LocalSerializerScopeDepth
+        {
+            get
+            {
+                lock (_serializerSyncLock)
+                {
+                    return _localSerializerScopeDepth;
+                }
+            }
+        }
 
         public GameDataSync(Serilog.ILogger log)
         {
@@ -701,8 +717,11 @@ namespace DeadCellsMultiplayerMod
             }
 
             if (!double.TryParse(seedText, NumberStyles.Float, CultureInfo.InvariantCulture, out var seed) ||
-                double.IsNaN(seed) || double.IsInfinity(seed))
+                !double.IsFinite(seed))
+            {
+                _log?.Warning("[NetMod] Malformed or non-finite level seed payload: {Payload}", payload);
                 return;
+            }
 
             lock (_levelSeedLock)
             {
@@ -815,10 +834,16 @@ namespace DeadCellsMultiplayerMod
             if (parts.Length < 2)
                 return;
 
-            if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var seq))
+            if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var seq) || seq < 0)
+            {
+                _log?.Warning("[NetMod] Malformed serializer sync sequence: {Payload}", payload);
                 return;
-            if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var uid))
+            }
+            if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var uid) || uid < 0)
+            {
+                _log?.Warning("[NetMod] Malformed serializer sync uid: {Payload}", payload);
                 return;
+            }
 
             lock (_serializerSyncLock)
             {
@@ -830,6 +855,29 @@ namespace DeadCellsMultiplayerMod
                 // guards and disconnect cleanup to reason about state that was never applied.
             }
         }
+
+        internal static bool TryGetSerializerClass([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out dc.hxbit._Serializer? serializerClass)
+        {
+            serializerClass = null;
+
+            if (ModEntry.IsGameShuttingDown)
+                return false;
+
+            if (!ModEntry.IsGameInitialized)
+                return false;
+
+            try
+            {
+                serializerClass = dc.hxbit.Serializer.Class;
+                return serializerClass != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        internal static bool CanAccessSerializerClass => TryGetSerializerClass(out _);
 
         public static bool TryApplyRemoteSerializerSync()
         {
@@ -846,8 +894,7 @@ namespace DeadCellsMultiplayerMod
 
             try
             {
-                var serializerClass = dc.hxbit.Serializer.Class;
-                if (serializerClass == null)
+                if (!TryGetSerializerClass(out var serializerClass))
                     return false;
 
                 lock (_serializerSyncLock)
@@ -857,6 +904,14 @@ namespace DeadCellsMultiplayerMod
                         _localSerializerSeq = serializerClass.SEQ;
                         _localSerializerUid = serializerClass.UID;
                         _localSerializerCaptured = true;
+                    }
+
+                    // If a local serializer save scope is active, do not overwrite live SEQ/UID
+                    // during persistent write; keep the packet pending for post-save.
+                    if (_localSerializerScopeDepth > 0)
+                    {
+                        _hasRemoteSerializerSync = true;
+                        return false;
                     }
 
                     serializerClass.SEQ = seq;
@@ -891,19 +946,21 @@ namespace DeadCellsMultiplayerMod
 
             try
             {
-                var serializerClass = dc.hxbit.Serializer.Class;
-                if (serializerClass == null)
+                if (!TryGetSerializerClass(out var serializerClass))
                     return false;
 
-                if (serializerClass.SEQ == _localSerializerSeq &&
-                    serializerClass.UID == _localSerializerUid)
+                lock (_serializerSyncLock)
                 {
-                    return false;
-                }
+                    if (serializerClass.SEQ == _localSerializerSeq &&
+                        serializerClass.UID == _localSerializerUid)
+                    {
+                        return false;
+                    }
 
-                serializerClass.SEQ = _localSerializerSeq;
-                serializerClass.UID = _localSerializerUid;
-                return true;
+                    serializerClass.SEQ = _localSerializerSeq;
+                    serializerClass.UID = _localSerializerUid;
+                    return true;
+                }
             }
             catch
             {
@@ -935,22 +992,13 @@ namespace DeadCellsMultiplayerMod
         public readonly struct LocalSerializerSaveScope : IDisposable
         {
             private readonly bool _applied;
-            private readonly int _previousSeq;
-            private readonly int _previousUid;
-            private readonly bool _restorePrevious;
             private readonly string _reason;
 
             internal LocalSerializerSaveScope(
                 bool applied,
-                int previousSeq,
-                int previousUid,
-                bool restorePrevious,
-                string reason)
+                string? reason)
             {
                 _applied = applied;
-                _previousSeq = previousSeq;
-                _previousUid = previousUid;
-                _restorePrevious = restorePrevious;
                 _reason = reason ?? string.Empty;
             }
 
@@ -959,54 +1007,80 @@ namespace DeadCellsMultiplayerMod
                 if (!_applied)
                     return;
 
-                try
+                lock (_serializerSyncLock)
                 {
-                    var serializerClass = dc.hxbit.Serializer.Class;
-                    if (serializerClass == null)
+                    if (_localSerializerScopeDepth <= 0)
                         return;
 
-                    var net = LobbySession.NetRef;
-                    var canRestorePrevious =
-                        _restorePrevious &&
-                        LobbySession.CurrentRole == NetRole.Client &&
-                        net != null &&
-                        net.IsAlive &&
-                        !net.IsHost &&
-                        _hasRemoteSerializerValues;
-
-                    if (canRestorePrevious)
+                    _localSerializerScopeDepth--;
+                    if (_localSerializerScopeDepth > 0)
                     {
-                        serializerClass.SEQ = _previousSeq;
-                        serializerClass.UID = _previousUid;
-                        _log?.Information(
-                            "[NetMod][Save] serializer scope end reason={Reason} action=restore_remote seq={Seq} uid={Uid}",
-                            _reason,
-                            _previousSeq,
-                            _previousUid);
+                        // Re-entrant scope end: preserve local serializer identity until root scope exits.
+                        return;
                     }
-                    else
+
+                    _localSerializerScopeDepth = 0;
+
+                    if (ModEntry.IsGameShuttingDown)
+                        return;
+
+                    try
                     {
-                        // The session ended while the save was running (or stale remote values were
-                        // found outside a live client session). Never reinstall those values after a
-                        // persistent write; make local identity the permanent post-save state.
-                        serializerClass.SEQ = _localSerializerSeq;
-                        serializerClass.UID = _localSerializerUid;
-                        lock (_serializerSyncLock)
+                        if (!TryGetSerializerClass(out var serializerClass))
+                            return;
+
+                        var net = LobbySession.NetRef;
+                        var isLiveClient =
+                            LobbySession.CurrentRole == NetRole.Client &&
+                            net != null &&
+                            net.IsAlive &&
+                            !net.IsHost;
+
+                        if (isLiveClient && _hasRemoteSerializerSync)
                         {
+                            // A fresh or deferred remote serializer packet was received while local save was running;
+                            // apply it immediately now that the save has safely concluded.
+                            serializerClass.SEQ = _remoteSerializerSeq;
+                            serializerClass.UID = _remoteSerializerUid;
+                            _hasRemoteSerializerValues = true;
+                            _hasRemoteSerializerSync = false;
+                            _log?.Information(
+                                "[NetMod][Save] serializer scope end reason={Reason} action=apply_pending_remote seq={Seq} uid={Uid}",
+                                _reason,
+                                _remoteSerializerSeq,
+                                _remoteSerializerUid);
+                        }
+                        else if (_scopeRootRestorePrevious && isLiveClient && _hasRemoteSerializerValues)
+                        {
+                            serializerClass.SEQ = _scopeRootPreviousSeq;
+                            serializerClass.UID = _scopeRootPreviousUid;
+                            _log?.Information(
+                                "[NetMod][Save] serializer scope end reason={Reason} action=restore_remote seq={Seq} uid={Uid}",
+                                _reason,
+                                _scopeRootPreviousSeq,
+                                _scopeRootPreviousUid);
+                        }
+                        else
+                        {
+                            // The session ended while the save was running (or stale remote values were
+                            // found outside a live client session). Never reinstall those values after a
+                            // persistent write; make local identity the permanent post-save state.
+                            serializerClass.SEQ = _localSerializerSeq;
+                            serializerClass.UID = _localSerializerUid;
                             _hasRemoteSerializerSync = false;
                             _hasRemoteSerializerValues = false;
                             _remoteSerializerSeq = 0;
                             _remoteSerializerUid = 0;
+                            _log?.Information(
+                                "[NetMod][Save] serializer scope end reason={Reason} action=keep_local seq={Seq} uid={Uid}",
+                                _reason,
+                                _localSerializerSeq,
+                                _localSerializerUid);
                         }
-                        _log?.Information(
-                            "[NetMod][Save] serializer scope end reason={Reason} action=keep_local seq={Seq} uid={Uid}",
-                            _reason,
-                            _localSerializerSeq,
-                            _localSerializerUid);
                     }
-                }
-                catch
-                {
+                    catch
+                    {
+                    }
                 }
             }
         }
@@ -1018,8 +1092,7 @@ namespace DeadCellsMultiplayerMod
 
             try
             {
-                var serializerClass = dc.hxbit.Serializer.Class;
-                if (serializerClass == null)
+                if (!TryGetSerializerClass(out var serializerClass))
                     return;
 
                 lock (_serializerSyncLock)
@@ -1042,54 +1115,77 @@ namespace DeadCellsMultiplayerMod
         /// Enters a <see cref="LocalSerializerSaveScope"/>. Returns an inert scope when there is
         /// nothing to correct (no remote identity was ever installed, or the local identity is
         /// already active), so the common single-player and host paths cost nothing.
+        /// Fully re-entrant: nested calls increment scope depth and preserve local identity until
+        /// the outermost root scope exits.
         /// </summary>
         public static LocalSerializerSaveScope BeginLocalSerializerSaveScope(string reason)
         {
+            if (ModEntry.IsGameShuttingDown || !ModEntry.IsGameInitialized)
+                return default;
+
             if (!_localSerializerCaptured)
                 EnsureLocalSerializerCaptured();
 
             if (!_localSerializerCaptured)
                 return default;
 
-            try
+            lock (_serializerSyncLock)
             {
-                var serializerClass = dc.hxbit.Serializer.Class;
-                if (serializerClass == null)
+                _localSerializerScopeDepth++;
+                if (_localSerializerScopeDepth > 1)
+                {
+                    // Re-entrant scope: the root scope already applied the local serializer identity.
+                    return new LocalSerializerSaveScope(
+                        applied: true,
+                        reason: reason);
+                }
+
+                try
+                {
+                    if (!TryGetSerializerClass(out var serializerClass))
+                    {
+                        _localSerializerScopeDepth = 0;
+                        return default;
+                    }
+
+                    var previousSeq = serializerClass.SEQ;
+                    var previousUid = serializerClass.UID;
+                    var net = LobbySession.NetRef;
+                    var restorePrevious =
+                        LobbySession.CurrentRole == NetRole.Client &&
+                        net != null &&
+                        net.IsAlive &&
+                        !net.IsHost &&
+                        _hasRemoteSerializerValues;
+
+                    _scopeRootPreviousSeq = previousSeq;
+                    _scopeRootPreviousUid = previousUid;
+                    _scopeRootRestorePrevious = restorePrevious;
+                    _scopeRootReason = reason ?? string.Empty;
+
+                    if (previousSeq != _localSerializerSeq || previousUid != _localSerializerUid)
+                    {
+                        serializerClass.SEQ = _localSerializerSeq;
+                        serializerClass.UID = _localSerializerUid;
+                        _log?.Information(
+                            "[NetMod][Save] serializer scope begin reason={Reason} role={Role} fromSeq={FromSeq} fromUid={FromUid} toSeq={ToSeq} toUid={ToUid}",
+                            reason,
+                            LobbySession.CurrentRole,
+                            previousSeq,
+                            previousUid,
+                            _localSerializerSeq,
+                            _localSerializerUid);
+                    }
+
+                    return new LocalSerializerSaveScope(
+                        applied: true,
+                        reason: reason);
+                }
+                catch
+                {
+                    _localSerializerScopeDepth = 0;
                     return default;
-
-                var previousSeq = serializerClass.SEQ;
-                var previousUid = serializerClass.UID;
-                if (previousSeq == _localSerializerSeq && previousUid == _localSerializerUid)
-                    return default;
-
-                var net = LobbySession.NetRef;
-                var restorePrevious =
-                    LobbySession.CurrentRole == NetRole.Client &&
-                    net != null &&
-                    net.IsAlive &&
-                    !net.IsHost &&
-                    _hasRemoteSerializerValues;
-
-                serializerClass.SEQ = _localSerializerSeq;
-                serializerClass.UID = _localSerializerUid;
-                _log?.Information(
-                    "[NetMod][Save] serializer scope begin reason={Reason} role={Role} fromSeq={FromSeq} fromUid={FromUid} toSeq={ToSeq} toUid={ToUid}",
-                    reason,
-                    LobbySession.CurrentRole,
-                    previousSeq,
-                    previousUid,
-                    _localSerializerSeq,
-                    _localSerializerUid);
-                return new LocalSerializerSaveScope(
-                    true,
-                    previousSeq,
-                    previousUid,
-                    restorePrevious,
-                    reason);
-            }
-            catch
-            {
-                return default;
+                }
             }
         }
 
@@ -1109,6 +1205,7 @@ namespace DeadCellsMultiplayerMod
                 _hasRemoteSerializerValues = false;
                 _remoteSerializerSeq = 0;
                 _remoteSerializerUid = 0;
+                _scopeRootRestorePrevious = false;
             }
 
             _log?.Information(
@@ -1124,11 +1221,18 @@ namespace DeadCellsMultiplayerMod
 
             try
             {
-                var serializerClass = dc.hxbit.Serializer.Class;
-                if (serializerClass == null)
+                if (!TryGetSerializerClass(out var serializerClass))
                     return;
 
-                net.SendSerializerSync(serializerClass.SEQ, serializerClass.UID);
+                int seq;
+                int uid;
+                lock (_serializerSyncLock)
+                {
+                    seq = serializerClass.SEQ;
+                    uid = serializerClass.UID;
+                }
+
+                net.SendSerializerSync(seq, uid);
             }
             catch
             {
@@ -1305,10 +1409,18 @@ namespace DeadCellsMultiplayerMod
             if (parts.Length < 2)
                 return;
 
-            if (!double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var mobsMult))
+            if (!double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var mobsMult) ||
+                !double.IsFinite(mobsMult) || mobsMult <= 0)
+            {
+                _log?.Warning("[NetMod] Malformed mobs HP multiplier payload: {Payload}", payload);
                 return;
-            if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var bossesMult))
+            }
+            if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var bossesMult) ||
+                !double.IsFinite(bossesMult) || bossesMult <= 0)
+            {
+                _log?.Warning("[NetMod] Malformed bosses HP multiplier payload: {Payload}", payload);
                 return;
+            }
 
             SaveOrigHpMultipliers();
             _remoteMobsHpMult = mobsMult;
@@ -1724,12 +1836,14 @@ namespace DeadCellsMultiplayerMod
 
             try
             {
-                var serializerClass = dc.hxbit.Serializer.Class;
-                if (serializerClass == null)
+                if (!TryGetSerializerClass(out var serializerClass))
                     return;
 
-                serializerClass.SEQ = _localSerializerSeq;
-                serializerClass.UID = _localSerializerUid;
+                lock (_serializerSyncLock)
+                {
+                    serializerClass.SEQ = _localSerializerSeq;
+                    serializerClass.UID = _localSerializerUid;
+                }
             }
             catch
             {

@@ -177,6 +177,9 @@ namespace DeadCellsMultiplayerMod
 
             if (bindingObject is dc.hl.types.ArrayBytes_Int bytes)
             {
+                if (bytes.bytes == IntPtr.Zero || bytes.length <= 0)
+                    return false;
+
                 try
                 {
                     for (var i = 0; i < bytes.length; i++)

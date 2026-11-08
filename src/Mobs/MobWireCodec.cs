@@ -269,6 +269,9 @@ internal static class MobWireCodec
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AppendInvariant(StringBuilder sb, double value)
     {
+        if (!double.IsFinite(value))
+            value = 0.0;
+
         Span<char> buffer = stackalloc char[32];
         if (value.TryFormat(buffer, out var written, provider: CultureInfo.InvariantCulture))
         {
@@ -307,16 +310,22 @@ internal static class MobWireBinary
             for (int i = 0; i < n; i++)
             {
                 var s = states[i];
-                bw.Write(s.Index);
+                var x = double.IsFinite(s.X) ? s.X : 0.0;
+                var y = double.IsFinite(s.Y) ? s.Y : 0.0;
+                var time = double.IsFinite(s.Time) ? s.Time : 0.0;
+                var dx = double.IsFinite(s.Dx) ? s.Dx : 0.0;
+                var dy = double.IsFinite(s.Dy) ? s.Dy : 0.0;
+
+                bw.Write(Math.Max(0, s.Index));
                 bw.Write(s.Generation);
-                bw.Write(s.X);
-                bw.Write(s.Y);
+                bw.Write(x);
+                bw.Write(y);
                 bw.Write(s.Dir);
-                bw.Write(s.Life);
-                bw.Write(s.MaxLife);
-                bw.Write(s.Time);
-                bw.Write(s.Dx);
-                bw.Write(s.Dy);
+                bw.Write(Math.Max(0, s.Life));
+                bw.Write(Math.Max(0, s.MaxLife));
+                bw.Write(time);
+                bw.Write(dx);
+                bw.Write(dy);
                 WriteUtf8(bw, s.AnimPayload ?? string.Empty);
                 WriteUtf8(bw, s.Type ?? string.Empty);
                 WriteUtf8(bw, s.StatePayload ?? string.Empty);
@@ -332,11 +341,15 @@ internal static class MobWireBinary
         }
     }
 
+    private const int MaxUtf8SegmentChars = 2048;
+
     private static void WriteUtf8(BinaryWriter bw, string s)
     {
+        if (s.Length > MaxUtf8SegmentChars)
+            s = s[..MaxUtf8SegmentChars];
         var buf = Encoding.UTF8.GetBytes(s);
         if (buf.Length > ushort.MaxValue)
-            throw new InvalidOperationException("Mob wire UTF-8 segment too long.");
+            buf = Encoding.UTF8.GetBytes(s[..1024]);
         bw.Write((ushort)buf.Length);
         bw.Write(buf);
     }
@@ -373,6 +386,9 @@ internal static class MobWireBinary
             return false;
 
         var count = BinaryPrimitives.ReadUInt16LittleEndian(raw.Slice(1, 2));
+        if (count > 8192)
+            return false;
+
         var offset = 3;
         for (int i = 0; i < count; i++)
         {
@@ -392,12 +408,16 @@ internal static class MobWireBinary
             offset += 8;
             var y = BitConverter.ToDouble(raw.Slice(offset, 8));
             offset += 8;
+            if (!double.IsFinite(x) || !double.IsFinite(y))
+                return false;
             var dir = BinaryPrimitives.ReadInt32LittleEndian(raw.Slice(offset, 4));
             offset += 4;
             var life = BinaryPrimitives.ReadInt32LittleEndian(raw.Slice(offset, 4));
             offset += 4;
             var maxLife = BinaryPrimitives.ReadInt32LittleEndian(raw.Slice(offset, 4));
             offset += 4;
+            if (index < 0 || life < 0 || maxLife < 0)
+                return false;
 
             double time = 0.0, dx = 0.0, dy = 0.0;
             if (ver >= 3)
@@ -408,6 +428,8 @@ internal static class MobWireBinary
                 offset += 8;
                 dy = BitConverter.ToDouble(raw.Slice(offset, 8));
                 offset += 8;
+                if (!double.IsFinite(time) || !double.IsFinite(dx) || !double.IsFinite(dy))
+                    return false;
             }
 
             if (!TryReadUtf8Segment(raw, ref offset, out var anim) ||
@@ -421,7 +443,7 @@ internal static class MobWireBinary
         return destination.Count > 0;
     }
 
-    private static bool TryReadUtf8Segment(ReadOnlySpan<byte> raw, ref int offset, out string text)
+    private static bool TryReadUtf8Segment(ReadOnlySpan<byte> raw, ref int offset, out string text, int maxChars = MaxUtf8SegmentChars)
     {
         text = string.Empty;
         if (offset + 2 > raw.Length)
@@ -429,10 +451,20 @@ internal static class MobWireBinary
 
         var len = BinaryPrimitives.ReadUInt16LittleEndian(raw.Slice(offset, 2));
         offset += 2;
-        if (offset + len > raw.Length)
+        if (len > maxChars * 4 || offset + len > raw.Length)
             return false;
 
-        text = len == 0 ? string.Empty : Encoding.UTF8.GetString(raw.Slice(offset, len));
+        try
+        {
+            text = len == 0 ? string.Empty : Encoding.UTF8.GetString(raw.Slice(offset, len));
+            if (text.Length > maxChars)
+                text = text[..maxChars];
+        }
+        catch
+        {
+            return false;
+        }
+
         offset += len;
         return true;
     }

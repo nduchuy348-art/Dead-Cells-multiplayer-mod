@@ -39,8 +39,8 @@ public sealed partial class NetNode
             bool hasHeadAnim)
         {
             Id = id;
-            X = x;
-            Y = y;
+            X = double.IsFinite(x) ? x : 0.0;
+            Y = double.IsFinite(y) ? y : 0.0;
             Dir = dir;
             LevelId = levelId;
             RoomLevelId = roomLevelId;
@@ -68,9 +68,9 @@ public sealed partial class NetNode
         {
             Id = id;
             Kind = kind;
-            Slot = slot;
+            Slot = Math.Max(-1, slot);
             PermanentId = permanentId;
-            Ammo = ammo;
+            Ammo = ammo.HasValue ? Math.Max(0, ammo.Value) : null;
         }
     }
 
@@ -87,9 +87,9 @@ public sealed partial class NetNode
         {
             Id = id;
             Kind = kind;
-            Slot = slot;
+            Slot = Math.Max(-1, slot);
             PermanentId = permanentId;
-            Ammo = ammo;
+            Ammo = ammo.HasValue ? Math.Max(0, ammo.Value) : null;
             Action = action;
         }
     }
@@ -107,11 +107,11 @@ public sealed partial class NetNode
         public RemoteHpSnapshot(int id, int life, int maxLife, int lif, int bonusLife, int recover, string? username)
         {
             Id = id;
-            Life = life;
-            MaxLife = maxLife;
-            Lif = lif;
-            BonusLife = bonusLife;
-            Recover = recover;
+            Life = Math.Max(0, life);
+            MaxLife = Math.Max(0, maxLife);
+            Lif = Math.Max(0, lif);
+            BonusLife = Math.Max(0, bonusLife);
+            Recover = Math.Max(0, recover);
             Username = username;
         }
     }
@@ -146,19 +146,19 @@ public sealed partial class NetNode
 
         public MobStateSnapshot(int index, double x, double y, int dir, int life, int maxLife, string animPayload, string type, string statePayload = "", int generation = 0, double time = 0.0, double dx = 0.0, double dy = 0.0)
         {
-            Index = index;
+            Index = Math.Max(0, index);
             Generation = generation;
-            X = x;
-            Y = y;
+            X = double.IsFinite(x) ? x : 0.0;
+            Y = double.IsFinite(y) ? y : 0.0;
             Dir = dir;
-            Life = life;
-            MaxLife = maxLife;
+            Life = Math.Max(0, life);
+            MaxLife = Math.Max(0, maxLife);
             AnimPayload = animPayload ?? string.Empty;
             Type = type ?? string.Empty;
             StatePayload = statePayload ?? string.Empty;
-            Time = time;
-            Dx = dx;
-            Dy = dy;
+            Time = double.IsFinite(time) ? time : 0.0;
+            Dx = double.IsFinite(dx) ? dx : 0.0;
+            Dy = double.IsFinite(dy) ? dy : 0.0;
         }
     }
 
@@ -176,15 +176,15 @@ public sealed partial class NetNode
 
         public MobMoveSnapshot(int index, double x, double y, int dir, string animPayload, int generation = 0, double time = 0.0, double dx = 0.0, double dy = 0.0)
         {
-            Index = index;
+            Index = Math.Max(0, index);
             Generation = generation;
-            X = x;
-            Y = y;
+            X = double.IsFinite(x) ? x : 0.0;
+            Y = double.IsFinite(y) ? y : 0.0;
             Dir = dir;
             AnimPayload = animPayload ?? string.Empty;
-            Time = time;
-            Dx = dx;
-            Dy = dy;
+            Time = double.IsFinite(time) ? time : 0.0;
+            Dx = double.IsFinite(dx) ? dx : 0.0;
+            Dy = double.IsFinite(dy) ? dy : 0.0;
         }
     }
 
@@ -202,11 +202,11 @@ public sealed partial class NetNode
         public MobHit(int userId, int mobIndex, int hp, double x, double y, string type = "", int generation = 0, double damageHint = 0.0)
         {
             UserId = userId;
-            MobIndex = mobIndex;
+            MobIndex = Math.Max(0, mobIndex);
             Generation = generation;
-            Hp = hp;
-            X = x;
-            Y = y;
+            Hp = Math.Max(0, hp);
+            X = double.IsFinite(x) ? x : 0.0;
+            Y = double.IsFinite(y) ? y : 0.0;
             Type = type ?? string.Empty;
             DamageHint = double.IsFinite(damageHint) && damageHint > 0.0 ? damageHint : 0.0;
         }
@@ -224,9 +224,9 @@ public sealed partial class NetNode
         public MobDie(int userId, int mobIndex, double x, double y, int generation = 0, string type = "")
         {
             UserId = userId;
-            MobIndex = mobIndex;
-            X = x;
-            Y = y;
+            MobIndex = Math.Max(0, mobIndex);
+            X = double.IsFinite(x) ? x : 0.0;
+            Y = double.IsFinite(y) ? y : 0.0;
             Generation = generation;
             Type = type ?? string.Empty;
         }
@@ -242,11 +242,11 @@ public sealed partial class NetNode
 
         public MobRegistryEntry(int netId, int generation, string type, double x, double y)
         {
-            NetId = netId;
+            NetId = Math.Max(0, netId);
             Generation = generation;
             Type = type ?? string.Empty;
-            X = x;
-            Y = y;
+            X = double.IsFinite(x) ? x : 0.0;
+            Y = double.IsFinite(y) ? y : 0.0;
         }
     }
 
@@ -268,17 +268,17 @@ public sealed partial class NetNode
 
         public MobAttack(int index, string skillId, bool requiresTargetInArea, int? data, double x, double y, int targetUserId, int dir = 0, double blockSeconds = 0, double forcedDirSeconds = 0, string type = "", int generation = 0, int attackSeq = 0)
         {
-            Index = index;
+            Index = Math.Max(0, index);
             Generation = generation;
             SkillId = skillId ?? string.Empty;
             RequiresTargetInArea = requiresTargetInArea;
             Data = data;
-            X = x;
-            Y = y;
+            X = double.IsFinite(x) ? x : 0.0;
+            Y = double.IsFinite(y) ? y : 0.0;
             TargetUserId = targetUserId;
             Dir = dir;
-            BlockSeconds = blockSeconds;
-            ForcedDirSeconds = forcedDirSeconds;
+            BlockSeconds = double.IsFinite(blockSeconds) && blockSeconds > 0.0 ? blockSeconds : 0.0;
+            ForcedDirSeconds = double.IsFinite(forcedDirSeconds) && forcedDirSeconds > 0.0 ? forcedDirSeconds : 0.0;
             Type = type ?? string.Empty;
             AttackSeq = attackSeq;
         }
@@ -296,10 +296,10 @@ public sealed partial class NetNode
 
         public MobEventUpdate(int index, double x, double y, int dir, IReadOnlyList<string> events, string type = "", int generation = 0)
         {
-            Index = index;
+            Index = Math.Max(0, index);
             Generation = generation;
-            X = x;
-            Y = y;
+            X = double.IsFinite(x) ? x : 0.0;
+            Y = double.IsFinite(y) ? y : 0.0;
             Dir = dir;
             Events = events ?? Array.Empty<string>();
             Type = type ?? string.Empty;
@@ -317,7 +317,7 @@ public sealed partial class NetNode
         public MobDraw(int userId, int mobIndex, bool isOutOfGame, bool isOnScreen, int generation = 0)
         {
             UserId = userId;
-            MobIndex = mobIndex;
+            MobIndex = Math.Max(0, mobIndex);
             Generation = generation;
             IsOutOfGame = isOutOfGame;
             IsOnScreen = isOnScreen;
@@ -365,12 +365,12 @@ public sealed partial class NetNode
         {
             UserId = userId;
             IsDowned = isDowned;
-            X = x;
-            Y = y;
+            X = double.IsFinite(x) ? x : 0.0;
+            Y = double.IsFinite(y) ? y : 0.0;
             LevelId = levelId ?? string.Empty;
             HasHeadPosition = hasHeadPosition;
-            HeadX = headX;
-            HeadY = headY;
+            HeadX = double.IsFinite(headX) ? headX : 0.0;
+            HeadY = double.IsFinite(headY) ? headY : 0.0;
             HasHeadAnim = hasHeadAnim;
             HeadAnim = hasHeadAnim ? (headAnim ?? string.Empty) : null;
         }
@@ -431,7 +431,7 @@ public sealed partial class NetNode
         {
             UserId = userId;
             AffectId = affectId;
-            Sec = sec;
+            Sec = double.IsFinite(sec) && sec >= 0.0 ? sec : 0.0;
             IsRemove = isRemove;
         }
     }

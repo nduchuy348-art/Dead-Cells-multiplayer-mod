@@ -638,7 +638,8 @@ public static class CombatSyncHelpers
         if (!TryParseDoorKey(doorKey1, out var cx1, out var cy1) ||
             !TryParseDoorKey(doorKey2, out var cx2, out var cy2))
             return false;
-        return System.Math.Abs(cx1 - cx2) <= threshold && System.Math.Abs(cy1 - cy2) <= threshold;
+        var safeThreshold = System.Math.Max(0, threshold);
+        return System.Math.Abs(cx1 - cx2) <= safeThreshold && System.Math.Abs(cy1 - cy2) <= safeThreshold;
     }
 
     public static dc.hxd.res.Sound? TryLoadSound(string soundPath)
@@ -655,5 +656,170 @@ public static class CombatSyncHelpers
         }
         catch { }
         return null;
+    }
+
+    public static string BuildBossCinePayload(
+        string levelId,
+        string? genericEventId,
+        double? x,
+        double? y,
+        int? dir,
+        double? finalX,
+        double? finalY,
+        int? finalDir)
+    {
+        var safeLevelId = string.IsNullOrWhiteSpace(levelId)
+            ? string.Empty
+            : levelId.Replace("\r", string.Empty, StringComparison.Ordinal)
+                .Replace("\n", string.Empty, StringComparison.Ordinal)
+                .Trim();
+        if (string.IsNullOrEmpty(safeLevelId))
+            return string.Empty;
+
+        var safeEventId = string.IsNullOrWhiteSpace(genericEventId)
+            ? string.Empty
+            : genericEventId.Replace("\r", string.Empty, StringComparison.Ordinal)
+                .Replace("\n", string.Empty, StringComparison.Ordinal)
+                .Trim();
+
+        if (!x.HasValue || !y.HasValue)
+            return string.IsNullOrEmpty(safeEventId) ? safeLevelId : $"{safeLevelId}|{safeEventId}";
+
+        var resolvedFinalX = finalX ?? x.Value;
+        var resolvedFinalY = finalY ?? y.Value;
+        var resolvedFinalDir = finalDir ?? dir ?? 0;
+
+        return string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{safeLevelId}|{safeEventId}|{x.Value}|{y.Value}|{dir ?? 0}|{resolvedFinalX}|{resolvedFinalY}|{resolvedFinalDir}");
+    }
+
+    public static bool TryParseBossCinePayload(
+        string? payload,
+        out string levelId,
+        out string? genericEventId,
+        out double? snapX,
+        out double? snapY,
+        out int? snapDir,
+        out double? finalX,
+        out double? finalY,
+        out int? finalDir)
+    {
+        levelId = string.Empty;
+        genericEventId = null;
+        snapX = null;
+        snapY = null;
+        snapDir = null;
+        finalX = null;
+        finalY = null;
+        finalDir = null;
+
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        var normalized = payload
+            .Replace("\r", string.Empty, StringComparison.Ordinal)
+            .Replace("\n", string.Empty, StringComparison.Ordinal)
+            .Trim();
+        if (normalized.Length == 0)
+            return false;
+
+        var parts = normalized.Split('|');
+        if (parts.Length == 0)
+            return false;
+
+        levelId = parts[0].Trim();
+        if (string.IsNullOrWhiteSpace(levelId))
+            return false;
+
+        if (parts.Length >= 2)
+        {
+            var eventId = parts[1].Trim();
+            if (eventId.Length > 0)
+                genericEventId = eventId;
+        }
+
+        if (parts.Length >= 4)
+        {
+            if (double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedX) && double.IsFinite(parsedX))
+                snapX = parsedX;
+            if (double.TryParse(parts[3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedY) && double.IsFinite(parsedY))
+                snapY = parsedY;
+        }
+
+        if (parts.Length >= 5 &&
+            int.TryParse(parts[4], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsedDir))
+        {
+            snapDir = parsedDir;
+        }
+
+        if (parts.Length >= 7)
+        {
+            if (double.TryParse(parts[5], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedFinalX) && double.IsFinite(parsedFinalX))
+                finalX = parsedFinalX;
+            if (double.TryParse(parts[6], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedFinalY) && double.IsFinite(parsedFinalY))
+                finalY = parsedFinalY;
+        }
+
+        if (parts.Length >= 8 &&
+            int.TryParse(parts[7], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsedFinalDir))
+        {
+            finalDir = parsedFinalDir;
+        }
+
+        return true;
+    }
+
+    public static int ComputeExpectedExitPlayerCount(
+        bool isHost,
+        int localId,
+        bool isLocalDowned,
+        System.Collections.Generic.IEnumerable<int>? activePeerIds,
+        Func<int, bool>? isPeerDowned,
+        Func<int, bool>? isPeerActiveAndFresh)
+    {
+        if (localId <= 0)
+            return 1;
+
+        if (isHost)
+        {
+            var hostExpected = isLocalDowned ? 0 : 1;
+            if (activePeerIds != null)
+            {
+                foreach (var peerId in activePeerIds)
+                {
+                    if (peerId <= 0 || peerId == localId)
+                        continue;
+                    if (isPeerDowned != null && isPeerDowned(peerId))
+                        continue;
+                    if (isPeerActiveAndFresh != null && !isPeerActiveAndFresh(peerId))
+                        continue;
+                    hostExpected++;
+                }
+            }
+            return Math.Max(1, hostExpected);
+        }
+        else
+        {
+            var expected = 0;
+            if (activePeerIds != null)
+            {
+                foreach (var peerId in activePeerIds)
+                {
+                    if (peerId <= 0)
+                        continue;
+                    if (peerId == localId)
+                    {
+                        if (!isLocalDowned)
+                            expected++;
+                        continue;
+                    }
+                    if (isPeerDowned != null && isPeerDowned(peerId))
+                        continue;
+                    expected++;
+                }
+            }
+            return Math.Max(1, expected);
+        }
     }
 }

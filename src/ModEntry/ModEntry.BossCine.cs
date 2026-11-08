@@ -89,7 +89,7 @@ namespace DeadCellsMultiplayerMod
             return BuildBossCinePayload(levelId, genericEventId, x, y, dir, null, null, null);
         }
 
-        private string BuildBossCinePayload(
+        internal static string BuildBossCinePayload(
             string levelId,
             string? genericEventId,
             double? x,
@@ -99,33 +99,11 @@ namespace DeadCellsMultiplayerMod
             double? finalY,
             int? finalDir)
         {
-            var safeLevelId = string.IsNullOrWhiteSpace(levelId)
-                ? string.Empty
-                : levelId.Replace("\r", string.Empty, StringComparison.Ordinal)
-                    .Replace("\n", string.Empty, StringComparison.Ordinal)
-                    .Trim();
-            if (string.IsNullOrEmpty(safeLevelId))
-                return string.Empty;
-
-            var safeEventId = string.IsNullOrWhiteSpace(genericEventId)
-                ? string.Empty
-                : genericEventId.Replace("\r", string.Empty, StringComparison.Ordinal)
-                    .Replace("\n", string.Empty, StringComparison.Ordinal)
-                    .Trim();
-
-            if (!x.HasValue || !y.HasValue)
-                return string.IsNullOrEmpty(safeEventId) ? safeLevelId : $"{safeLevelId}|{safeEventId}";
-
-            var resolvedFinalX = finalX ?? x.Value;
-            var resolvedFinalY = finalY ?? y.Value;
-            var resolvedFinalDir = finalDir ?? dir ?? 0;
-
-            return string.Create(
-                System.Globalization.CultureInfo.InvariantCulture,
-                $"{safeLevelId}|{safeEventId}|{x.Value}|{y.Value}|{dir ?? 0}|{resolvedFinalX}|{resolvedFinalY}|{resolvedFinalDir}");
+            return DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.BuildBossCinePayload(
+                levelId, genericEventId, x, y, dir, finalX, finalY, finalDir);
         }
 
-        private static bool TryParseBossCinePayload(
+        internal static bool TryParseBossCinePayload(
             string? payload,
             out string levelId,
             out string? genericEventId,
@@ -136,69 +114,16 @@ namespace DeadCellsMultiplayerMod
             out double? finalY,
             out int? finalDir)
         {
-            levelId = string.Empty;
-            genericEventId = null;
-            snapX = null;
-            snapY = null;
-            snapDir = null;
-            finalX = null;
-            finalY = null;
-            finalDir = null;
-
-            if (string.IsNullOrWhiteSpace(payload))
-                return false;
-
-            var normalized = payload
-                .Replace("\r", string.Empty, StringComparison.Ordinal)
-                .Replace("\n", string.Empty, StringComparison.Ordinal)
-                .Trim();
-            if (normalized.Length == 0)
-                return false;
-
-            var parts = normalized.Split('|');
-            if (parts.Length == 0)
-                return false;
-
-            levelId = parts[0].Trim();
-            if (string.IsNullOrWhiteSpace(levelId))
-                return false;
-
-            if (parts.Length >= 2)
-            {
-                var eventId = parts[1].Trim();
-                if (eventId.Length > 0)
-                    genericEventId = eventId;
-            }
-
-            if (parts.Length >= 4)
-            {
-                if (double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedX))
-                    snapX = parsedX;
-                if (double.TryParse(parts[3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedY))
-                    snapY = parsedY;
-            }
-
-            if (parts.Length >= 5 &&
-                int.TryParse(parts[4], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsedDir))
-            {
-                snapDir = parsedDir;
-            }
-
-            if (parts.Length >= 7)
-            {
-                if (double.TryParse(parts[5], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedFinalX))
-                    finalX = parsedFinalX;
-                if (double.TryParse(parts[6], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedFinalY))
-                    finalY = parsedFinalY;
-            }
-
-            if (parts.Length >= 8 &&
-                int.TryParse(parts[7], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsedFinalDir))
-            {
-                finalDir = parsedFinalDir;
-            }
-
-            return true;
+            return DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.TryParseBossCinePayload(
+                payload,
+                out levelId,
+                out genericEventId,
+                out snapX,
+                out snapY,
+                out snapDir,
+                out finalX,
+                out finalY,
+                out finalDir);
         }
 
         private static void TryCaptureBossCineHeroPosition(Hero? hero, out double? x, out double? y, out int? dir)
@@ -432,7 +357,7 @@ namespace DeadCellsMultiplayerMod
                 var game = dc.pr.Game.Class.ME;
                 var hero = game?.hero ?? me;
                 var level = hero?._level;
-                if (game == null || level == null || hero == null)
+                if (game == null || level == null || level.destroyed || level.viewport == null || hero == null || hero.destroyed || hero.spr == null)
                     return false;
 
                 var currentCine = game.curCine;
@@ -522,8 +447,11 @@ namespace DeadCellsMultiplayerMod
             double? finalY,
             int? finalDir)
         {
-            if (trigger == null || hero == null)
+            if (trigger == null || hero == null || hero.destroyed || hero.spr == null ||
+                hero._level == null || hero._level.destroyed || hero._level.viewport == null)
+            {
                 return false;
+            }
 
             try
             {
@@ -644,8 +572,12 @@ namespace DeadCellsMultiplayerMod
             double? finalY,
             int? finalDir)
         {
-            if (level == null || hero == null || string.IsNullOrWhiteSpace(genericEventId))
+            if (level == null || level.destroyed || level.viewport == null ||
+                hero == null || hero.destroyed || hero.spr == null ||
+                string.IsNullOrWhiteSpace(genericEventId))
+            {
                 return false;
+            }
 
             try
             {
@@ -714,7 +646,7 @@ namespace DeadCellsMultiplayerMod
                     case "roomKingsHand":
                         RunWithSuppressedBossCineSend(() =>
                         {
-                            if (level.game.isBossRush())
+                            if (level.game != null && level.game.isBossRush())
                             {
                                 _ = new EnterThroneBossRush(hero);
                                 return;
@@ -994,6 +926,18 @@ namespace DeadCellsMultiplayerMod
             {
                 var game = dc.pr.Game.Class.ME;
                 var cine = game?.curCine;
+                var hero = me;
+                var level = hero?._level ?? game?.curLevel;
+                if (level == null || level.destroyed || level.viewport == null)
+                {
+                    // Level is transitioning or viewport is null mid-cinematic
+                    if (cine != null)
+                        SuppressRemoteBossDeathCineState(cine);
+                    _watchedBossIntroCine = null;
+                    _watchedBossIntroCineStartTick = 0;
+                    return;
+                }
+
                 var isIntro = cine != null && !cine.destroyed && IsBossOwnedCinematic(cine);
                 if (!isIntro)
                 {
@@ -1067,12 +1011,69 @@ namespace DeadCellsMultiplayerMod
             try
             {
                 var hero = me;
-                if (hero == null || hero.destroyed)
+                if (hero == null || hero.destroyed || hero.spr == null)
                     return;
 
-                var viewport = hero._level?.viewport;
-                if (viewport != null && !ReferenceEquals(viewport.tracked, hero))
-                    viewport.track(hero, true);
+                var viewport = hero._level?.viewport ?? dc.pr.Game.Class.ME?.curLevel?.viewport;
+                if (viewport != null)
+                {
+                    try
+                    {
+                        if (!ReferenceEquals(viewport.tracked, hero))
+                            viewport.track(hero, true);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>
+        /// Safely abort any active boss cinematic during mid-cutscene scene transitions or world teardown.
+        /// Guarantees that hero controls are unlocked, visibility restored, and viewport tracked back to hero.
+        /// </summary>
+        internal static void AbortActiveBossCinematicForTransition(string reason)
+        {
+            try
+            {
+                var game = dc.pr.Game.Class.ME;
+                var cine = game?.curCine;
+                if (cine != null && !cine.destroyed)
+                {
+                    if (IsBossOwnedCinematic(cine) || BossDeathCineTypeNames.Contains(cine.GetType().Name ?? string.Empty))
+                    {
+                        Instance?.Logger.Information("[BossCine] Aborting active boss cinematic ({Type}) for scene transition: {Reason}", cine.GetType().Name, reason);
+                        try { if (game != null) game.curCine = null; } catch { }
+                        try { cine.destroy(); } catch { }
+                        try { cine.disposeImmediately(); } catch { }
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var hero = me;
+                if (hero != null)
+                {
+                    try { hero.cancelSkillControlLock(); } catch { }
+                    try { hero.unlockControls(); } catch { }
+                    EnsureHeroVisibilityAfterRoomChange(hero);
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                Instance?.RestoreViewportToLocalHero();
             }
             catch
             {
@@ -1081,7 +1082,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__BeholderDeath__constructor__(Hook__BeholderDeath.orig___constructor__ orig, BeholderDeath e, Beholder boss)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                boss == null || boss.destroyed || boss._level == null || boss._level.destroyed || boss._level.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1092,7 +1094,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__GiantDeath__constructor__(Hook__GiantDeath.orig___constructor__ orig, GiantDeath e, Hero heroTarget)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                heroTarget == null || heroTarget.destroyed || heroTarget._level == null || heroTarget._level.destroyed || heroTarget._level.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1103,7 +1106,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__GiantDeath4__constructor__(Hook__GiantDeath4.orig___constructor__ orig, GiantDeath4 e, Hero heroTarget)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                heroTarget == null || heroTarget.destroyed || heroTarget._level == null || heroTarget._level.destroyed || heroTarget._level.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1114,7 +1118,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__KillKingCinem__constructor__(Hook__KillKingCinem.orig___constructor__ orig, KillKingCinem e, HlAction tween)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1125,7 +1130,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__KillQueenCinem__constructor__(Hook__KillQueenCinem.orig___constructor__ orig, KillQueenCinem e)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1136,7 +1142,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__QueenDefeated__constructor__(Hook__QueenDefeated.orig___constructor__ orig, QueenDefeated e, Queen queen, HlAction dialogEnd)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                queen == null || queen.destroyed || queen._level == null || queen._level.destroyed || queen._level.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1147,7 +1154,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__KillDookuBeastCinem__constructor__(Hook__KillDookuBeastCinem.orig___constructor__ orig, KillDookuBeastCinem e)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1163,12 +1171,19 @@ namespace DeadCellsMultiplayerMod
             // reported phase split — and the cross-form state that followed hard-crashed the game.
             // Every peer must run it natively; it is classified as an intro-type cine so the boss
             // is quarantined from sync while it plays and the 30s watchdog guarantees release.
+            if (manager == null || manager.destroyed || manager._level == null || manager._level.destroyed || manager._level.viewport == null)
+            {
+                SuppressRemoteBossDeathCineState(e);
+                return;
+            }
+
             orig(e, manager, instant, instantRef);
         }
 
         private void Hook__RichterDeath__constructor__(Hook__RichterDeath.orig___constructor__ orig, RichterDeath e, Hero lostBody, bool titleLib)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                lostBody == null || lostBody.destroyed || lostBody._level == null || lostBody._level.destroyed || lostBody._level.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1179,7 +1194,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__EndCollectorPreSmash__constructor__(Hook__EndCollectorPreSmash.orig___constructor__ orig, EndCollectorPreSmash e, dc.en.mob.Boss boss, HlAction lt)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                boss == null || boss.destroyed || boss._level == null || boss._level.destroyed || boss._level.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1190,7 +1206,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__SmashCinem__constructor__(Hook__SmashCinem.orig___constructor__ orig, SmashCinem e, bool hasKingSkin, HlAction endCb)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1201,7 +1218,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__EndCollectorPostSmash__constructor__(Hook__EndCollectorPostSmash.orig___constructor__ orig, EndCollectorPostSmash e)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1212,7 +1230,8 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__EndCollectorPostSmashKS__constructor__(Hook__EndCollectorPostSmashKS.orig___constructor__ orig, EndCollectorPostSmashKS e)
         {
-            if (ShouldSuppressRemoteBossDeathCineConstruction())
+            if (ShouldSuppressRemoteBossDeathCineConstruction() ||
+                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;

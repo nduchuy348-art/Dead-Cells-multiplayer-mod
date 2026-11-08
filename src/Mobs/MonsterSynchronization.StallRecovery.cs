@@ -147,6 +147,25 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 }
             }
 
+            if (target == null)
+            {
+                watch.LastMotionFrame = frame;
+                return;
+            }
+            try
+            {
+                if (target.destroyed)
+                {
+                    watch.LastMotionFrame = frame;
+                    return;
+                }
+            }
+            catch
+            {
+                watch.LastMotionFrame = frame;
+                return;
+            }
+
             var stalledFrames = frame - watch.LastMotionFrame;
             var anyPlayerDowned = ModEntry.HasAnyPlayerDownedForCombat();
             var softStallFrames = anyPlayerDowned ? 30.0 * 1.5 : HostMobSoftStallFrames;

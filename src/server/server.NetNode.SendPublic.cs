@@ -380,6 +380,9 @@ public sealed partial class NetNode
 
     public void SendLevelSeed(string levelId, double seed)
     {
+        if (!double.IsFinite(seed))
+            return;
+
         var safeSeed = seed.ToString(CultureInfo.InvariantCulture);
         var safeId = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
         if (string.IsNullOrWhiteSpace(safeId))
@@ -615,13 +618,19 @@ public sealed partial class NetNode
 
     public void SendHP(double life, double maxLife, double lif, double bonusLife, double recover)
     {
+        var safeLifeVal = double.IsFinite(life) ? Math.Max(0.0, life) : 0.0;
+        var safeMaxLifeVal = double.IsFinite(maxLife) ? Math.Max(0.0, maxLife) : 0.0;
+        var safeLifVal = double.IsFinite(lif) ? Math.Max(0.0, lif) : 0.0;
+        var safeBonusLifeVal = double.IsFinite(bonusLife) ? Math.Max(0.0, bonusLife) : 0.0;
+        var safeRecoverVal = double.IsFinite(recover) ? Math.Max(0.0, recover) : 0.0;
+
         lock (_sync)
         {
-            _localHpLife = (int)System.Math.Round(life, System.MidpointRounding.AwayFromZero);
-            _localHpMaxLife = (int)System.Math.Round(maxLife, System.MidpointRounding.AwayFromZero);
-            _localHpLif = (int)System.Math.Round(lif, System.MidpointRounding.AwayFromZero);
-            _localHpBonusLife = (int)System.Math.Round(bonusLife, System.MidpointRounding.AwayFromZero);
-            _localHpRecover = (int)System.Math.Round(recover, System.MidpointRounding.AwayFromZero);
+            _localHpLife = (int)System.Math.Round(safeLifeVal, System.MidpointRounding.AwayFromZero);
+            _localHpMaxLife = (int)System.Math.Round(safeMaxLifeVal, System.MidpointRounding.AwayFromZero);
+            _localHpLif = (int)System.Math.Round(safeLifVal, System.MidpointRounding.AwayFromZero);
+            _localHpBonusLife = (int)System.Math.Round(safeBonusLifeVal, System.MidpointRounding.AwayFromZero);
+            _localHpRecover = (int)System.Math.Round(safeRecoverVal, System.MidpointRounding.AwayFromZero);
             _hasLocalHpSnapshot = true;
         }
 
@@ -630,7 +639,7 @@ public sealed partial class NetNode
             return;
         }
         var idPart = ID > 0 ? $"{ID}|" : string.Empty;
-        SendRaw($"HP|{idPart}{life}|{maxLife}|{lif}|{bonusLife}|{recover}");
+        SendRaw($"HP|{idPart}{safeLifeVal.ToString(CultureInfo.InvariantCulture)}|{safeMaxLifeVal.ToString(CultureInfo.InvariantCulture)}|{safeLifVal.ToString(CultureInfo.InvariantCulture)}|{safeBonusLifeVal.ToString(CultureInfo.InvariantCulture)}|{safeRecoverVal.ToString(CultureInfo.InvariantCulture)}");
     }
 
     public void SendLevelId(int senderId, string levelId)
@@ -713,11 +722,12 @@ public sealed partial class NetNode
 
     public void SendHeroAffect(int affectId, double sec)
     {
-        if (!HasAnyConnection())
+        if (!HasAnyConnection() || affectId <= 0)
             return;
 
+        var safeSec = double.IsFinite(sec) && sec >= 0.0 ? sec : 0.0;
         var idPart = ID > 0 ? $"{ID}|" : string.Empty;
-        var secStr = sec.ToString("F2", CultureInfo.InvariantCulture);
+        var secStr = safeSec.ToString("F2", CultureInfo.InvariantCulture);
         SendRaw($"HEROAFFECT|{idPart}{affectId}|{secStr}");
     }
 
@@ -834,9 +844,14 @@ public sealed partial class NetNode
         if (ID <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        var safeHeadX = headX.HasValue && double.IsFinite(headX.Value) ? headX.Value : 0.0;
+        var safeHeadY = headY.HasValue && double.IsFinite(headY.Value) ? headY.Value : 0.0;
+
         var hasHead = isDowned && headX.HasValue && headY.HasValue;
         var hasAnim = hasHead && !string.IsNullOrWhiteSpace(headAnim);
-        var state = new PlayerDownState(ID, isDowned, x, y, levelId ?? string.Empty, hasHead, headX ?? 0, headY ?? 0, hasAnim, headAnim);
+        var state = new PlayerDownState(ID, isDowned, safeX, safeY, levelId ?? string.Empty, hasHead, safeHeadX, safeHeadY, hasAnim, headAnim);
         var line = BuildPlayerDownLine(state);
         _ = SendLineSafe(line);
     }
@@ -902,7 +917,9 @@ public sealed partial class NetNode
         if (mobIndex < 0 || string.IsNullOrWhiteSpace(skillId))
             return;
 
-        var attack = new MobAttack(mobIndex, skillId, requiresTargetInArea, data, x, y, targetUserId, dir, generation: generation);
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        var attack = new MobAttack(mobIndex, skillId, requiresTargetInArea, data, safeX, safeY, targetUserId, dir, generation: generation);
         var line = MobWireCodec.BuildMobAttackLine(attack);
         _ = SendLineSafe(line);
     }
@@ -927,12 +944,17 @@ public sealed partial class NetNode
             return;
         if (!HasAnyConnection())
             return;
-        if (ID <= 0)
+        if (ID <= 0 || mobIndex < 0)
             return;
+
+        var safeHp = Math.Max(0, hp);
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        var safeGen = Math.Max(0, generation);
 
         var payload = string.Create(
             CultureInfo.InvariantCulture,
-            $"MOBHIT|{ID}|{mobIndex}|{hp}|{x}|{y}|{generation}");
+            $"MOBHIT|{ID}|{mobIndex}|{safeHp}|{safeX}|{safeY}|{safeGen}");
         SendRaw(payload);
     }
 
@@ -942,10 +964,14 @@ public sealed partial class NetNode
             return;
         if (!HasAnyConnection())
             return;
-        if (ID <= 0)
+        if (ID <= 0 || mobIndex < 0)
             return;
 
-        var line = MobWireCodec.BuildMobDieLine(new MobDie(ID, mobIndex, x, y, generation, type));
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        var safeGen = Math.Max(0, generation);
+
+        var line = MobWireCodec.BuildMobDieLine(new MobDie(ID, mobIndex, safeX, safeY, safeGen, type));
         _ = SendLineSafe(line);
     }
 
@@ -1082,8 +1108,10 @@ public sealed partial class NetNode
         if (ID <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         SendRaw(
-            $"BOSSHEROTELE|{ID.ToString(CultureInfo.InvariantCulture)}|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{dir.ToString(CultureInfo.InvariantCulture)}");
+            $"BOSSHEROTELE|{ID.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{dir.ToString(CultureInfo.InvariantCulture)}");
     }
 
     public void SendInterDoor(int userId, double x, double y, string action, bool broken, string levelId)
@@ -1095,8 +1123,10 @@ public sealed partial class NetNode
         if (string.IsNullOrWhiteSpace(action))
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
-        SendRaw($"INTERDOOR|{userId}|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{action}|{(broken ? 1 : 0)}|{safeLevel}");
+        SendRaw($"INTERDOOR|{userId}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{action}|{(broken ? 1 : 0)}|{safeLevel}");
     }
 
     public void SendInterElevator(double x, double y)
@@ -1106,7 +1136,9 @@ public sealed partial class NetNode
         if (ID <= 0)
             return;
 
-        SendRaw($"INTERELEV|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}");
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
+        SendRaw($"INTERELEV|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}");
     }
 
     public void SendInterElevator(int userId, double x, double y, long sequence, string levelId)
@@ -1116,9 +1148,11 @@ public sealed partial class NetNode
         if (userId <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
         SendRaw(
-            $"INTERELEV|{userId.ToString(CultureInfo.InvariantCulture)}|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{sequence.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+            $"INTERELEV|{userId.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{sequence.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
     public void SendInterElevatorState(
@@ -1136,9 +1170,13 @@ public sealed partial class NetNode
         if (userId <= 0)
             return;
 
+        var safeAnchorX = double.IsFinite(anchorX) ? anchorX : 0.0;
+        var safeAnchorY = double.IsFinite(anchorY) ? anchorY : 0.0;
+        var safePlatformX = double.IsFinite(platformX) ? platformX : 0.0;
+        var safePlatformY = double.IsFinite(platformY) ? platformY : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
         SendRaw(
-            $"INTERELEVSTATE|{userId.ToString(CultureInfo.InvariantCulture)}|{anchorX.ToString(CultureInfo.InvariantCulture)}|{anchorY.ToString(CultureInfo.InvariantCulture)}|{sequence.ToString(CultureInfo.InvariantCulture)}|{platformX.ToString(CultureInfo.InvariantCulture)}|{platformY.ToString(CultureInfo.InvariantCulture)}|{(moving ? 1 : 0)}|{safeLevel}");
+            $"INTERELEVSTATE|{userId.ToString(CultureInfo.InvariantCulture)}|{safeAnchorX.ToString(CultureInfo.InvariantCulture)}|{safeAnchorY.ToString(CultureInfo.InvariantCulture)}|{sequence.ToString(CultureInfo.InvariantCulture)}|{safePlatformX.ToString(CultureInfo.InvariantCulture)}|{safePlatformY.ToString(CultureInfo.InvariantCulture)}|{(moving ? 1 : 0)}|{safeLevel}");
     }
 
     public void SendInterPressurePlate(int userId, double x, double y, long sequence, string levelId)
@@ -1148,9 +1186,11 @@ public sealed partial class NetNode
         if (userId <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
         SendRaw(
-            $"INTERPLATE|{userId.ToString(CultureInfo.InvariantCulture)}|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{sequence.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+            $"INTERPLATE|{userId.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{sequence.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
     public void SendInterTreasureChest(double x, double y, string levelId = "")
@@ -1160,8 +1200,10 @@ public sealed partial class NetNode
         if (ID <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
-        SendRaw($"INTERCHEST|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+        SendRaw($"INTERCHEST|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
     public void SendInterVineLadder(double x, double y, string levelId = "")
@@ -1171,8 +1213,10 @@ public sealed partial class NetNode
         if (ID <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
-        SendRaw($"INTERVINELADDER|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+        SendRaw($"INTERVINELADDER|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
     public void SendInterTeleport(double x, double y, string levelId = "")
@@ -1182,8 +1226,10 @@ public sealed partial class NetNode
         if (ID <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
-        SendRaw($"INTERTELEPORT|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+        SendRaw($"INTERTELEPORT|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
     public void SendInterBreakableGround(double x, double y, string levelId = "")
@@ -1193,8 +1239,10 @@ public sealed partial class NetNode
         if (ID <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
-        SendRaw($"INTERBREAK|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+        SendRaw($"INTERBREAK|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
     public void SendInterBossRuneUpdateCells(double x, double y, bool add, string levelId = "")
@@ -1204,8 +1252,10 @@ public sealed partial class NetNode
         if (ID <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
-        SendRaw($"BOSSRUNE_UPDATE_CELLS|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{(add ? 1 : 0)}|{safeLevel}");
+        SendRaw($"BOSSRUNE_UPDATE_CELLS|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{(add ? 1 : 0)}|{safeLevel}");
     }
 
     public void SendInterPortal(double x, double y, string action, string levelId = "")
@@ -1217,8 +1267,10 @@ public sealed partial class NetNode
         if (string.IsNullOrWhiteSpace(action))
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
-        SendRaw($"INTERPORTAL|{action}|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+        SendRaw($"INTERPORTAL|{action}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
 
@@ -1258,6 +1310,8 @@ public sealed partial class NetNode
     {
         if (!HasAnyConnection())
             return;
+        if (!double.IsFinite(gameTimeS) || gameTimeS < 0)
+            return;
 
         var line = $"GTIME|{gameTimeS.ToString("0.###", CultureInfo.InvariantCulture)}|{(stopGameTime ? 1 : 0)}";
         SendRaw(line);
@@ -1270,9 +1324,11 @@ public sealed partial class NetNode
         if (userId <= 0)
             return;
 
+        var safeX = double.IsFinite(x) ? x : 0.0;
+        var safeY = double.IsFinite(y) ? y : 0.0;
         var safeLevel = (levelId ?? string.Empty).Replace("|", "/").Replace("\r", string.Empty).Replace("\n", string.Empty);
         SendRaw(
-            $"INTERSHRINE|{userId.ToString(CultureInfo.InvariantCulture)}|{x.ToString(CultureInfo.InvariantCulture)}|{y.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
+            $"INTERSHRINE|{userId.ToString(CultureInfo.InvariantCulture)}|{safeX.ToString(CultureInfo.InvariantCulture)}|{safeY.ToString(CultureInfo.InvariantCulture)}|{safeLevel}");
     }
 
     private void SendRaw(string payload)

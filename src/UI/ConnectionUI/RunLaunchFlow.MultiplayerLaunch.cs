@@ -243,13 +243,19 @@ namespace DeadCellsMultiplayerMod
                 return true;
             }
 
+            if (ModEntry.IsGameShuttingDown || !ModEntry.IsGameInitialized)
+                return false;
+
             try
             {
-                var loadedUser = Save.Class.tryLoad.Invoke();
-                if (TryPrepareCustomModeUser(loadedUser, out var preparedLoadedUser))
+                using (GameDataSync.BeginLocalSerializerSaveScope("RunLaunchFlow.Save.tryLoad"))
                 {
-                    screen.user = preparedLoadedUser;
-                    return true;
+                    var loadedUser = Save.Class.tryLoad.Invoke();
+                    if (TryPrepareCustomModeUser(loadedUser, out var preparedLoadedUser))
+                    {
+                        screen.user = preparedLoadedUser;
+                        return true;
+                    }
                 }
             }
             catch (Exception ex)

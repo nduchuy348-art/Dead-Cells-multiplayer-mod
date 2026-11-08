@@ -505,6 +505,9 @@ namespace DeadCellsMultiplayerMod.MultiplayerModUI.Connection
 
         private static User? TryLoadLocalUserSkinOnce(bool forceReload = false)
         {
+            if (ModEntry.IsGameShuttingDown || !ModEntry.IsGameInitialized)
+                return null;
+
             int slot = ResolveCurrentSaveSlot();
             if (!forceReload && !string.IsNullOrWhiteSpace(_cachedLocalHeroSkin) && _cachedLocalHeroSkinSlot == slot)
                 return null;
@@ -514,12 +517,15 @@ namespace DeadCellsMultiplayerMod.MultiplayerModUI.Connection
             _tryLoadLocalHeroSkinSlot = slot;
             try
             {
-                var loaded = Save.Class.tryLoad.Invoke();
-                if (loaded == null)
-                    return null;
+                using (GameDataSync.BeginLocalSerializerSaveScope("_ConnectionUI.TryLoadLocalUserSkinOnce"))
+                {
+                    var loaded = Save.Class.tryLoad.Invoke();
+                    if (loaded == null)
+                        return null;
 
-                RememberLocalHeroSkinFromUser(loaded, "tryLoad");
-                return loaded;
+                    RememberLocalHeroSkinFromUser(loaded, "tryLoad");
+                    return loaded;
+                }
             }
             catch
             {

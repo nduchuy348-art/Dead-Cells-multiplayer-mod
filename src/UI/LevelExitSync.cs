@@ -254,6 +254,8 @@ public class LevelExitSync :
 
     private void Hook_Level_onDispose(Hook_Level.orig_onDispose orig, Level self)
     {
+        ModEntry.AbortActiveBossCinematicForTransition("level-onDispose");
+
         var localLevel = ModEntry.me?._level;
         if (localLevel != null && ReferenceEquals(localLevel, self))
             ModEntry.PrepareRemoteKingsForLevelTransition("level-onDispose-current");
@@ -456,17 +458,29 @@ public class LevelExitSync :
             _clientAwaitingCommitSinceTicks = 0;
             try
             {
-                net.SendExitTransitionCommit(
-                    sequence,
-                    target.cx,
-                    target.cy,
-                    levelId,
-                    ResolveExitDestinationLevelId(target));
+                // Send redundant burst (3 packets) to protect against single-packet UDP drop
+                for (int burst = 0; burst < 3; burst++)
+                {
+                    net.SendExitTransitionCommit(
+                        sequence,
+                        target.cx,
+                        target.cy,
+                        levelId,
+                        ResolveExitDestinationLevelId(target));
+                }
             }
             catch (Exception ex)
             {
                 _log.Warning(ex, "[ExitSync] Failed to publish transition commit");
             }
+            return true;
+        }
+
+        // Client: if host is no longer connected, proceed with local exit transition to avoid deadlock
+        if (!net.IsConnected)
+        {
+            _clientAwaitingCommitSinceTicks = 0;
+            _log.Information("[ExitSync] Host disconnected; proceeding with local exit transition to avoid deadlock");
             return true;
         }
 
@@ -489,6 +503,7 @@ public class LevelExitSync :
             _localPressed = false;
             _transitionDoorKey = string.Empty;
             _suppressDoorActivateHook = false;
+            ApplyLocalTimerPause(false);
             _log.Warning(
                 "[ExitSync] Transition timeout ({Timeout:F0}s) reached waiting for host at door={DoorKey}. Releasing lock and recovering normal state.",
                 ClientTransitionTimeoutSeconds,
@@ -773,6 +788,12 @@ public class LevelExitSync :
         if (target is BossRushDoor && !TryPassBossRushLaunchGate(target))
             return;
 
+        // Abort any active boss cutscene before initiating level transition
+        ModEntry.AbortActiveBossCinematicForTransition(
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"exit-activate:{target.GetType().Name}:{_transitionDoorKey}"));
+
         if (ModEntry.IsLocalPlayerDowned())
             ModEntry.ApplyLocalDownedExitPenaltyIfNeeded();
 
@@ -937,6 +958,21 @@ public class LevelExitSync :
                         state.IsOnScreen);
                     otherLevelState.LevelId = reportedLevelId;
                     otherLevelState.LastTick = Stopwatch.GetTimestamp();
+
+                    // If we are a client waiting at the door, and the HOST has already moved to the next level,
+                    // the host commit was lost in transit. Follow the host immediately to avoid deadlock!
+                    if (!net.IsHost && state.UserId == 1 && _localPressed && _localInsideCircle && currentLevel != null)
+                    {
+                        var nearestTarget = FindNearestExitTarget(ModEntry.me!, currentLevel, out var inside);
+                        if (nearestTarget != null && inside)
+                        {
+                            _log.Warning(
+                                "[ExitSync] Host already advanced to level={HostLevel} while client is at door in level={LocalLevel}. Triggering follow transition.",
+                                reportedLevelId,
+                                localLevelId);
+                            TriggerExitTransition(nearestTarget, ModEntry.me!, null);
+                        }
+                    }
                     continue;
                 }
 
@@ -974,13 +1010,9 @@ public class LevelExitSync :
         if (net.id > 0)
             _activePlayerScratchIds.Add(net.id);
 
-        net.CopyRemoteUserIdsTo(_activePlayerScratchIds);
-
-        for (int i = 0; i < ModEntry.clientIds.Length; i++)
+        if (net.IsAlive && net.IsConnected)
         {
-            var id = ModEntry.clientIds[i];
-            if (id > 0)
-                _activePlayerScratchIds.Add(id);
+            net.CopyRemoteUserIdsTo(_activePlayerScratchIds);
         }
 
         if (_activePlayerIds.SetEquals(_activePlayerScratchIds))
@@ -997,13 +1029,26 @@ public class LevelExitSync :
             return false;
 
         _stalePlayerIds.Clear();
+        var now = Stopwatch.GetTimestamp();
+        var staleTimeoutTicks = (long)(Stopwatch.Frequency * 10.0);
+
         foreach (var pair in _playerStates)
         {
             if (pair.Key == localId)
                 continue;
-            if (_activePlayerIds.Contains(pair.Key))
+
+            // Prune if no longer an active connected player
+            if (!_activePlayerIds.Contains(pair.Key))
+            {
+                _stalePlayerIds.Add(pair.Key);
                 continue;
-            _stalePlayerIds.Add(pair.Key);
+            }
+
+            // Prune if silent disconnect/packet drop where no update arrived for > 10s
+            if (pair.Value.LastTick > 0 && now - pair.Value.LastTick > staleTimeoutTicks)
+            {
+                _stalePlayerIds.Add(pair.Key);
+            }
         }
 
         if (_stalePlayerIds.Count == 0)
@@ -1094,28 +1139,8 @@ public class LevelExitSync :
     private int ComputeExpectedPlayerCount(NetNode net)
     {
         var localId = net.id;
-        var expected = 0;
-
-        foreach (var userId in _activePlayerIds)
-        {
-            if (userId <= 0)
-                continue;
-            if (IsPlayerDownedForExit(userId, localId))
-                continue;
-            expected++;
-        }
-
-        var aliveStates = 0;
-        foreach (var state in _playerStates.Values)
-        {
-            if (state.UserId <= 0)
-                continue;
-            if (IsPlayerDownedForExit(state.UserId, localId))
-                continue;
-            aliveStates++;
-        }
-        if (aliveStates > expected)
-            expected = aliveStates;
+        if (!net.IsAlive || !net.IsConnected)
+            return 1;
 
         if (net.IsHost)
         {
@@ -1131,10 +1156,17 @@ public class LevelExitSync :
                     hostExpected--;
             }
 
-            if (hostExpected < 0)
-                hostExpected = 0;
-            if (hostExpected > expected)
-                expected = hostExpected;
+            return System.Math.Max(1, hostExpected);
+        }
+
+        var expected = 0;
+        foreach (var userId in _activePlayerIds)
+        {
+            if (userId <= 0)
+                continue;
+            if (IsPlayerDownedForExit(userId, localId))
+                continue;
+            expected++;
         }
 
         if (expected <= 0 && localId > 0 && !IsPlayerDownedForExit(localId, localId))
@@ -2032,15 +2064,24 @@ public class LevelExitSync :
             return;
 
         _readyPlayerCounts.Clear();
+        var now = Stopwatch.GetTimestamp();
+        var staleTimeoutTicks = (long)(Stopwatch.Frequency * 5.0);
+
         foreach (var state in _playerStates.Values)
         {
             if (state.UserId <= 0)
+                continue;
+            if (!_activePlayerIds.Contains(state.UserId))
                 continue;
             if (IsPlayerDownedForExit(state.UserId, net.id))
                 continue;
             if (!state.Pressed || !state.InsideCircle)
                 continue;
             if (string.IsNullOrWhiteSpace(state.DoorKey))
+                continue;
+
+            // Packet loss guard: ignore readiness if remote hasn't sent an update in > 5.0s
+            if (state.UserId != net.id && state.LastTick > 0 && (now - state.LastTick) > staleTimeoutTicks)
                 continue;
 
             if (_readyPlayerCounts.TryGetValue(state.DoorKey, out var count))

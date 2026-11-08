@@ -225,6 +225,7 @@ public sealed partial class NetNode : IDisposable
             lock (_sync) return _hasRemote;
         }
     }
+    public bool IsConnected => IsAlive && HasRemote;
     public bool IsAlive =>
         _useSteamTransport
             ? _cts != null && !_cts.IsCancellationRequested

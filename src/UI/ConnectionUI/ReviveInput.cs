@@ -50,7 +50,7 @@ internal static partial class LobbySession
             {
                 bool PadHeld(ArrayBytes_Int? bind)
                 {
-                    if (bind == null) return false;
+                    if (bind == null || bind.bytes == IntPtr.Zero || bind.length <= 0) return false;
                     try
                     {
                         for (var i = 0; i < bind.length; i++)
@@ -66,7 +66,7 @@ internal static partial class LobbySession
 
                 bool KeyHeld(ArrayBytes_Int? bind)
                 {
-                    if (bind == null) return false;
+                    if (bind == null || bind.bytes == IntPtr.Zero || bind.length <= 0) return false;
                     try
                     {
                         for (var i = 0; i < bind.length; i++)

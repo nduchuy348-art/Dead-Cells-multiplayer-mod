@@ -439,6 +439,302 @@ public sealed class CoopBugfixRegressionTests
         var result = CombatSyncHelpers.IsDoorProximityMatch(k1!, k2!, threshold);
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    [InlineData(4, true)]
+    [InlineData(5, true)]
+    [InlineData(-1, false)]
+    [InlineData(-50, false)]
+    [InlineData(int.MinValue, false)]
+    [InlineData(6, false)]
+    [InlineData(7, false)]
+    [InlineData(100, false)]
+    [InlineData(int.MaxValue, false)]
+    [InlineData(null, false)]
+    public void MUser_IsValidSlot_ValidatesBoundaries(int? slot, bool expected)
+    {
+        var result = DeadCellsMultiplayerMod.MUser.IsValidSlot(slot);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("corrupt")]
+    [InlineData("abc12")]
+    [InlineData("12abc")]
+    [InlineData("!@#$%")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\0")]
+    [InlineData("99999999999999999999999999999999")]
+    [InlineData("null")]
+    public void MUser_ResolveSlotFromSources_HandlesCorruptStrings(string corruptEnvSlot)
+    {
+        // Corrupt string falls through to valid profileSlot
+        var slotWithProfile = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, corruptEnvSlot, 2, () => 0);
+        Assert.Equal(2, slotWithProfile);
+
+        // Corrupt string with no other sources falls through to default slot 0
+        var slotDefault = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, corruptEnvSlot, -1, null);
+        Assert.Equal(0, slotDefault);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(-5)]
+    [InlineData(-100)]
+    [InlineData(int.MinValue)]
+    public void MUser_ResolveSlotFromSources_HandlesNegativeNumbers(int negativeVal)
+    {
+        // Negative explicit slot falls through to env slot
+        var slotFromEnv = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(negativeVal, "2", 1, () => 0);
+        Assert.Equal(2, slotFromEnv);
+
+        // Negative env slot string falls through to profile slot
+        var slotFromProfile = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, negativeVal.ToString(), 3, () => 0);
+        Assert.Equal(3, slotFromProfile);
+
+        // All negative sources fall through to default slot 0
+        var slotDefault = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(negativeVal, negativeVal.ToString(), negativeVal, () => negativeVal);
+        Assert.Equal(0, slotDefault);
+    }
+
+    [Theory]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(10)]
+    [InlineData(100)]
+    [InlineData(int.MaxValue)]
+    public void MUser_ResolveSlotFromSources_HandlesOutOfRangeSlots(int outOfRangeVal)
+    {
+        // Out-of-range explicit slot falls through to env slot
+        var slotFromEnv = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(outOfRangeVal, "4", 1, () => 0);
+        Assert.Equal(4, slotFromEnv);
+
+        // Out-of-range env slot string falls through to profile slot
+        var slotFromProfile = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, outOfRangeVal.ToString(), 2, () => 0);
+        Assert.Equal(2, slotFromProfile);
+
+        // Out-of-range fallback delegate falls through to default slot 0
+        var slotDefault = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(outOfRangeVal, outOfRangeVal.ToString(), outOfRangeVal, () => outOfRangeVal);
+        Assert.Equal(0, slotDefault);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\t\r\n")]
+    public void MUser_ResolveSlotFromSources_HandlesMissingEnvironmentVariables(string? missingEnv)
+    {
+        // Missing env falls through to profile slot
+        var slotFromProfile = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, missingEnv, 3, null);
+        Assert.Equal(3, slotFromProfile);
+
+        // Missing env with no other source falls through to default slot 0
+        var slotDefault = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, missingEnv, -1, null);
+        Assert.Equal(0, slotDefault);
+    }
+
+    [Fact]
+    public void MUser_ResolveSlotFromSources_HandlesThrowingGameOptionsFallback()
+    {
+        var slot = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(
+            null,
+            null,
+            -1,
+            () => throw new InvalidOperationException("Simulated early game options uninitialized state"));
+
+        Assert.Equal(0, slot);
+    }
+
+    [Theory]
+    [InlineData("10:20", true, 10, 20)]
+    [InlineData("0:0", true, 0, 0)]
+    [InlineData("100:250", true, 100, 250)]
+    [InlineData("-5:12", true, -5, 12)]
+    [InlineData("invalid", false, 0, 0)]
+    [InlineData("10:", false, 0, 0)]
+    [InlineData(":20", false, 0, 0)]
+    [InlineData("", false, 0, 0)]
+    [InlineData(null, false, 0, 0)]
+    public void CombatSyncHelpers_TryParseDoorKey_ValidatesCoordinates(string? key, bool expectedSuccess, int expectedCx, int expectedCy)
+    {
+        var success = CombatSyncHelpers.TryParseDoorKey(key!, out var cx, out var cy);
+        Assert.Equal(expectedSuccess, success);
+        if (expectedSuccess)
+        {
+            Assert.Equal(expectedCx, cx);
+            Assert.Equal(expectedCy, cy);
+        }
+    }
+
+    [Fact]
+    public void BossCinePayload_BuildAndParse_RoundtripsAccurately()
+    {
+        var payload = CombatSyncHelpers.BuildBossCinePayload(
+            "BossLevel",
+            "roomDeath",
+            100.5,
+            200.5,
+            1,
+            150.0,
+            200.5,
+            -1);
+
+        var parsed = CombatSyncHelpers.TryParseBossCinePayload(
+            payload,
+            out var levelId,
+            out var eventId,
+            out var snapX,
+            out var snapY,
+            out var snapDir,
+            out var finalX,
+            out var finalY,
+            out var finalDir);
+
+        Assert.True(parsed);
+        Assert.Equal("BossLevel", levelId);
+        Assert.Equal("roomDeath", eventId);
+        Assert.True(snapX.HasValue && Math.Abs(snapX.Value - 100.5) < 0.001);
+        Assert.True(snapY.HasValue && Math.Abs(snapY.Value - 200.5) < 0.001);
+        Assert.Equal(1, snapDir);
+        Assert.True(finalX.HasValue && Math.Abs(finalX.Value - 150.0) < 0.001);
+        Assert.True(finalY.HasValue && Math.Abs(finalY.Value - 200.5) < 0.001);
+        Assert.Equal(-1, finalDir);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData("BossLevel", true)]
+    [InlineData("BossLevel|roomEvent", true)]
+    [InlineData("BossLevel|roomEvent|100.0|200.0", true)]
+    public void BossCinePayload_TryParse_HandlesVariousFormats(string? raw, bool expectedSuccess)
+    {
+        var success = CombatSyncHelpers.TryParseBossCinePayload(
+            raw,
+            out var levelId,
+            out var _,
+            out var _,
+            out var _,
+            out var _,
+            out var _,
+            out var _,
+            out var _);
+
+        Assert.Equal(expectedSuccess, success);
+        if (expectedSuccess)
+            Assert.Equal("BossLevel", levelId);
+    }
+
+    [Theory]
+    [InlineData(-10.0, 0.0)]
+    [InlineData(double.NegativeInfinity, 0.0)]
+    [InlineData(double.PositiveInfinity, 0.35)]
+    public void CombatSyncHelpers_ClampLandingStunDuration_HandlesExtremeValues(double duration, double expected)
+    {
+        var result = CombatSyncHelpers.ClampLandingStunDuration(duration, 0.35);
+        Assert.Equal(expected, result, precision: 3);
+    }
+
+    [Theory]
+    [InlineData("10:20", "10:20", -5, true)]
+    [InlineData("10:20", "11:20", -5, false)]
+    [InlineData("10:20", "10:21", -1, false)]
+    [InlineData("10:20", "10:20", -1, true)]
+    public void CombatSyncHelpers_IsDoorProximityMatch_ClampsNegativeThreshold(string k1, string k2, int threshold, bool expected)
+    {
+        var result = CombatSyncHelpers.IsDoorProximityMatch(k1, k2, threshold);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void BossCinePayload_TryParse_RejectsNonFiniteCoordinates()
+    {
+        var raw = "BossLevel|roomEvent|NaN|200.0|1|150.0|Infinity|-1";
+        var parsed = CombatSyncHelpers.TryParseBossCinePayload(
+            raw,
+            out var levelId,
+            out var eventId,
+            out var snapX,
+            out var snapY,
+            out var snapDir,
+            out var finalX,
+            out var finalY,
+            out var finalDir);
+
+        Assert.True(parsed);
+        Assert.Equal("BossLevel", levelId);
+        Assert.Equal("roomEvent", eventId);
+        Assert.Null(snapX); // NaN rejected
+        Assert.Equal(200.0, snapY);
+        Assert.Equal(1, snapDir);
+        Assert.Equal(150.0, finalX);
+        Assert.Null(finalY); // Infinity rejected
+        Assert.Equal(-1, finalDir);
+    }
+
+    [Fact]
+    public void MobWireBinary_TryParseMobStatesBinary_RejectsNonFiniteFloats()
+    {
+        var states = new List<NetNode.MobStateSnapshot>
+        {
+            new NetNode.MobStateSnapshot(1, 100.0, 200.0, 1, 50, 50, "idle", "", "", 0, 1.0, 0.0, 0.0)
+        };
+
+        var ok = MobWireBinary.TryBuildMobStatesBinary(states, out var bytes);
+        Assert.True(ok);
+        Assert.NotNull(bytes);
+
+        // Valid roundtrip
+        var dest = new List<NetNode.MobStateSnapshot>();
+        Assert.True(MobWireBinary.TryParseMobStatesBinary(bytes, dest));
+        Assert.Single(dest);
+        Assert.Equal(100.0, dest[0].X);
+
+        // Corrupt x with double.NaN
+        var corrupted = (byte[])bytes.Clone();
+        var nanBytes = BitConverter.GetBytes(double.NaN);
+        // ver(1) + count(2) + index(4) + gen(4) = 11 offset for x
+        Array.Copy(nanBytes, 0, corrupted, 11, 8);
+
+        var corruptDest = new List<NetNode.MobStateSnapshot>();
+        var corruptOk = MobWireBinary.TryParseMobStatesBinary(corrupted, corruptDest);
+        Assert.False(corruptOk);
+        Assert.Empty(corruptDest);
+    }
+
+    [Theory]
+    [InlineData("0x1")]
+    [InlineData("1e0")]
+    [InlineData("2.0")]
+    [InlineData("3,0")]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    public void MUser_ResolveSlotFromSources_RejectsNonStandardNumericFormats(string envSlot)
+    {
+        // Falls through to profile slot 4
+        var result = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, envSlot, 4, null);
+        Assert.Equal(4, result);
+    }
+
+    [Theory]
+    [InlineData("  0  ", 0)]
+    [InlineData("  3 \t\r\n", 3)]
+    [InlineData("+4", 4)]
+    [InlineData("5", 5)]
+    [InlineData("-0", 0)]
+    public void MUser_ResolveSlotFromSources_AcceptsFormattedValidIntegerStrings(string envSlot, int expected)
+    {
+        var result = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, envSlot, -1, null);
+        Assert.Equal(expected, result);
+    }
 }
+
 
 

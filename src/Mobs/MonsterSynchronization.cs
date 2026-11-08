@@ -142,9 +142,20 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
         internal static void QuiesceForLevelTransition()
         {
+            ClearCulledMobDeaths();
             s_syncQuiescedUntilTicks = System.Diagnostics.Stopwatch.GetTimestamp()
                 + (long)(System.Diagnostics.Stopwatch.Frequency * 8.0);
             Log.Information("[MobSync] quiesced for level transition");
+        }
+
+        public static void ClearCulledMobDeaths()
+        {
+            lock (Sync)
+            {
+                s_pendingCulledMobDeaths.Clear();
+                s_pendingCulledMobDeathFirstFrame.Clear();
+                s_pendingCulledMobDeathsScratch.Clear();
+            }
         }
 
         private static bool IsSyncQuiescedForTransition()

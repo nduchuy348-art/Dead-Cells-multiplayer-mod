@@ -333,10 +333,11 @@ public static class MultiplayerSettingsStorage
             lock (SyncRoot)
             {
                 var data = EnsureDataNormalizedUnsafe();
-                if (data.MultiplayerProfileSlot == value)
+                var normalizedSlot = (value >= -1 && value <= MUser.MaxSlot) ? value : -1;
+                if (data.MultiplayerProfileSlot == normalizedSlot)
                     return;
 
-                data.MultiplayerProfileSlot = value;
+                data.MultiplayerProfileSlot = normalizedSlot;
                 SaveUnsafe();
             }
         }
@@ -453,7 +454,7 @@ public static class MultiplayerSettingsStorage
             changed = true;
         }
 
-        if (data.MultiplayerProfileSlot < -1)
+        if (data.MultiplayerProfileSlot < -1 || data.MultiplayerProfileSlot > MUser.MaxSlot)
         {
             data.MultiplayerProfileSlot = -1;
             changed = true;

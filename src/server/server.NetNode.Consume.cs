@@ -42,7 +42,7 @@ public sealed partial class NetNode
     {
         lock (_sync)
         {
-            if (_primaryRemoteId != 0 && _remotes.TryGetValue(_primaryRemoteId, out var state) && state.HasRemote && state.HasPosition)
+            if (_primaryRemoteId != 0 && _remotes.TryGetValue(_primaryRemoteId, out var state) && state.HasRemote && state.HasPosition && double.IsFinite(state.X) && double.IsFinite(state.Y))
             {
                 remoteId = state.Id;
                 rx = state.X;
@@ -60,7 +60,7 @@ public sealed partial class NetNode
     {
         lock (_sync)
         {
-            if (userId > 0 && _remotes.TryGetValue(userId, out var state) && state.HasRemote && state.HasPosition)
+            if (userId > 0 && _remotes.TryGetValue(userId, out var state) && state.HasRemote && state.HasPosition && double.IsFinite(state.X) && double.IsFinite(state.Y))
             {
                 x = state.X;
                 y = state.Y;
@@ -103,7 +103,7 @@ public sealed partial class NetNode
             snapshot = RentConsumedList<RemoteSnapshot>(_remotes.Count);
             foreach (var state in _remotes.Values)
             {
-                if (!state.HasRemote || !state.HasPosition)
+                if (!state.HasRemote || !state.HasPosition || !double.IsFinite(state.X) || !double.IsFinite(state.Y))
                     continue;
 
                 var hasAnim = state.HasAnim;

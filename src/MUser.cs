@@ -242,6 +242,15 @@ namespace DeadCellsMultiplayerMod
             return IOPath.Combine(GetSaveRootPath(), MultiplayerSaveFolderName);
         }
 
+        internal const int MinSlot = 0;
+        internal const int MaxSlot = 5;
+        internal const int DefaultSlot = 0;
+
+        internal static bool IsValidSlot(int? slot)
+        {
+            return slot.HasValue && slot.Value >= MinSlot && slot.Value <= MaxSlot;
+        }
+
         internal static int ResolveSaveSlotNumber(int? slot)
         {
             return ResolveSlotFromSources(
@@ -257,17 +266,17 @@ namespace DeadCellsMultiplayerMod
             int profileSlot,
             Func<int?>? gameOptionsFallback = null)
         {
-            if (explicitSlot.HasValue && explicitSlot.Value >= 0)
-                return explicitSlot.Value;
+            if (IsValidSlot(explicitSlot))
+                return explicitSlot!.Value;
 
             if (!string.IsNullOrWhiteSpace(envSlot) &&
-                int.TryParse(envSlot, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedEnvSlot) &&
-                parsedEnvSlot >= 0)
+                int.TryParse(envSlot.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedEnvSlot) &&
+                IsValidSlot(parsedEnvSlot))
             {
                 return parsedEnvSlot;
             }
 
-            if (profileSlot >= 0)
+            if (IsValidSlot(profileSlot))
                 return profileSlot;
 
             if (gameOptionsFallback != null)
@@ -275,25 +284,28 @@ namespace DeadCellsMultiplayerMod
                 try
                 {
                     var current = gameOptionsFallback();
-                    if (current.HasValue && current.Value >= 0)
-                        return current.Value;
+                    if (IsValidSlot(current))
+                        return current!.Value;
                 }
                 catch
                 {
                 }
             }
 
-            return 0;
+            return DefaultSlot;
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private static int? TryGetGameOptionsSlot()
         {
+            if (ModEntry.IsGameShuttingDown || !ModEntry.IsGameInitialized)
+                return null;
+
             try
             {
                 var current = dc.Main.Class.ME?.options?.curSlot;
-                if (current.HasValue && current.Value >= 0)
-                    return current.Value;
+                if (IsValidSlot(current))
+                    return current!.Value;
             }
             catch
             {
@@ -303,14 +315,17 @@ namespace DeadCellsMultiplayerMod
 
         private static string GetSaveRootPath()
         {
-            try
+            if (!ModEntry.IsGameShuttingDown && ModEntry.IsGameInitialized)
             {
-                var saveRoot = dc.tool.File.Class.PATH?.ToString();
-                if (!string.IsNullOrWhiteSpace(saveRoot))
-                    return IOPath.GetFullPath(saveRoot);
-            }
-            catch
-            {
+                try
+                {
+                    var saveRoot = dc.tool.File.Class.PATH?.ToString();
+                    if (!string.IsNullOrWhiteSpace(saveRoot))
+                        return IOPath.GetFullPath(saveRoot);
+                }
+                catch
+                {
+                }
             }
 
             try

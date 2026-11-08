@@ -143,7 +143,7 @@ internal static class MobSyncTrace
 
         MinMaxSyncId(moves, static m => m.Index, out var minId, out var maxId);
         Log.Information(
-            "[MobSync] в†’ SEND moves {Role} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
+            "[MobSync] -> SEND moves {Role} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
             role,
             moves.Count,
             minId,
@@ -185,7 +185,7 @@ internal static class MobSyncTrace
 
         MinMaxSyncId(moves, static m => m.Index, out var minId, out var maxId);
         Log.Information(
-            "[MobSync] в†ђ RECV moves {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
+            "[MobSync] <- RECV moves {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
             context,
             moves.Count,
             minId,

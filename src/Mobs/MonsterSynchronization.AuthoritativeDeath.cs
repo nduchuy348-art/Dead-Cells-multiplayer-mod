@@ -271,12 +271,16 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     });
                 });
 
-                var animManager = GetMobAnimManager(mob);
-                if (animManager?.stack != null)
+                try
                 {
-                    while (animManager.stack.length > 0)
-                        animManager.stack.pop();
+                    var animManager = GetMobAnimManager(mob);
+                    if (animManager?.stack != null)
+                    {
+                        while (animManager.stack.length > 0)
+                            animManager.stack.pop();
+                    }
                 }
+                catch { }
 
                 try
                 {

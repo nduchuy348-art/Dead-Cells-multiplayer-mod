@@ -59,6 +59,41 @@ namespace DeadCellsMultiplayerMod
     {
         public static ModEntry? Instance { get; private set; }
         private bool _ready;
+
+        internal static bool IsGameInitialized
+        {
+            get
+            {
+                try
+                {
+                    if (IsGameShuttingDown)
+                        return false;
+                    return Instance != null && Instance._ready && dc.Main.Class.ME != null;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+        internal static bool IsGameShuttingDown
+        {
+            get
+            {
+                try
+                {
+                    if (Environment.HasShutdownStarted || AppDomain.CurrentDomain.IsFinalizingForUnload())
+                        return true;
+                    return s_multiplayerShutdownStarted != 0;
+                }
+                catch
+                {
+                    return true;
+                }
+            }
+        }
+
         private static bool s_hooksInstalled;
         private static IDisposable? s_steamOverlayJoinCallback;
         private static IDisposable? s_steamRichPresenceJoinCallback;
@@ -473,13 +508,14 @@ namespace DeadCellsMultiplayerMod
         /// </summary>
         private void ApplySaveSlotEnvOverride()
         {
-            if (s_saveSlotOverrideApplied)
+            if (IsGameShuttingDown || s_saveSlotOverrideApplied)
                 return;
 
             var envSlot = Environment.GetEnvironmentVariable("DCCM_SAVE_SLOT");
             if (string.IsNullOrWhiteSpace(envSlot))
                 return;
-            if (!int.TryParse(envSlot, out var slotOverride) || slotOverride < 0)
+            if (!int.TryParse(envSlot.Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var slotOverride) ||
+                !MUser.IsValidSlot(slotOverride))
                 return;
 
             var options = dc.Main.Class.ME?.options;
@@ -497,6 +533,7 @@ namespace DeadCellsMultiplayerMod
         public override void Initialize()
         {
             Instance = this;
+            EnsureSteamProcessExitHook();
 
             // Per-process save slot override for local co-op testing (two game processes on one
             // machine). options.curSlot lives in a shared config file, so both instances converge
@@ -989,6 +1026,9 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook_User_unserialize(Hook_User.orig_unserialize orig, User self, dc.hxbit.Serializer v)
         {
+            if (self == null || v == null)
+                return;
+
             using (GameDataSync.BeginLocalSerializerSaveScope("User.unserialize"))
             {
                 orig(self, v);
@@ -1015,12 +1055,22 @@ namespace DeadCellsMultiplayerMod
         {
             using (GameDataSync.BeginLocalSerializerSaveScope("Save.tryLoad"))
             {
-                return orig();
+                try
+                {
+                    return orig();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warning("[NetMod] Save.tryLoad failed with exception: {Message}", ex.Message);
+                    return null!;
+                }
             }
         }
 
         private void Hook__Save_save(Hook__Save.orig_save orig, User u, bool onlyGameData)
         {
+            if (u == null)
+                return;
 
             // Never let multiplayer GhostKing / KingSkin avatars enter MSave. A persisted GhostKing
             // reloads through KingSkin.initGfx with a null cooldown map and fatals the game.
@@ -1339,6 +1389,7 @@ namespace DeadCellsMultiplayerMod
 
         public void hook_level_changed(Hook_Hero.orig_onLevelChanged orig, Hero self, Level oldLevel)
         {
+            AbortActiveBossCinematicForTransition("level-changed");
             kingInitialized = false;
             _net?.ClearMobSyncQueues();
             _pendingBossCineApplyByLevel.Clear();

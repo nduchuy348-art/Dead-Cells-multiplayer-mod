@@ -1692,8 +1692,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
             try
             {
+                if (mob.destroyed)
+                    return false;
                 var attackTarget = mob.aTarget;
-                if (attackTarget != null && IsPreservablePlayerCombatTargetForMob(mob, attackTarget))
+                if (attackTarget != null && !attackTarget.destroyed && IsPreservablePlayerCombatTargetForMob(mob, attackTarget))
                 {
                     target = attackTarget;
                     return true;
@@ -1714,8 +1716,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
             try
             {
+                if (mob.destroyed)
+                    return false;
                 var nemesisTarget = mob.nemesisTarget;
-                if (nemesisTarget != null && IsPreservablePlayerCombatTargetForMob(mob, nemesisTarget))
+                if (nemesisTarget != null && !nemesisTarget.destroyed && IsPreservablePlayerCombatTargetForMob(mob, nemesisTarget))
                 {
                     target = nemesisTarget;
                     return true;
@@ -1753,6 +1757,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
         private static void TrySetClientMobAttackTarget(Mob mob, int targetUserId, int attackDir, bool forceRetarget = false)
         {
+            if (mob == null)
+                return;
+            try { if (mob.destroyed) return; } catch { return; }
+
             Entity? target = null;
 
             lock (Sync)
@@ -1764,6 +1772,11 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 {
                     target = cached;
                 }
+            }
+
+            if (target != null)
+            {
+                try { if (target.destroyed) target = null; } catch { target = null; }
             }
 
             if (target == null)
@@ -1874,7 +1887,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             if (targetUserId == localId)
             {
                 var localHero = ModEntry.me ?? ModCore.Modules.Game.Instance?.HeroInstance;
-                if (localHero != null && IsPreservablePlayerCombatTargetForMob(mob, localHero))
+                if (localHero != null && !localHero.destroyed && IsPreservablePlayerCombatTargetForMob(mob, localHero))
                 {
                     target = localHero;
                     return true;
@@ -1887,7 +1900,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 return false;
 
             var client = ModEntry.clients[index];
-            if (client == null || !IsPreservablePlayerCombatTargetForMob(mob, client))
+            if (client == null || client.destroyed || !IsPreservablePlayerCombatTargetForMob(mob, client))
                 return false;
 
             target = client;
@@ -1898,18 +1911,19 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         {
             if (mob == null)
                 return null;
+            try { if (mob.destroyed) return null; } catch { return null; }
             if (!IsMobHostileToPlayers(mob))
                 return null;
 
             s_clientDetectedTargetsScratch.Clear();
             var hero = ModEntry.me ?? ModCore.Modules.Game.Instance?.HeroInstance;
-            if (hero != null)
+            if (hero != null && !hero.destroyed)
                 s_clientDetectedTargetsScratch.Add(hero);
 
             for (int i = 0; i < ModEntry.clients.Length; i++)
             {
                 var client = ModEntry.clients[i];
-                if (client != null)
+                if (client != null && !client.destroyed)
                     s_clientDetectedTargetsScratch.Add(client);
             }
 
@@ -1921,7 +1935,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             for (int i = 0; i < s_clientDetectedTargetsScratch.Count; i++)
             {
                 var candidate = s_clientDetectedTargetsScratch[i];
-                if (candidate == null || ReferenceEquals(candidate, mob))
+                if (candidate == null || candidate.destroyed || ReferenceEquals(candidate, mob))
                     continue;
                 if (!IsAcquirablePlayerCombatTargetForMob(mob, candidate, requireDetectArea: true))
                     continue;
@@ -1997,6 +2011,24 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             catch
             {
             }
+
+            try
+            {
+                var animManager = GetMobAnimManager(mob);
+                if (animManager?.stack != null)
+                {
+                    while (animManager.stack.length > 0)
+                        animManager.stack.pop();
+                }
+            }
+            catch { }
+
+            try
+            {
+                mob.onDieDone = true;
+                mob.destroy();
+            }
+            catch { }
 
             try
             {

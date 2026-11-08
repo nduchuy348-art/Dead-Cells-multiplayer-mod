@@ -126,7 +126,11 @@ namespace DeadCellsMultiplayerMod
             }
 
             if (_netRole != NetRole.None && me != null && ReferenceEquals(self, me))
+            {
                 RecordLocalDamageContext(disengageRatio);
+                ResetReviveHold();
+                ClearReviveHints();
+            }
 
             orig(self, disengageRatio);
         }
@@ -483,6 +487,9 @@ namespace DeadCellsMultiplayerMod
                     if (req.TargetId != localId)
                         continue;
 
+                    if (req.ReviverId <= 0 || IsRemotePlayerDowned(req.ReviverId))
+                        continue;
+
                     if (_localDeadCine == null)
                         continue;
 
@@ -585,30 +592,24 @@ namespace DeadCellsMultiplayerMod
 
         private bool HasAliveRemoteTeammate(NetNode net)
         {
+            if (net == null || !net.IsAlive || !net.IsConnected)
+                return false;
+
             var localId = net.id;
             _scratchRemoteActiveIds.Clear();
-            net.CopyRemoteUserIdsTo(_scratchRemoteActiveIds, includePrimary: false);
-
-            for (int i = 0; i < clientIds.Length; i++)
-            {
-                var id = clientIds[i];
-                if (id > 0 && id != localId)
-                    _scratchRemoteActiveIds.Add(id);
-            }
+            net.CopyRemoteUserIdsTo(_scratchRemoteActiveIds, includePrimary: true);
 
             if (_scratchRemoteActiveIds.Count == 0)
             {
-                if (_remoteDowned.Count > 0)
-                    return false;
-
-                if (net.IsHost)
-                    return NetNode.ConnectedClientCount > 0;
-                return net.IsAlive;
+                return false;
             }
 
             var localLevelId = GetCurrentLevelId();
             foreach (var id in _scratchRemoteActiveIds)
             {
+                if (id <= 0 || id == localId)
+                    continue;
+
                 if (!_remoteDowned.TryGetValue(id, out var downed))
                     return true;
 
@@ -664,6 +665,8 @@ namespace DeadCellsMultiplayerMod
             try
             {
                 AbortLocalDiveStateForFakeDeath(hero, "enter-fake-death");
+                ResetReviveHold();
+                ClearReviveHints();
                 ResetAllDownedGameOverState();
                 _localExitPenaltyApplied = false;
                 _localFakeDeadStartedTicks = Stopwatch.GetTimestamp();
@@ -984,7 +987,22 @@ namespace DeadCellsMultiplayerMod
             if (nearest == null)
             {
                 ResetReviveHold();
+                ClearReviveHints();
                 return;
+            }
+
+            // Knockback interrupt check: abort revive holding if hero experiences knockback velocity
+            try
+            {
+                if (Math.Abs(me.bdx) > 0.1 || Math.Abs(me.bdy) > 0.1)
+                {
+                    ResetReviveHold();
+                    ClearReviveHints();
+                    return;
+                }
+            }
+            catch
+            {
             }
 
             ShowReviveHintFor(nearest.UserId);
@@ -1287,14 +1305,24 @@ namespace DeadCellsMultiplayerMod
             SnapHeroToDownedPosition(me, _localHeldX, _localHeldY, clampToGround: true);
             SendLocalDownedState(net, isDowned: true, force: false);
 
-            if (_allDownedRestartQueued || _netRole != NetRole.Host)
+            if (_allDownedRestartQueued)
                 return;
 
             if (_allDownedRestartAtTicks != 0 && now < _allDownedRestartAtTicks)
                 return;
 
-            _allDownedRestartQueued = true;
-            LobbySession.QueueHostRestartFromDeath("all_players_downed");
+            if (_netRole == NetRole.Host)
+            {
+                _allDownedRestartQueued = true;
+                LobbySession.QueueHostRestartFromDeath("all_players_downed");
+            }
+            else if (!net.IsConnected)
+            {
+                // Client whose host disconnected while downed: recover cleanly without infinite hang
+                _allDownedRestartQueued = true;
+                MultiplayerUI.PushSystemMessage(Localize("Host disconnected. Run ended."));
+                ResetFakeDeathState(unlockLocalHero: true, sendNetworkUpState: false);
+            }
         }
 
         private void ShowAllDownedGameOverLogo()

@@ -629,7 +629,7 @@ namespace DeadCellsMultiplayerMod
 
         internal static int GetBinding(ArrayBytes_Int? bindings, int actionCode)
         {
-            if (bindings == null)
+            if (bindings == null || bindings.bytes == IntPtr.Zero)
                 return -1;
             if ((uint)actionCode >= (uint)bindings.length)
                 return 0;
@@ -919,6 +919,9 @@ namespace DeadCellsMultiplayerMod
 
         internal static void SetCurrentSaveSlot(int slot)
         {
+            if (!MUser.IsValidSlot(slot))
+                return;
+
             try
             {
                 MultiplayerSettingsStorage.MultiplayerProfileSlot = slot;

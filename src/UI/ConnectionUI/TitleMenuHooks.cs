@@ -155,7 +155,10 @@ namespace DeadCellsMultiplayerMod
                 try
                 {
                     _forceMultiplayerSaveStore = true;
-                    callback();
+                    using (GameDataSync.BeginLocalSerializerSaveScope("TitleMenuHooks.QuitCallback"))
+                    {
+                        callback();
+                    }
                 }
                 catch (Exception ex)
                 {

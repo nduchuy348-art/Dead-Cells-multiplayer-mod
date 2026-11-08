@@ -354,6 +354,9 @@ namespace DeadCellsMultiplayerMod
             if (state == null || client == null || me == null)
                 return null;
 
+            if (client.destroyed || client._level == null || client._level.destroyed || client._level.viewport == null)
+                return null;
+
             if (_remoteDownedCines.TryGetValue(state.UserId, out var existing))
             {
                 if (existing != null)

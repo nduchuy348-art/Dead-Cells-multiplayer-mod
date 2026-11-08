@@ -237,7 +237,7 @@ namespace DeadCellsMultiplayerMod.KingHead
         }
         public override void updateHeadFx(double c1)
         {
-            if (king == null)
+            if (king == null || king.destroyed)
             {
                 return;
             }
@@ -273,7 +273,7 @@ namespace DeadCellsMultiplayerMod.KingHead
         {
             var hero = me;
             var ghost = king;
-            if (hero == null || ghost == null || ghost.spr == null)
+            if (hero == null || hero.destroyed || ghost == null || ghost.destroyed || ghost.spr == null)
             {
                 return;
             }

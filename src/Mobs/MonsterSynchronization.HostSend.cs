@@ -604,7 +604,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 return true;
 
             Entity? explicitTarget = null;
-            try { explicitTarget = ownerMob.aTarget; } catch { }
+            try { var t = ownerMob.aTarget; if (t != null && !t.destroyed) explicitTarget = t; } catch { }
             TrySendHostMobAttack(ownerMob, OldSkillPreparePacketPrefix + skillId, false, data, explicitTarget);
             return true;
         }
@@ -666,7 +666,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 return true;
 
             Entity? explicitTarget = null;
-            try { explicitTarget = ownerMob.aTarget; } catch { }
+            try { var t = ownerMob.aTarget; if (t != null && !t.destroyed) explicitTarget = t; } catch { }
             TrySendHostMobAttack(ownerMob, OldSkillPreparePacketPrefix + skillId, false, e, explicitTarget);
             return true;
         }

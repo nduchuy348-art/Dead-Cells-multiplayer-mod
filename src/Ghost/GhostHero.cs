@@ -78,7 +78,11 @@ namespace DeadCellsMultiplayerMod
             }
             if (!string.IsNullOrWhiteSpace(label))
                 SetLabel(king, label);
-            king.spr._animManager.play("idle".AsHaxeString(), null, null).loop(null);
+            try
+            {
+                king.spr?._animManager?.play("idle".AsHaxeString(), null, null)?.loop(null);
+            }
+            catch { }
             return king;
         }
 
@@ -90,7 +94,7 @@ namespace DeadCellsMultiplayerMod
             if (ReferenceEquals(king, k))
                 king = null!;
 
-            // Лейблы теперь управляются GhostLabelManager автоматически
+            // Labels are now managed by GhostLabelManager automatically.
 
             DisposeKingRuntime(k);
         }
@@ -228,13 +232,13 @@ namespace DeadCellsMultiplayerMod
 
         public void SetLabel(Entity entity, string? text)
         {
-            // Делегируем новой системе рендеринга
+            // Delegate to the new rendering system
             _labelManager.SetLabel(entity, text);
         }
 
         public void UpdateLabels()
         {
-            // Делегируем новой системе рендеринга
+            // Delegate to the new rendering system
             _labelManager.UpdateLabels();
         }
 

@@ -401,15 +401,17 @@ namespace DeadCellsMultiplayerMod
         private void SendHeroCoords()
         {
             if (_netRole == NetRole.None) return;
-            if (_net == null || me == null) return;
+            if (_net == null || me == null || me.destroyed || me.spr == null) return;
             int dir = me.dir;
 
             // Always send X/Y/dir. Skipping unchanged frames let peer GhostKing physics drift
             // the remote Y while the local player stood still (no correction packets).
             var positionLevelId = GetPositionLevelIdCached();
-            _net.TickSend(me.spr.x, me.spr.y, dir, positionLevelId);
-            last_x = me.spr.x;
-            last_y = me.spr.y;
+            var sprX = me.spr.x;
+            var sprY = me.spr.y;
+            _net.TickSend(sprX, sprY, dir, positionLevelId);
+            last_x = sprX;
+            last_y = sprY;
             lastDir = dir;
         }
 
@@ -875,6 +877,8 @@ namespace DeadCellsMultiplayerMod
         private GhostKing? EnsureClientKingSlot(int slot)
         {
             var existingDuringTransition = slot >= 0 && slot < clients.Length ? clients[slot] : null;
+            if (existingDuringTransition != null && existingDuringTransition.destroyed)
+                existingDuringTransition = null;
             if (IsRemoteKingTransitionActive || IsRemoteKingCreationBlocked)
                 return existingDuringTransition;
 
@@ -885,7 +889,12 @@ namespace DeadCellsMultiplayerMod
 
             var existing = clients[slot];
             if (existing != null)
-                return existing;
+            {
+                if (!existing.destroyed)
+                    return existing;
+
+                DisposeClientSlot(slot, clearIdentity: false);
+            }
 
             if (_ghost == null || me == null || me._level == null)
                 return null;
@@ -1491,9 +1500,14 @@ namespace DeadCellsMultiplayerMod
             if (client != null)
             {
                 try { client.PrepareForNetworkTransition(); } catch { }
-                client.destroy();
-                client.dispose();
-                client.disposeGfx();
+                try
+                {
+                    if (!client.destroyed)
+                        client.destroy();
+                }
+                catch { }
+                try { client.dispose(); } catch { }
+                try { client.disposeGfx(); } catch { }
             }
             clients[slot] = null!;
             clientLastBodyAnims[slot] = null;
@@ -2020,23 +2034,32 @@ namespace DeadCellsMultiplayerMod
                 anim.IndexOf("block", StringComparison.OrdinalIgnoreCase) >= 0)
                 return;
 
-            var animManager = client.spr!._animManager;
-            var current = client.spr.groupName;
+            var spr = client.spr;
+            if (spr == null)
+                return;
+            var animManager = spr._animManager;
+            if (animManager == null)
+                return;
+            var current = spr.groupName;
             if(!IsAttackAnim(anim) && current != null && string.Equals(current.ToString(), anim, StringComparison.Ordinal))
                 return;
 
-            if (ShouldLoopRemoteAnim(anim))
+            try
             {
-                if (!shieldActive)
+                if (ShouldLoopRemoteAnim(anim))
                 {
-                    client.removeAllAffects(96);
-                    client.removeAllAffects(98);
-                    client.removeAllAffects(99);
+                    if (!shieldActive)
+                    {
+                        client.removeAllAffects(96);
+                        client.removeAllAffects(98);
+                        client.removeAllAffects(99);
+                    }
+                    animManager.play(anim.AsHaxeString(), null, null)?.loop(null);
+                    return;
                 }
-                animManager.play(anim.AsHaxeString(), null, null).loop(null);
-                return;
+                animManager.play(anim.AsHaxeString(), queueAnim, g)?.stopOnLastFrame(Ref<bool>.Null);
             }
-            animManager.play(anim.AsHaxeString(), queueAnim, g).stopOnLastFrame(Ref<bool>.Null);
+            catch { }
         }
 
         private static bool ShouldLoopRemoteAnim(string anim)
@@ -2093,11 +2116,16 @@ namespace DeadCellsMultiplayerMod
 
         private void PlayGhostHeadAnim(GhostKing client, string anim)
         {
-            if (client == null || client?.head == null || client?.head?.customHeadSpr._animManager == null) return;
+            if (client == null || client.destroyed || client.head == null || client.head.customHeadSpr == null) return;
             if (string.IsNullOrWhiteSpace(anim)) return;
             var animManager = client.head.customHeadSpr._animManager;
-            animManager.play(anim.AsHaxeString(), null, null).loop(null);
-            animManager.genSpeed = 0.4;
+            if (animManager == null) return;
+            try
+            {
+                animManager.play(anim.AsHaxeString(), null, null)?.loop(null);
+                animManager.genSpeed = 0.4;
+            }
+            catch { }
         }
 
         private void SendHeroAnim(string anim, int? queueAnim, bool? g, bool force = false)
@@ -2455,6 +2483,13 @@ namespace DeadCellsMultiplayerMod
             }
 
             ClearCoopGhostRuntimeRefs();
+            try
+            {
+                global::DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ClearCulledMobDeaths();
+            }
+            catch
+            {
+            }
         }
 
         private void ClearCoopGhostRuntimeRefs()
@@ -2496,6 +2531,13 @@ namespace DeadCellsMultiplayerMod
             }
 
             ClearCoopGhostRuntimeRefs();
+            try
+            {
+                global::DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ClearCulledMobDeaths();
+            }
+            catch
+            {
+            }
         }
 
         internal void HandleNetworkDisconnectGhostCleanup(NetRole role)
@@ -2525,6 +2567,17 @@ namespace DeadCellsMultiplayerMod
                     try
                     {
                         DisposeClientSlot(i, clearIdentity: true);
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                if (activeRemoteIds.Count == 0)
+                {
+                    try
+                    {
+                        global::DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ClearCulledMobDeaths();
                     }
                     catch
                     {

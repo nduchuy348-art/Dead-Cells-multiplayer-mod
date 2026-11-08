@@ -156,9 +156,11 @@ public sealed partial class NetNode
 
     private static string BuildPosLine(int id, double cx, double cy, int dir, string? levelId = null, long positionSequence = 0)
     {
+        var safeCx = double.IsFinite(cx) ? cx : 0.0;
+        var safeCy = double.IsFinite(cy) ? cy : 0.0;
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{id}|{cx}|{cy}|{dir}|{SanitizeWireToken(levelId)}|{positionSequence}\n");
+            $"{id}|{safeCx}|{safeCy}|{dir}|{SanitizeWireToken(levelId)}|{positionSequence}\n");
     }
 
     /// <summary>

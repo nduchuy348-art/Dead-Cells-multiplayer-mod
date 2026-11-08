@@ -187,6 +187,26 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                             s_clientBossAuthoritativeZeroLifeFrame.Remove(mob);
                         }
                     }
+                    else if (!BossSyncHelpers.IsBossMob(mob))
+                    {
+                        try
+                        {
+                            var animManager = GetMobAnimManager(mob);
+                            if (animManager?.stack != null)
+                            {
+                                while (animManager.stack.length > 0)
+                                    animManager.stack.pop();
+                            }
+                        }
+                        catch { }
+
+                        try
+                        {
+                            mob.onDieDone = true;
+                            mob.destroy();
+                        }
+                        catch { }
+                    }
 
                 }
                 catch

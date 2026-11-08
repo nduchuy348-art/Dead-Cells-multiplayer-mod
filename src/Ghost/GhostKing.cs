@@ -134,11 +134,35 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
         {
             var hero = ModEntry.me;
             if (hero != null)
+            {
+                try
+                {
+                    if (hero.destroyed)
+                        return null;
+                }
+                catch
+                {
+                    return null;
+                }
                 return hero;
+            }
 
             try
             {
-                return ModCore.Modules.Game.Instance?.HeroInstance;
+                var fallback = ModCore.Modules.Game.Instance?.HeroInstance;
+                if (fallback != null)
+                {
+                    try
+                    {
+                        if (fallback.destroyed)
+                            return null;
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }
+                return fallback;
             }
             catch
             {
@@ -1392,6 +1416,8 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void SetPuppetVisible(bool visible)
         {
+            if (destroyed)
+                return;
             try { spr?.set_visible(visible); } catch { }
             try { head?.customHeadSpr?.set_visible(visible); } catch { }
             try { head?.customBackSpr?.set_visible(visible); } catch { }
@@ -1419,7 +1445,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public override void initGfx()
         {
-            if (IsUnsafePersistedInstance())
+            if (destroyed || IsUnsafePersistedInstance())
                 return;
 
             base.initGfx();
@@ -1443,16 +1469,21 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
             this.initColorMap(skinInfo);
 
             ArrayObj glowData = CdbTypeConverter.Class.getGlowData(skinInfo);
-            if (glowData != null && glowData.length > 0)
+            if (glowData != null && glowData.length > 0 && this.spr != null)
             {
-                GlowKey glowKey = (GlowKey)this.spr.getShader(GlowKey.Class);
-                if (glowKey == null)
+                try
                 {
-                    glowKey = new GlowKey(null);
-                    this.spr.addShader(glowKey);
+                    GlowKey glowKey = (GlowKey)this.spr.getShader(GlowKey.Class);
+                    if (glowKey == null)
+                    {
+                        glowKey = new GlowKey(null);
+                        this.spr.addShader(glowKey);
+                    }
+                    glowKey.setGlowDatas(glowData);
                 }
-                glowKey.setGlowDatas(glowData);
-                
+                catch
+                {
+                }
             }
 
 
@@ -1495,6 +1526,9 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void ApplyRemoteSkin(string? skin)
         {
+            if (destroyed || IsUnsafePersistedInstance())
+                return;
+
             var cleaned = NormalizeBodySkinId(skin);
             if (string.Equals(RemoteSkinId, cleaned, StringComparison.Ordinal))
                 return;
@@ -1545,11 +1579,15 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public override void onActivate(Hero by, bool longPress)
         {
+            if (destroyed || by == null || by.destroyed)
+                return;
             base.onActivate(by, longPress);
         }
 
         public override void fixedUpdate()
         {
+            if (destroyed)
+                return;
             EnsureRuntimeDependencies();
             base.fixedUpdate();
             scarf?.push(0.0, Ref<bool>.Null);
@@ -1557,6 +1595,8 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public override void postUpdate()
         {
+            if (destroyed)
+                return;
             base.postUpdate();
             scarf?.postUpdate();
 

@@ -226,7 +226,10 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
         private static bool TrySetHostCombatTargetExact(Mob mob, Entity target, bool allowUnlockStaleAi)
         {
-            if (mob == null || target == null || !IsPreservablePlayerCombatTargetForMob(mob, target))
+            if (mob == null || target == null)
+                return false;
+            try { if (mob.destroyed || target.destroyed) return false; } catch { return false; }
+            if (!IsPreservablePlayerCombatTargetForMob(mob, target))
                 return false;
 
             var changed = false;
