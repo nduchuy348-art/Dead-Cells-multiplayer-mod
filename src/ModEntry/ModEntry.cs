@@ -651,6 +651,7 @@ namespace DeadCellsMultiplayerMod
             Hook_User.unserialize += Hook_User_unserialize;
             Hook_Game.onDispose += Hook_Game_onDispose;
             Hook__Save.save += Hook__Save_save;
+            Hook__Save.tryLoad += Hook__Save_tryLoad;
             Hook_AnimManager.play += Hook_AnimManager_play;
             Hook_MiniMap.track += Hook_MiniMap_track;
             Hook__LevelStruct.get += Hook__LevelStruct_get;
@@ -1008,6 +1009,14 @@ namespace DeadCellsMultiplayerMod
             }
 
             orig(self);
+        }
+
+        private User Hook__Save_tryLoad(Hook__Save.orig_tryLoad orig)
+        {
+            using (GameDataSync.BeginLocalSerializerSaveScope("Save.tryLoad"))
+            {
+                return orig();
+            }
         }
 
         private void Hook__Save_save(Hook__Save.orig_save orig, User u, bool onlyGameData)
@@ -1435,7 +1444,7 @@ namespace DeadCellsMultiplayerMod
 
                 if (duration >= 0.4)
                 {
-                    self.landStun(System.Math.Min(duration, 0.3), true);
+                    self.landStun(DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.ClampLandingStunDuration(duration, 0.35), true);
                     self.spr?._animManager?.play("crouch".AsHaxeString(), null, null);
                 }
                 else

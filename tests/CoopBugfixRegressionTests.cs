@@ -409,6 +409,36 @@ public sealed class CoopBugfixRegressionTests
         // Priority 5: Default slot 0
         Assert.Equal(0, DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, null, -1, null));
     }
+
+    [Theory]
+    [InlineData(0.0, 0.0)]
+    [InlineData(-1.0, 0.0)]
+    [InlineData(double.NaN, 0.0)]
+    [InlineData(0.1, 0.1)]
+    [InlineData(0.3, 0.3)]
+    [InlineData(0.35, 0.35)]
+    [InlineData(0.4, 0.35)]
+    [InlineData(1.0, 0.35)]
+    [InlineData(5.0, 0.35)]
+    public void ClampLandingStunDuration_ClampsExcessiveStun(double duration, double expected)
+    {
+        var result = CombatSyncHelpers.ClampLandingStunDuration(duration, 0.35);
+        Assert.Equal(expected, result, precision: 3);
+    }
+
+    [Theory]
+    [InlineData("10:20", "10:20", 6, true)] // Identical door
+    [InlineData("10:20", "12:22", 6, true)] // Within 6 tiles (dx=2, dy=2)
+    [InlineData("10:20", "16:26", 6, true)] // Exactly 6 tiles (dx=6, dy=6)
+    [InlineData("10:20", "17:20", 6, false)] // dx=7, exceeds 6
+    [InlineData("10:20", "10:27", 6, false)] // dy=7, exceeds 6
+    [InlineData("invalid", "10:20", 6, false)] // Invalid format
+    [InlineData(null, "10:20", 6, false)] // Null key
+    public void CombatSyncHelpers_IsDoorProximityMatch_ValidatesProximity(string? k1, string? k2, int threshold, bool expected)
+    {
+        var result = CombatSyncHelpers.IsDoorProximityMatch(k1!, k2!, threshold);
+        Assert.Equal(expected, result);
+    }
 }
 
 

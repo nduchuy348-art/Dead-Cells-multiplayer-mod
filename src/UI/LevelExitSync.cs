@@ -1074,19 +1074,16 @@ public class LevelExitSync :
         if (_readyPlayerCounts.TryGetValue(doorKey, out var ready) && ready >= expected)
             return true;
 
-        if (TryParseDoorKey(doorKey, out var targetCx, out var targetCy))
+        if (TryParseDoorKey(doorKey, out _, out _))
         {
             var nearbyReady = 0;
             foreach (var kvp in _readyPlayerCounts)
             {
-                if (TryParseDoorKey(kvp.Key, out var kCx, out var kCy))
+                if (IsDoorProximityMatch(doorKey, kvp.Key, 6))
                 {
-                    if (System.Math.Abs(kCx - targetCx) <= 6 && System.Math.Abs(kCy - targetCy) <= 6)
-                    {
-                        nearbyReady += kvp.Value;
-                        if (nearbyReady >= expected)
-                            return true;
-                    }
+                    nearbyReady += kvp.Value;
+                    if (nearbyReady >= expected)
+                        return true;
                 }
             }
         }
@@ -1256,19 +1253,14 @@ public class LevelExitSync :
         return string.Create(CultureInfo.InvariantCulture, $"{cx}:{cy}");
     }
 
-    private static bool TryParseDoorKey(string key, out int cx, out int cy)
+    internal static bool IsDoorProximityMatch(string doorKey1, string doorKey2, int threshold = 6)
     {
-        cx = 0;
-        cy = 0;
-        if (string.IsNullOrWhiteSpace(key))
-            return false;
+        return DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.IsDoorProximityMatch(doorKey1, doorKey2, threshold);
+    }
 
-        var sep = key.IndexOf(':');
-        if (sep <= 0 || sep >= key.Length - 1)
-            return false;
-
-        return int.TryParse(key.AsSpan(0, sep), NumberStyles.Integer, CultureInfo.InvariantCulture, out cx) &&
-               int.TryParse(key.AsSpan(sep + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out cy);
+    internal static bool TryParseDoorKey(string key, out int cx, out int cy)
+    {
+        return DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.TryParseDoorKey(key, out cx, out cy);
     }
 
     private Entity? FindExitTargetByDoorKey(Level? level, string key)

@@ -783,6 +783,22 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 if (mob.destroyed)
                     return true;
 
+                // Silently hide visuals before triggering onDie so Player 2 does not observe
+                // enemies spontaneously collapsing when entering previously cleared rooms.
+                try
+                {
+                    if (mob.spr != null)
+                    {
+                        mob.spr.visible = false;
+                        mob.spr.alpha = 0.0;
+                    }
+                    mob.isOutOfGame = true;
+                    mob.isOnScreen = false;
+                }
+                catch
+                {
+                }
+
                 RunWithAuthoritativeClientMobDie(mob, () =>
                 {
                     RunWithSuppressedMobDieSend(() =>
@@ -797,6 +813,15 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 {
                     while (animManager.stack.length > 0)
                         animManager.stack.pop();
+                }
+
+                try
+                {
+                    mob.onDieDone = true;
+                    mob.destroy();
+                }
+                catch
+                {
                 }
             }
             catch

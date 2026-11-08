@@ -1063,6 +1063,11 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             if (!IsPreservablePlayerCombatTargetEntity(entity))
                 return false;
 
+            // Remote players are always hostile opponents to hostile mobs; do not let vanilla
+            // isOpponent reject KingSkin/GhostKing puppet shells.
+            if (IsRemotePlayerCombatShell(entity))
+                return true;
+
             try
             {
                 if (!mob.isOpponent(entity))
@@ -1260,7 +1265,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
             try
             {
-                if (safeEntity is DeadCellsMultiplayerMod.Ghost.GhostBase.GhostKing)
+                if (safeEntity is KingSkin || safeEntity is DeadCellsMultiplayerMod.Ghost.GhostBase.GhostKing)
                     return safeEntity.destroyed || safeEntity.life <= 0;
                 return safeEntity.destroyed || safeEntity.life <= 0 || !safeEntity._targetable;
             }

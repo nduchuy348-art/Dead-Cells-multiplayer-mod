@@ -609,6 +609,38 @@ public static class CombatSyncHelpers
         }
     }
 
+    public static double ClampLandingStunDuration(double duration, double maxStun = 0.35)
+    {
+        if (double.IsNaN(duration) || duration <= 0.0)
+            return 0.0;
+        return System.Math.Min(duration, maxStun);
+    }
+
+    public static bool TryParseDoorKey(string key, out int cx, out int cy)
+    {
+        cx = 0;
+        cy = 0;
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+
+        var sep = key.IndexOf(':');
+        if (sep <= 0 || sep >= key.Length - 1)
+            return false;
+
+        return int.TryParse(key.AsSpan(0, sep), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out cx) &&
+               int.TryParse(key.AsSpan(sep + 1), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out cy);
+    }
+
+    public static bool IsDoorProximityMatch(string doorKey1, string doorKey2, int threshold = 6)
+    {
+        if (string.Equals(doorKey1, doorKey2, StringComparison.Ordinal))
+            return true;
+        if (!TryParseDoorKey(doorKey1, out var cx1, out var cy1) ||
+            !TryParseDoorKey(doorKey2, out var cx2, out var cy2))
+            return false;
+        return System.Math.Abs(cx1 - cx2) <= threshold && System.Math.Abs(cy1 - cy2) <= threshold;
+    }
+
     public static dc.hxd.res.Sound? TryLoadSound(string soundPath)
     {
         try

@@ -278,6 +278,15 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                         animManager.stack.pop();
                 }
 
+                try
+                {
+                    mob.onDieDone = true;
+                    mob.destroy();
+                }
+                catch
+                {
+                }
+
                 return true;
             }
             catch
@@ -296,6 +305,17 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             try { mob.isOnScreen = false; } catch { }
             try { mob.isOutOfGame = true; } catch { }
             try { mob.lastOutOfGame = true; } catch { }
+            try
+            {
+                if (mob.spr != null)
+                {
+                    mob.spr.visible = false;
+                    mob.spr.alpha = 0.0;
+                }
+            }
+            catch { }
+            try { mob.onDieDone = true; } catch { }
+            try { mob.destroy(); } catch { }
         }
     }
 }
