@@ -141,81 +141,88 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
             s_dieVictimDedupScratch.Clear();
 
-            for (int i = 0; i < s_dieVictimsScratch.Count; i++)
+            try
             {
-                var mob = s_dieVictimsScratch[i];
-                if (mob == null)
-                    continue;
-
-                // Non-boss (client): DEFER to the mob's own update cycle instead of re-running
-                // onDie synchronously. The hardening that processed dead-but-not-destroyed mobs
-                // here re-killed mobs that had already died cleanly (host MOBDIE arriving after a
-                // local kill), corrupting their death state - the source of the level-transition
-                // render fatal. The deferred flush skips mobs that finish destroying themselves
-                // and only completes genuinely stuck ghosts.
-                if (!IsHost(LobbySession.NetRef) && !BossSyncHelpers.IsBossMob(mob) && TryDeferCulledClientMobDeath(mob))
-                    continue;
-
-                TryWakeMobForForcedSimulation(mob);
-                try
+                for (int i = 0; i < s_dieVictimsScratch.Count; i++)
                 {
-                    RunWithAuthoritativeClientMobDie(mob, () =>
-                    {
-                        var prevSuppress = SuppressKillProgressForRemoteKill;
-                        SuppressKillProgressForRemoteKill = true;
-                        try
-                        {
-                            RunWithSuppressedMobDieSend(() =>
-                            {
-                                mob.life = 0;
-                                mob.onDie();
-                            });
-                        }
-                        finally
-                        {
-                            SuppressKillProgressForRemoteKill = prevSuppress;
-                        }
-                    });
+                    var mob = s_dieVictimsScratch[i];
+                    if (mob == null)
+                        continue;
 
-                    Tools.GameTrace.Event("mob", "client applied authoritative death type={Type}", mob.GetType().Name);
+                    // Non-boss (client): DEFER to the mob's own update cycle instead of re-running
+                    // onDie synchronously. The hardening that processed dead-but-not-destroyed mobs
+                    // here re-killed mobs that had already died cleanly (host MOBDIE arriving after a
+                    // local kill), corrupting their death state - the source of the level-transition
+                    // render fatal. The deferred flush skips mobs that finish destroying themselves
+                    // and only completes genuinely stuck ghosts.
+                    if (!IsHost(LobbySession.NetRef) && !BossSyncHelpers.IsBossMob(mob) && TryDeferCulledClientMobDeath(mob))
+                        continue;
 
-                    if (BossSyncHelpers.IsBossMob(mob) && IsCompletedAuthoritativeBossDeath(mob))
+                    TryWakeMobForForcedSimulation(mob);
+                    try
                     {
-                        lock (Sync)
+                        RunWithAuthoritativeClientMobDie(mob, () =>
                         {
-                            clientCompletedAuthoritativeBossDeaths.Add(mob);
-                            s_clientBossAuthoritativeZeroLifeFrame.Remove(mob);
-                        }
-                    }
-                    else if (!BossSyncHelpers.IsBossMob(mob))
-                    {
-                        try
-                        {
-                            var animManager = GetMobAnimManager(mob);
-                            if (animManager?.stack != null)
+                            var prevSuppress = SuppressKillProgressForRemoteKill;
+                            SuppressKillProgressForRemoteKill = true;
+                            try
                             {
-                                while (animManager.stack.length > 0)
-                                    animManager.stack.pop();
+                                RunWithSuppressedMobDieSend(() =>
+                                {
+                                    mob.life = 0;
+                                    mob.onDie();
+                                });
+                            }
+                            finally
+                            {
+                                SuppressKillProgressForRemoteKill = prevSuppress;
+                            }
+                        });
+
+                        Tools.GameTrace.Event("mob", "client applied authoritative death type={Type}", mob.GetType().Name);
+
+                        if (BossSyncHelpers.IsBossMob(mob) && IsCompletedAuthoritativeBossDeath(mob))
+                        {
+                            lock (Sync)
+                            {
+                                clientCompletedAuthoritativeBossDeaths.Add(mob);
+                                s_clientBossAuthoritativeZeroLifeFrame.Remove(mob);
                             }
                         }
-                        catch { }
-
-                        try
+                        else if (!BossSyncHelpers.IsBossMob(mob))
                         {
-                            mob.onDieDone = true;
-                            mob.destroy();
+                            try
+                            {
+                                var animManager = GetMobAnimManager(mob);
+                                if (animManager?.stack != null)
+                                {
+                                    while (animManager.stack.length > 0)
+                                    {
+                                        try { animManager.stack.pop(); } catch { break; }
+                                    }
+                                }
+                            }
+                            catch { }
+
+                            try
+                            {
+                                mob.onDieDone = true;
+                                mob.destroy();
+                            }
+                            catch { }
                         }
-                        catch { }
+
+                    }
+                    catch
+                    {
                     }
 
                 }
-                catch
-                {
-                }
-
             }
-
-            s_dieVictimsScratch.Clear();
+            finally
+            {
+                s_dieVictimsScratch.Clear();
+            }
         }
 
         private static bool IsCompletedAuthoritativeBossDeath(Mob mob)

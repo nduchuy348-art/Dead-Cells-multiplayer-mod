@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using dc;
 using dc.en;
+using dc.libs.heaps.slib;
 using dc.libs.heaps.slib._AnimManager;
 using DeadCellsMultiplayerMod.Ghost;
 using DeadCellsMultiplayerMod.Mobs.Bosses;
@@ -752,38 +753,54 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 return false;
 
             // Defer death execution to postUpdate when the mob is simulated, without pre-zeroing life early
+            List<Mob>? evicted = null;
             lock (Sync)
             {
                 if (s_pendingCulledMobDeaths.Count >= MaxPendingCulledMobDeaths)
                 {
-                    PrunePendingCulledMobDeathsLocked();
+                    evicted = PrunePendingCulledMobDeathsLocked();
                 }
 
                 s_pendingCulledMobDeaths.Add(mob);
                 if (!s_pendingCulledMobDeathFirstFrame.ContainsKey(mob))
                     s_pendingCulledMobDeathFirstFrame[mob] = GetCurrentFrame(mob);
             }
+
+            if (evicted != null)
+            {
+                for (int i = 0; i < evicted.Count; i++)
+                {
+                    HideClientDeadGhost(evicted[i]);
+                }
+            }
             return true;
         }
 
-        private static void PrunePendingCulledMobDeathsLocked()
+        private static List<Mob>? PrunePendingCulledMobDeathsLocked()
         {
-            s_pendingCulledMobDeathsScratch.Clear();
-            foreach (var m in s_pendingCulledMobDeaths)
+            List<Mob>? evicted = null;
+            s_culledMobPruneScratch.Clear();
+            try
             {
-                bool deadOrDestroyed = false;
-                try { deadOrDestroyed = m == null || m.destroyed; } catch { deadOrDestroyed = true; }
-                if (deadOrDestroyed)
-                    s_pendingCulledMobDeathsScratch.Add(m!);
-            }
+                foreach (var m in s_pendingCulledMobDeaths)
+                {
+                    bool deadOrDestroyed = false;
+                    try { deadOrDestroyed = m == null || m.destroyed; } catch { deadOrDestroyed = true; }
+                    if (deadOrDestroyed)
+                        s_culledMobPruneScratch.Add(m!);
+                }
 
-            for (int i = 0; i < s_pendingCulledMobDeathsScratch.Count; i++)
-            {
-                var m = s_pendingCulledMobDeathsScratch[i];
-                s_pendingCulledMobDeaths.Remove(m);
-                s_pendingCulledMobDeathFirstFrame.Remove(m);
+                for (int i = 0; i < s_culledMobPruneScratch.Count; i++)
+                {
+                    var m = s_culledMobPruneScratch[i];
+                    s_pendingCulledMobDeaths.Remove(m);
+                    s_pendingCulledMobDeathFirstFrame.Remove(m);
+                }
             }
-            s_pendingCulledMobDeathsScratch.Clear();
+            finally
+            {
+                s_culledMobPruneScratch.Clear();
+            }
 
             while (s_pendingCulledMobDeaths.Count >= MaxPendingCulledMobDeaths)
             {
@@ -810,13 +827,16 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 {
                     s_pendingCulledMobDeaths.Remove(oldest);
                     s_pendingCulledMobDeathFirstFrame.Remove(oldest);
-                    HideClientDeadGhost(oldest);
+                    evicted ??= new List<Mob>();
+                    evicted.Add(oldest);
                 }
                 else
                 {
                     break;
                 }
             }
+
+            return evicted;
         }
 
         /// <summary>
@@ -880,7 +900,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 if (animManager?.stack != null)
                 {
                     while (animManager.stack.length > 0)
-                        animManager.stack.pop();
+                    {
+                        try { animManager.stack.pop(); } catch { break; }
+                    }
                 }
 
                 try
@@ -911,6 +933,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         {
             if (mob == null)
                 return;
+            try { if (mob.destroyed) return; } catch { return; }
 
             if (targetMaxLife > 0 && mob.maxLife != targetMaxLife)
                 mob.maxLife = targetMaxLife;
@@ -975,7 +998,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     if (animManager?.stack != null)
                     {
                         while (animManager.stack.length > 0)
-                            animManager.stack.pop();
+                        {
+                            try { animManager.stack.pop(); } catch { break; }
+                        }
                     }
 
                     try
@@ -1030,7 +1055,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     if (animManager?.stack != null)
                     {
                         while (animManager.stack.length > 0)
-                            animManager.stack.pop();
+                        {
+                            try { animManager.stack.pop(); } catch { break; }
+                        }
                     }
                 }
                 catch { }
@@ -1129,8 +1156,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
         private static bool ApplyAnimPayload(Mob mob, string? payload)
         {
-            if (mob == null || mob.life <= 0 || mob.destroyed)
+            if (mob == null)
                 return false;
+            try { if (mob.destroyed || mob.life <= 0) return false; } catch { return false; }
 
             var safePayload = payload ?? string.Empty;
             
@@ -1152,7 +1180,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             if (!TryGetParsedAnimPayloadCached(safePayload, out var parsed))
                 return false;
 
-            var spr = mob.spr;
+            HSprite? spr = null;
+            try { spr = mob.spr; } catch { return false; }
             if (spr == null)
                 return false;
 

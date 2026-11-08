@@ -126,6 +126,8 @@ public class LevelExitSync :
     private long _clientAwaitingCommitSinceTicks;
     private const double ClientTransitionCommitFallbackSeconds = 6.0;
     private const double ClientTransitionTimeoutSeconds = 15.0;
+    private long _hostAwaitingPeersSinceTicks;
+    private const double HostTransitionTimeoutSeconds = 15.0;
 
     /// <summary>Exit/portal/boss-door entities only — avoids scanning <c>level.entities</c> every hero frame.</summary>
     private readonly List<Entity?> _exitTargetCandidates = new();
@@ -396,6 +398,7 @@ public class LevelExitSync :
         {
             _localPressed = false;
             _transitionDoorKey = string.Empty;
+            _hostAwaitingPeersSinceTicks = 0;
             MarkExitUiStateDirty();
         }
 
@@ -414,12 +417,42 @@ public class LevelExitSync :
             !string.Equals(_transitionDoorKey, _localDoorKey, StringComparison.Ordinal) &&
             AreAllPlayersReadyForDoor(_localDoorKey, net))
         {
+            _hostAwaitingPeersSinceTicks = 0;
             if (TryBeginCoordinatedTransition(net, nearestTarget, hero))
                 TriggerExitTransition(nearestTarget, hero, null);
         }
         else
         {
             _clientAwaitingCommitSinceTicks = 0;
+            if (net.IsHost && _localPressed && _localInsideCircle)
+            {
+                if (_hostAwaitingPeersSinceTicks == 0)
+                {
+                    _hostAwaitingPeersSinceTicks = Stopwatch.GetTimestamp();
+                }
+                else
+                {
+                    var elapsed = Stopwatch.GetElapsedTime(_hostAwaitingPeersSinceTicks).TotalSeconds;
+                    if (elapsed >= HostTransitionTimeoutSeconds)
+                    {
+                        _hostAwaitingPeersSinceTicks = 0;
+                        _localPressed = false;
+                        _transitionDoorKey = string.Empty;
+                        ApplyLocalTimerPause(false);
+                        _log.Warning(
+                            "[ExitSync] Host timeout waiting for peers at door={DoorKey}. Releasing lock and unpausing timer.",
+                            _localDoorKey);
+                        MultiplayerUI.PushSystemMessage(
+                            Localize("Teammate has not reached the exit. Resuming game."),
+                            6.0,
+                            1.0);
+                    }
+                }
+            }
+            else
+            {
+                _hostAwaitingPeersSinceTicks = 0;
+            }
         }
 
         ReportStalledExitRendezvous(net);
@@ -456,6 +489,7 @@ public class LevelExitSync :
             var sequence = ++_nextExitTransitionSequence;
             _lastAppliedExitTransitionSequence = sequence;
             _clientAwaitingCommitSinceTicks = 0;
+            _hostAwaitingPeersSinceTicks = 0;
             try
             {
                 // Send redundant burst (3 packets) to protect against single-packet UDP drop
@@ -480,6 +514,7 @@ public class LevelExitSync :
         if (!net.IsConnected)
         {
             _clientAwaitingCommitSinceTicks = 0;
+            _hostAwaitingPeersSinceTicks = 0;
             _log.Information("[ExitSync] Host disconnected; proceeding with local exit transition to avoid deadlock");
             return true;
         }
@@ -500,6 +535,7 @@ public class LevelExitSync :
         if (elapsedSeconds >= ClientTransitionTimeoutSeconds)
         {
             _clientAwaitingCommitSinceTicks = 0;
+            _hostAwaitingPeersSinceTicks = 0;
             _localPressed = false;
             _transitionDoorKey = string.Empty;
             _suppressDoorActivateHook = false;
@@ -605,6 +641,7 @@ public class LevelExitSync :
 
                 _lastAppliedExitTransitionSequence = commit.Sequence;
                 _clientAwaitingCommitSinceTicks = 0;
+                _hostAwaitingPeersSinceTicks = 0;
                 _log.Information(
                     "[ExitSync] Applying host transition commit seq={Sequence} door={DoorCx}:{DoorCy} to={Dest}",
                     commit.Sequence,
@@ -718,13 +755,34 @@ public class LevelExitSync :
         }
 
         string candidateKey = string.Empty;
+        var localLevelId = SafeRead(() => level.map?.id?.ToString() ?? string.Empty, string.Empty);
         foreach (var state in _playerStates.Values)
         {
             if (state == null || state.UserId <= 0)
                 continue;
-            if (!state.Pressed || !state.InsideCircle || string.IsNullOrWhiteSpace(state.DoorKey))
-                continue;
             if (IsPlayerDownedForExit(state.UserId, net.id))
+                continue;
+
+            // If a teammate has already advanced to another level, follow them immediately
+            if (!string.IsNullOrEmpty(state.LevelId) &&
+                !string.IsNullOrEmpty(localLevelId) &&
+                !string.Equals(state.LevelId, localLevelId, StringComparison.Ordinal))
+            {
+                var followTarget = FindExitTargetByDestination(level, state.LevelId) ??
+                                   FindNearestExitTarget(hero, level, out _);
+                if (followTarget != null)
+                {
+                    _log.Warning(
+                        "[ExitSync] Downed player following teammate {TeammateId} to level={DestLevel}",
+                        state.UserId,
+                        state.LevelId);
+                    TriggerExitTransition(followTarget, hero, null);
+                    _downedExitFollowStartedTicks = 0;
+                    return;
+                }
+            }
+
+            if (!state.Pressed || !state.InsideCircle || string.IsNullOrWhiteSpace(state.DoorKey))
                 continue;
             if (!AreAllPlayersReadyForDoor(state.DoorKey, net))
                 continue;
@@ -959,18 +1017,26 @@ public class LevelExitSync :
                     otherLevelState.LevelId = reportedLevelId;
                     otherLevelState.LastTick = Stopwatch.GetTimestamp();
 
-                    // If we are a client waiting at the door, and the HOST has already moved to the next level,
-                    // the host commit was lost in transit. Follow the host immediately to avoid deadlock!
-                    if (!net.IsHost && state.UserId == 1 && _localPressed && _localInsideCircle && currentLevel != null)
+                    // If we are a client and the HOST has already moved to the next level,
+                    // the host commit was lost in transit or client was downed/lagged.
+                    // Follow the host immediately to avoid deadlock and party separation!
+                    if (!net.IsHost && state.UserId == 1 && currentLevel != null)
                     {
-                        var nearestTarget = FindNearestExitTarget(ModEntry.me!, currentLevel, out var inside);
-                        if (nearestTarget != null && inside)
+                        var isDowned = ModEntry.IsLocalPlayerDowned();
+                        if (isDowned || _localPressed || _localInsideCircle)
                         {
-                            _log.Warning(
-                                "[ExitSync] Host already advanced to level={HostLevel} while client is at door in level={LocalLevel}. Triggering follow transition.",
-                                reportedLevelId,
-                                localLevelId);
-                            TriggerExitTransition(nearestTarget, ModEntry.me!, null);
+                            var target = FindExitTargetByDestination(currentLevel, reportedLevelId) ??
+                                         FindNearestExitTarget(ModEntry.me!, currentLevel, out _);
+                            if (target != null)
+                            {
+                                _log.Warning(
+                                    "[ExitSync] Host already advanced to level={HostLevel} while client (downed={IsDowned}, pressed={Pressed}) is in level={LocalLevel}. Triggering follow transition.",
+                                    reportedLevelId,
+                                    isDowned,
+                                    _localPressed,
+                                    localLevelId);
+                                TriggerExitTransition(target, ModEntry.me!, null);
+                            }
                         }
                     }
                     continue;
@@ -1142,37 +1208,23 @@ public class LevelExitSync :
         if (!net.IsAlive || !net.IsConnected)
             return 1;
 
-        if (net.IsHost)
-        {
-            var hostExpected = 1 + NetNode.ConnectedClientCount;
-            if (localId > 0 && IsPlayerDownedForExit(localId, localId))
-                hostExpected--;
+        var now = Stopwatch.GetTimestamp();
+        var staleTimeoutTicks = (long)(Stopwatch.Frequency * 10.0);
 
-            foreach (var userId in _activePlayerIds)
+        return DeadCellsMultiplayerMod.Ghost.CombatSyncHelpers.ComputeExpectedExitPlayerCount(
+            net.IsHost,
+            localId,
+            IsPlayerDownedForExit(localId, localId),
+            _activePlayerIds,
+            peerId => IsPlayerDownedForExit(peerId, localId),
+            peerId =>
             {
-                if (userId <= 0 || userId == localId)
-                    continue;
-                if (IsPlayerDownedForExit(userId, localId))
-                    hostExpected--;
-            }
-
-            return System.Math.Max(1, hostExpected);
-        }
-
-        var expected = 0;
-        foreach (var userId in _activePlayerIds)
-        {
-            if (userId <= 0)
-                continue;
-            if (IsPlayerDownedForExit(userId, localId))
-                continue;
-            expected++;
-        }
-
-        if (expected <= 0 && localId > 0 && !IsPlayerDownedForExit(localId, localId))
-            expected = 1;
-
-        return System.Math.Max(1, expected);
+                if (!_playerStates.TryGetValue(peerId, out var state) || state == null)
+                    return false;
+                if (state.LastTick > 0 && (now - state.LastTick) > staleTimeoutTicks)
+                    return false;
+                return true;
+            });
     }
 
     private static bool IsPlayerDownedForExit(int userId, int localId)
@@ -1353,6 +1405,28 @@ public class LevelExitSync :
         if (removedCandidates > 0)
             HandleRemovedExitTargetCandidates();
 
+        return null;
+    }
+
+    private Entity? FindExitTargetByDestination(Level? level, string destinationLevelId)
+    {
+        if (level == null || string.IsNullOrWhiteSpace(destinationLevelId))
+            return null;
+
+        EnsureExitTargetCandidates(level);
+        for (int i = 0; i < _exitTargetCandidates.Count; i++)
+        {
+            var candidate = _exitTargetCandidates[i];
+            if (!IsTrackedExitTargetCandidate(level, candidate) || !IsAvailableExitTarget(candidate))
+                continue;
+
+            if (candidate is Exit exit)
+            {
+                var dest = SafeRead(() => exit.destLevel?.ToString() ?? string.Empty, string.Empty);
+                if (string.Equals(dest, destinationLevelId, StringComparison.OrdinalIgnoreCase))
+                    return exit;
+            }
+        }
         return null;
     }
 
@@ -1896,6 +1970,7 @@ public class LevelExitSync :
         // older than the fallback window, so the client's very first rendezvous there would skip
         // waiting for the host commit entirely and transition on its own.
         _clientAwaitingCommitSinceTicks = 0;
+        _hostAwaitingPeersSinceTicks = 0;
         _exitStallDoorKey = string.Empty;
         _exitStallStartedTicks = 0;
         _nextExitStallLogTicks = 0;

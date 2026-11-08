@@ -1916,42 +1916,53 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 return null;
 
             s_clientDetectedTargetsScratch.Clear();
-            var hero = ModEntry.me ?? ModCore.Modules.Game.Instance?.HeroInstance;
-            if (hero != null && !hero.destroyed)
-                s_clientDetectedTargetsScratch.Add(hero);
-
-            for (int i = 0; i < ModEntry.clients.Length; i++)
+            try
             {
-                var client = ModEntry.clients[i];
-                if (client != null && !client.destroyed)
-                    s_clientDetectedTargetsScratch.Add(client);
-            }
-
-            Entity? best = null;
-            var bestDistSq = double.MaxValue;
-            var mx = GetWorldX(mob);
-            var my = GetWorldY(mob);
-
-            for (int i = 0; i < s_clientDetectedTargetsScratch.Count; i++)
-            {
-                var candidate = s_clientDetectedTargetsScratch[i];
-                if (candidate == null || candidate.destroyed || ReferenceEquals(candidate, mob))
-                    continue;
-                if (!IsAcquirablePlayerCombatTargetForMob(mob, candidate, requireDetectArea: true))
-                    continue;
-
-                var dx = GetWorldX(candidate) - mx;
-                var dy = GetWorldY(candidate) - my;
-                var distSq = dx * dx + dy * dy;
-                if (distSq < bestDistSq)
+                var hero = ModEntry.me ?? ModCore.Modules.Game.Instance?.HeroInstance;
+                if (hero != null)
                 {
-                    bestDistSq = distSq;
-                    best = candidate;
+                    try { if (!hero.destroyed) s_clientDetectedTargetsScratch.Add(hero); } catch { }
                 }
-            }
 
-            s_clientDetectedTargetsScratch.Clear();
-            return best;
+                for (int i = 0; i < ModEntry.clients.Length; i++)
+                {
+                    var client = ModEntry.clients[i];
+                    if (client != null)
+                    {
+                        try { if (!client.destroyed) s_clientDetectedTargetsScratch.Add(client); } catch { }
+                    }
+                }
+
+                Entity? best = null;
+                var bestDistSq = double.MaxValue;
+                var mx = GetWorldX(mob);
+                var my = GetWorldY(mob);
+
+                for (int i = 0; i < s_clientDetectedTargetsScratch.Count; i++)
+                {
+                    var candidate = s_clientDetectedTargetsScratch[i];
+                    if (candidate == null || ReferenceEquals(candidate, mob))
+                        continue;
+                    try { if (candidate.destroyed) continue; } catch { continue; }
+                    if (!IsAcquirablePlayerCombatTargetForMob(mob, candidate, requireDetectArea: true))
+                        continue;
+
+                    var dx = GetWorldX(candidate) - mx;
+                    var dy = GetWorldY(candidate) - my;
+                    var distSq = dx * dx + dy * dy;
+                    if (distSq < bestDistSq)
+                    {
+                        bestDistSq = distSq;
+                        best = candidate;
+                    }
+                }
+
+                return best;
+            }
+            finally
+            {
+                s_clientDetectedTargetsScratch.Clear();
+            }
         }
 
         private static bool HasLocalQueuedOrChargingSkill(Mob mob)
@@ -2018,7 +2029,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 if (animManager?.stack != null)
                 {
                     while (animManager.stack.length > 0)
-                        animManager.stack.pop();
+                    {
+                        try { animManager.stack.pop(); } catch { break; }
+                    }
                 }
             }
             catch { }

@@ -237,12 +237,14 @@ namespace DeadCellsMultiplayerMod.KingHead
         }
         public override void updateHeadFx(double c1)
         {
-            if (king == null || king.destroyed)
+            if (king == null)
             {
                 return;
             }
+            try { if (king.destroyed) return; } catch { return; }
 
-            var sprite = king.spr;
+            HSprite? sprite = null;
+            try { sprite = king.spr; } catch { return; }
             double headX;
             double headY;
             if (!TryGetHeadSkeletonPosition(sprite, out headX, out headY))
@@ -273,12 +275,20 @@ namespace DeadCellsMultiplayerMod.KingHead
         {
             var hero = me;
             var ghost = king;
-            if (hero == null || hero.destroyed || ghost == null || ghost.destroyed || ghost.spr == null)
+            if (hero == null || ghost == null)
+            {
+                return;
+            }
+            try { if (hero.destroyed || ghost.destroyed) return; } catch { return; }
+            HSprite? gSpr = null;
+            try { gSpr = ghost.spr; } catch { return; }
+            if (gSpr == null)
             {
                 return;
             }
 
-            var savedLastHeadPos = hero.lastHeadPos;
+            FPoint? savedLastHeadPos = null;
+            try { savedLastHeadPos = hero.lastHeadPos; } catch { }
             bool savedHeroVisible;
             try { savedHeroVisible = hero.visible; } catch { savedHeroVisible = true; }
             bool ghostVisible;
@@ -287,7 +297,7 @@ namespace DeadCellsMultiplayerMod.KingHead
             {
                 kingLastHeadPos = new FPoint(0, 0);
             }
-            hero.lastHeadPos = kingLastHeadPos;
+            try { hero.lastHeadPos = kingLastHeadPos; } catch { }
             try { hero.visible = ghostVisible; } catch { }
 
             try
@@ -308,8 +318,8 @@ namespace DeadCellsMultiplayerMod.KingHead
             }
             finally
             {
-                kingLastHeadPos = hero.lastHeadPos;
-                hero.lastHeadPos = savedLastHeadPos;
+                try { kingLastHeadPos = hero.lastHeadPos; } catch { }
+                try { hero.lastHeadPos = savedLastHeadPos; } catch { }
                 try { hero.visible = savedHeroVisible; } catch { }
             }
         }

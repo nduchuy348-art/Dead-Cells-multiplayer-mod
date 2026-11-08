@@ -1392,6 +1392,7 @@ namespace DeadCellsMultiplayerMod
             AbortActiveBossCinematicForTransition("level-changed");
             kingInitialized = false;
             _net?.ClearMobSyncQueues();
+            try { global::DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.ClearCulledMobDeaths(); } catch { }
             _pendingBossCineApplyByLevel.Clear();
             _suppressBossCineEchoByLevel.Clear();
             _completedBossCineLevels.Clear();

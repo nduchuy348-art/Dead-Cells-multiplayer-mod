@@ -316,7 +316,7 @@ public sealed partial class NetNode
 
         public MobDraw(int userId, int mobIndex, bool isOutOfGame, bool isOnScreen, int generation = 0)
         {
-            UserId = userId;
+            UserId = Math.Max(0, userId);
             MobIndex = Math.Max(0, mobIndex);
             Generation = generation;
             IsOutOfGame = isOutOfGame;
@@ -337,9 +337,9 @@ public sealed partial class NetNode
 
         public ExitReadyState(int userId, int doorCx, int doorCy, bool pressed, bool insideCircle, bool isOutOfGame, bool isOnScreen, string? levelId = null)
         {
-            UserId = userId;
-            DoorCx = doorCx;
-            DoorCy = doorCy;
+            UserId = Math.Max(0, userId);
+            DoorCx = Math.Max(0, doorCx);
+            DoorCy = Math.Max(0, doorCy);
             Pressed = pressed;
             InsideCircle = insideCircle;
             IsOutOfGame = isOutOfGame;
@@ -384,8 +384,8 @@ public sealed partial class NetNode
 
         public HostSpawnAnchor(int cx, int cy, string? levelId)
         {
-            Cx = cx;
-            Cy = cy;
+            Cx = Math.Max(0, cx);
+            Cy = Math.Max(0, cy);
             LevelId = levelId ?? string.Empty;
         }
     }
@@ -400,9 +400,9 @@ public sealed partial class NetNode
 
         public ExitTransitionCommit(long sequence, int doorCx, int doorCy, string? fromLevelId, string? destinationLevelId)
         {
-            Sequence = sequence;
-            DoorCx = doorCx;
-            DoorCy = doorCy;
+            Sequence = Math.Max(0L, sequence);
+            DoorCx = Math.Max(0, doorCx);
+            DoorCy = Math.Max(0, doorCy);
             FromLevelId = fromLevelId ?? string.Empty;
             DestinationLevelId = destinationLevelId ?? string.Empty;
         }
@@ -415,8 +415,8 @@ public sealed partial class NetNode
 
         public PlayerReviveRequest(int reviverId, int targetId)
         {
-            ReviverId = reviverId;
-            TargetId = targetId;
+            ReviverId = Math.Max(0, reviverId);
+            TargetId = Math.Max(0, targetId);
         }
     }
 

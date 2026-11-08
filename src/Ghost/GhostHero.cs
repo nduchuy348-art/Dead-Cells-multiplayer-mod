@@ -114,7 +114,7 @@ namespace DeadCellsMultiplayerMod
                 {
                     if (k.spr != null)
                     {
-                        ColorMap shader = (ColorMap)k.spr.getShader(ColorMap.Class);
+                        ColorMap? shader = k.spr.getShader(ColorMap.Class) as ColorMap;
                         if (shader != null)
                         {
                             k.spr.removeShader(shader);

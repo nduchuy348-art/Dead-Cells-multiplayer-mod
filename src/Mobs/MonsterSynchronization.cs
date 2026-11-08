@@ -112,6 +112,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         private static readonly List<PendingHostStateApply> s_hostStateAppliesScratch = new();
         private static readonly List<PendingMobHitApply> s_pendingMobHitAppliesScratch = new();
         private static readonly List<Mob> s_pendingCulledMobDeathsScratch = new();
+        private static readonly List<Mob> s_culledMobPruneScratch = new();
         private static readonly List<NetNode.MobHit> s_mobHitMergeScratch = new();
         private static readonly List<PendingClientBossAttack> clientPendingBossAttacks = new();
         private static readonly List<ResolvedClientBossAttack> s_resolvedClientBossAttacksScratch = new();
@@ -155,6 +156,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 s_pendingCulledMobDeaths.Clear();
                 s_pendingCulledMobDeathFirstFrame.Clear();
                 s_pendingCulledMobDeathsScratch.Clear();
+                s_culledMobPruneScratch.Clear();
             }
         }
 

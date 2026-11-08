@@ -115,7 +115,7 @@ internal static class MobSyncTrace
 
         MinMaxSyncId(states, static s => s.Index, out var minId, out var maxId);
         Log.Information(
-            "[MobSync] → SEND states {Role} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
+            "[MobSync] -> SEND states {Role} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
             role,
             states.Count,
             minId,
@@ -129,7 +129,7 @@ internal static class MobSyncTrace
 
         MinMaxSyncId(draws, static d => d.MobIndex, out var minId, out var maxId);
         Log.Information(
-            "[MobSync] → SEND draws {Role} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
+            "[MobSync] -> SEND draws {Role} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
             role,
             draws.Count,
             minId,
@@ -157,7 +157,7 @@ internal static class MobSyncTrace
 
         MinMaxSyncId(states, static s => s.Index, out var minId, out var maxId);
         Log.Information(
-            "[MobSync] ← RECV states {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
+            "[MobSync] <- RECV states {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
             context,
             states.Count,
             minId,
@@ -171,7 +171,7 @@ internal static class MobSyncTrace
 
         MinMaxSyncId(attacks, static a => a.Index, out var minId, out var maxId);
         Log.Information(
-            "[MobSync] ← RECV attacks {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
+            "[MobSync] <- RECV attacks {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
             context,
             attacks.Count,
             minId,
@@ -199,7 +199,7 @@ internal static class MobSyncTrace
 
         MinMaxSyncId(draws, static d => d.MobIndex, out var minId, out var maxId);
         Log.Information(
-            "[MobSync] ← RECV draws {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
+            "[MobSync] <- RECV draws {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
             context,
             draws.Count,
             minId,
@@ -213,7 +213,7 @@ internal static class MobSyncTrace
 
         MinMaxSyncId(hits, static h => h.MobIndex, out var minId, out var maxId);
         Log.Information(
-            "[MobSync] ← RECV hits {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
+            "[MobSync] <- RECV hits {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
             context,
             hits.Count,
             minId,
@@ -227,7 +227,7 @@ internal static class MobSyncTrace
 
         MinMaxSyncId(dies, static d => d.MobIndex, out var minId, out var maxId);
         Log.Information(
-            "[MobSync] ← RECV dies {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
+            "[MobSync] <- RECV dies {Context} count={Count} syncIdMin={SyncIdMin} syncIdMax={SyncIdMax}",
             context,
             dies.Count,
             minId,
@@ -245,7 +245,7 @@ internal static class MobSyncTrace
             var events = u.Events;
             var summary = SummarizeEvents(events);
             Log.Information(
-                "[MobSync] → SEND mobEvent {Role} syncId={SyncId} x={X} y={Y} dir={Dir} type={MobType} events={EventSummary}",
+                "[MobSync] -> SEND mobEvent {Role} syncId={SyncId} x={X} y={Y} dir={Dir} type={MobType} events={EventSummary}",
                 role,
                 u.Index,
                 u.X,
@@ -262,7 +262,7 @@ internal static class MobSyncTrace
             return;
 
         Log.Information(
-            "[MobSync] ◎ REGISTER mob tracked {Role} syncId={SyncId} localIndex={LocalIndex} type={MobType}",
+            "[MobSync] * REGISTER mob tracked {Role} syncId={SyncId} localIndex={LocalIndex} type={MobType}",
             role,
             syncId,
             localIndex,
@@ -275,7 +275,7 @@ internal static class MobSyncTrace
             return;
 
         Log.Information(
-            "[MobSync] ◎ BIND syncId reason={Reason} syncId={SyncId} type={MobType} x={X} y={Y}",
+            "[MobSync] * BIND syncId reason={Reason} syncId={SyncId} type={MobType} x={X} y={Y}",
             reason,
             syncId,
             mobType ?? string.Empty,
@@ -576,7 +576,7 @@ internal static class MobSyncTrace
         new();
 
     /// <summary>
-    /// Logs when the reliable protocol queue backed up enough to trigger burst draining — the
+    /// Logs when the reliable protocol queue backed up enough to trigger burst draining -- the
     /// condition that, before the adaptive pump, stalled the receive loop and froze client
     /// enemies over a real network. Rate-limited to once per second so a sustained busy room
     /// does not spam the log.
@@ -809,7 +809,7 @@ internal static class MobSyncTrace
             return;
 
         Log.Information(
-            "[MobSync] ◆ TOMBSTONE created syncId={SyncId} type={MobType} reason={Reason}",
+            "[MobSync] * TOMBSTONE created syncId={SyncId} type={MobType} reason={Reason}",
             syncId,
             mobType ?? string.Empty,
             reason ?? string.Empty);
@@ -821,7 +821,7 @@ internal static class MobSyncTrace
             return;
 
         Log.Information(
-            "[MobSync] ◆ TOMBSTONE recovery syncId={SyncId} type={MobType} recovered={Recovered} reason={Reason}",
+            "[MobSync] * TOMBSTONE recovery syncId={SyncId} type={MobType} recovered={Recovered} reason={Reason}",
             syncId,
             mobType ?? string.Empty,
             recovered,
@@ -834,7 +834,7 @@ internal static class MobSyncTrace
             return;
 
         Log.Information(
-            "[MobSync] ◆ TOMBSTONE cleared syncId={SyncId} reason={Reason}",
+            "[MobSync] * TOMBSTONE cleared syncId={SyncId} reason={Reason}",
             syncId,
             reason ?? string.Empty);
     }
@@ -868,7 +868,7 @@ internal static class MobSyncTrace
             return;
 
         Log.Information(
-            "[MobSync] ◎ APPLY hit syncId={SyncId} hp={Hp} userId={UserId} replaySpecial={ReplaySpecial} forceDie={ForceDie}",
+            "[MobSync] * APPLY hit syncId={SyncId} hp={Hp} userId={UserId} replaySpecial={ReplaySpecial} forceDie={ForceDie}",
             syncId,
             hp,
             userId,
@@ -882,7 +882,7 @@ internal static class MobSyncTrace
             return;
 
         Log.Information(
-            "[MobSync] ◎ CLIENT attack route={Route} syncId={SyncId} skillId={SkillId}",
+            "[MobSync] * CLIENT attack route={Route} syncId={SyncId} skillId={SkillId}",
             route,
             syncId,
             skillId ?? string.Empty);

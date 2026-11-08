@@ -68,17 +68,25 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 {
                     var mob = trackedMobs[i];
                     if (mob != null)
-                        s_playerCombatRepairMobsScratch.Add(mob);
+                    {
+                        try { if (!mob.destroyed) s_playerCombatRepairMobsScratch.Add(mob); } catch { }
+                    }
                 }
             }
 
             var repaired = 0;
-            for (var i = 0; i < s_playerCombatRepairMobsScratch.Count; i++)
+            try
             {
-                if (TryRepairHostMobAfterPlayerCombatStateChange(s_playerCombatRepairMobsScratch[i]))
-                    repaired++;
+                for (var i = 0; i < s_playerCombatRepairMobsScratch.Count; i++)
+                {
+                    if (TryRepairHostMobAfterPlayerCombatStateChange(s_playerCombatRepairMobsScratch[i]))
+                        repaired++;
+                }
             }
-            s_playerCombatRepairMobsScratch.Clear();
+            finally
+            {
+                s_playerCombatRepairMobsScratch.Clear();
+            }
 
             if (repaired > 0)
             {

@@ -138,20 +138,46 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             return NormalizeDir(mob.dir);
         }
 
-        private static double GetWorldX(Entity entity)
+        private static double GetWorldX(Entity? entity)
         {
-            return (entity.cx + entity.xr) * PixelsPerCase;
-        }
-
-        private static double GetWorldY(Entity entity)
-        {
-            return (entity.cy + entity.yr) * PixelsPerCase;
-        }
-
-        private static double GetSyncX(Entity entity)
-        {
+            if (entity == null)
+                return 0.0;
             try
             {
+                if (entity.destroyed)
+                    return 0.0;
+                return (entity.cx + entity.xr) * PixelsPerCase;
+            }
+            catch
+            {
+                return 0.0;
+            }
+        }
+
+        private static double GetWorldY(Entity? entity)
+        {
+            if (entity == null)
+                return 0.0;
+            try
+            {
+                if (entity.destroyed)
+                    return 0.0;
+                return (entity.cy + entity.yr) * PixelsPerCase;
+            }
+            catch
+            {
+                return 0.0;
+            }
+        }
+
+        private static double GetSyncX(Entity? entity)
+        {
+            if (entity == null)
+                return 0.0;
+            try
+            {
+                if (entity.destroyed)
+                    return 0.0;
                 var spr = entity.spr;
                 if (spr != null)
                     return spr.x;
@@ -163,10 +189,14 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             return GetWorldX(entity);
         }
 
-        private static double GetSyncY(Entity entity)
+        private static double GetSyncY(Entity? entity)
         {
+            if (entity == null)
+                return 0.0;
             try
             {
+                if (entity.destroyed)
+                    return 0.0;
                 var spr = entity.spr;
                 if (spr != null)
                     return spr.y;
@@ -182,6 +212,15 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         {
             if (mob == null)
                 return;
+            try
+            {
+                if (mob.destroyed)
+                    return;
+            }
+            catch
+            {
+                return;
+            }
 
             // Update X only and preserve the entity's current Y cell/fraction to avoid
             // disturbing native vertical physics (oldSkill/mid-air states).
@@ -194,7 +233,11 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             else if (xFrac > 1.0)
                 xFrac = 1.0;
 
-            mob.setPosCase(xCase, mob.cy, xFrac, mob.yr);
+            try
+            {
+                mob.setPosCase(xCase, mob.cy, xFrac, mob.yr);
+            }
+            catch { }
         }
 
         private readonly struct ParsedAnimPayload

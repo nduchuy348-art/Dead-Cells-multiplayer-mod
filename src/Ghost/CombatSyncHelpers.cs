@@ -548,9 +548,16 @@ public static class CombatSyncHelpers
         if (cx < 0 || cx >= wid || cy < 0 || cy >= hei)
             return true;
 
-        int idx = cy * wid + cx;
-        int val = Marshal.ReadInt32(bytes, idx << 2);
-        return IsSolidTileValue(val);
+        try
+        {
+            int idx = cy * wid + cx;
+            int val = Marshal.ReadInt32(bytes, idx << 2);
+            return IsSolidTileValue(val);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public static bool IsSolidTile(dc.level.LevelMap? map, int cx, int cy)
@@ -585,9 +592,16 @@ public static class CombatSyncHelpers
         if (cx < 0 || cx >= wid || cy < 0 || cy >= hei)
             return false;
 
-        int idx = cy * wid + cx;
-        int val = Marshal.ReadInt32(bytes, idx << 2);
-        return IsWoodTileValue(val);
+        try
+        {
+            int idx = cy * wid + cx;
+            int val = Marshal.ReadInt32(bytes, idx << 2);
+            return IsWoodTileValue(val);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public static bool IsWoodTile(dc.level.LevelMap? map, int cx, int cy)

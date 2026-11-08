@@ -353,7 +353,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             if (isBoss)
             {
                 // Expiring the lease re-locks the brain but does NOT stop an already-running
-                // looping action — Conjunctivius kept firing poison orbs long after the host had
+                // looping action -- Conjunctivius kept firing poison orbs long after the host had
                 // moved on. Best-effort interrupt of the stale skill/action.
                 // ONLY while the boss is alive: the final attack's lease expires seconds after
                 // the killing blow, and interrupting then breaks the native death sequence the
@@ -516,7 +516,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             {
                 // Retention is deliberately MUCH more permissive than acquisition. Testing the
                 // current target against the acquire gate re-selected every single frame the target
-                // sat outside the facing cone — which is most frames during a real fight — so mobs
+                // sat outside the facing cone -- which is most frames during a real fight -- so mobs
                 // flipped between players, turned around mid-approach and swung at nothing.
                 // Vanilla does not drop aggro because an enemy turned its head; neither do we.
                 if (existingTarget == null ||
@@ -756,6 +756,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         {
             if (candidate == null)
                 return;
+            try { if (candidate.destroyed) return; } catch { return; }
             if (ReferenceEquals(candidate, mob))
                 return;
             if (!IsAcquirablePlayerCombatTargetForMob(mob, candidate, requireDetectArea: true))
@@ -986,8 +987,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     for (int i = 0; i < hostDetectedTargets.Count; i++)
                     {
                         var candidate = hostDetectedTargets[i];
-                        if (candidate == null || candidate.destroyed)
+                        if (candidate == null)
                             continue;
+                        try { if (candidate.destroyed) continue; } catch { continue; }
 
                         var dx = GetWorldX(candidate) - mx;
                         var dy = GetWorldY(candidate) - my;
@@ -1143,8 +1145,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 return false;
 
             // The remote player is a GhostKing (KingSkin), not a Hero. canBeDetected/canBeHitBy are
-            // Hero-shaped vanilla checks — canBeHitBy is hooked for Hero only, and canBeDetected is
-            // not hooked at all — so asking them about a KingSkin can reject a perfectly valid,
+            // Hero-shaped vanilla checks -- canBeHitBy is hooked for Hero only, and canBeDetected is
+            // not hooked at all -- so asking them about a KingSkin can reject a perfectly valid,
             // living target and leave the second player permanently un-aggroed. Use the mod's own
             // liveness rules for the shell instead; the detect-area test below still applies.
             var remoteShell = IsRemotePlayerCombatShell(entity);
@@ -1192,7 +1194,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
             // inDetectArea is a facing-dependent cone, so it alone can never see a player standing
             // behind a mob. Vanilla still aggros the LOCAL hero from behind because the game has
-            // other acquisition routes — noise, threat, ambient wake — that only ever consider
+            // other acquisition routes -- noise, threat, ambient wake -- that only ever consider
             // game.hero. The remote player has no such routes: this gate is its only way in, so a
             // cone-only test made the second player permanently sneak-proof.
             //
@@ -1240,7 +1242,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
         /// <summary>
         /// Whether a mob should keep fighting its current player target. Only a target that is
-        /// genuinely gone — dead, downed, off-level, or well outside the retention box — releases
+        /// genuinely gone -- dead, downed, off-level, or well outside the retention box -- releases
         /// the mob to re-select.
         /// </summary>
         private static bool IsPlayerCombatTargetStillRelevant(Mob mob, Entity entity)
@@ -1267,11 +1269,11 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             return IsWithinRangeBox(mob, entity, RemotePlayerProximityAggroRangeXPx, RemotePlayerProximityAggroRangeYPx);
         }
 
-        private static bool IsHardInvalidPlayerTargetEntity(Entity? entity)
+        internal static bool IsHardInvalidPlayerTargetEntity(Entity? entity)
         {
             var safeEntity = entity;
             if (safeEntity == null)
-                return false;
+                return true;
             try
             {
                 if (safeEntity.destroyed)
@@ -1284,7 +1286,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             if (IsCorpseLikeCombatTargetEntity(safeEntity))
                 return true;
             if (!IsKnownPlayerEntity(safeEntity))
-                return false;
+                return true;
             if (ModEntry.IsEntityDownedForCombat(safeEntity))
                 return true;
             if (!IsEntityOnCurrentCombatIdentity(safeEntity))

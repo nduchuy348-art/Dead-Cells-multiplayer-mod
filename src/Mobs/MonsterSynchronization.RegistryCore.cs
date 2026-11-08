@@ -519,6 +519,8 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             // a stale id simply resolves to nothing instead of resolving to the wrong enemy.
             s_pendingCulledMobDeaths.Clear();
             s_pendingCulledMobDeathFirstFrame.Clear();
+            s_pendingCulledMobDeathsScratch.Clear();
+            s_culledMobPruneScratch.Clear();
             clientMobTargets.Clear();
             s_clientMobSnapshotBuffers.Clear();
             clientCachedAttackTargetByMob.Clear();

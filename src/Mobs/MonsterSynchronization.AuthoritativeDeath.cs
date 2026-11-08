@@ -189,51 +189,56 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 s_pendingCulledMobDeathsScratch.AddRange(s_pendingCulledMobDeaths);
             }
 
-            for (int i = 0; i < s_pendingCulledMobDeathsScratch.Count; i++)
+            try
             {
-                var mob = s_pendingCulledMobDeathsScratch[i];
-                if (mob == null)
-                    continue;
-
-                try
+                for (int i = 0; i < s_pendingCulledMobDeathsScratch.Count; i++)
                 {
-                    if (mob.destroyed)
+                    var mob = s_pendingCulledMobDeathsScratch[i];
+                    if (mob == null)
+                        continue;
+
+                    try
+                    {
+                        if (mob.destroyed)
+                        {
+                            ClearPendingClientAuthoritativeDeath(mob);
+                            continue;
+                        }
+                    }
+                    catch
                     {
                         ClearPendingClientAuthoritativeDeath(mob);
                         continue;
                     }
+
+                    var firstFrame = frame;
+                    lock (Sync)
+                    {
+                        if (s_pendingCulledMobDeathFirstFrame.TryGetValue(mob, out var storedFrame))
+                            firstFrame = storedFrame;
+                    }
+
+                    var age = frame - firstFrame;
+                    var culled = IsMobCulledLocally(mob);
+
+                    if (culled && age < ClientPendingCulledDeathHideFrames)
+                        continue;
+
+                    if (culled)
+                    {
+                        HideClientDeadGhost(mob);
+                        ClearPendingClientAuthoritativeDeath(mob);
+                        continue;
+                    }
+
+                    if (RunAuthoritativeClientDeathNow(mob))
+                        ClearPendingClientAuthoritativeDeath(mob);
                 }
-                catch
-                {
-                    ClearPendingClientAuthoritativeDeath(mob);
-                    continue;
-                }
-
-                var firstFrame = frame;
-                lock (Sync)
-                {
-                    if (s_pendingCulledMobDeathFirstFrame.TryGetValue(mob, out var storedFrame))
-                        firstFrame = storedFrame;
-                }
-
-                var age = frame - firstFrame;
-                var culled = IsMobCulledLocally(mob);
-
-                if (culled && age < ClientPendingCulledDeathHideFrames)
-                    continue;
-
-                if (culled)
-                {
-                    HideClientDeadGhost(mob);
-                    ClearPendingClientAuthoritativeDeath(mob);
-                    continue;
-                }
-
-                if (RunAuthoritativeClientDeathNow(mob))
-                    ClearPendingClientAuthoritativeDeath(mob);
             }
-
-            s_pendingCulledMobDeathsScratch.Clear();
+            finally
+            {
+                s_pendingCulledMobDeathsScratch.Clear();
+            }
         }
 
         private static void ClearPendingClientAuthoritativeDeath(Mob mob)
@@ -277,7 +282,9 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     if (animManager?.stack != null)
                     {
                         while (animManager.stack.length > 0)
-                            animManager.stack.pop();
+                        {
+                            try { animManager.stack.pop(); } catch { break; }
+                        }
                     }
                 }
                 catch { }
@@ -304,6 +311,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         {
             if (mob == null)
                 return;
+            try { if (mob.destroyed) return; } catch { return; }
 
             try { mob.life = 0; } catch { }
             try { mob.isOnScreen = false; } catch { }
@@ -315,6 +323,18 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 {
                     mob.spr.visible = false;
                     mob.spr.alpha = 0.0;
+                }
+            }
+            catch { }
+            try
+            {
+                var animManager = GetMobAnimManager(mob);
+                if (animManager?.stack != null)
+                {
+                    while (animManager.stack.length > 0)
+                    {
+                        try { animManager.stack.pop(); } catch { break; }
+                    }
                 }
             }
             catch { }

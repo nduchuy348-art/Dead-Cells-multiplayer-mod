@@ -82,10 +82,10 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public override void onReload()
         {
-            // Never revive a GhostKing from save data — destroy the husk instead of initGfx.
+            // Never revive a GhostKing from save data -- destroy the husk instead of initGfx.
             try
             {
-                if (!destroyed)
+                if (!IsDestroyedSafe)
                     destroy();
             }
             catch
@@ -127,6 +127,14 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
             catch
             {
                 return true;
+            }
+        }
+
+        private bool IsDestroyedSafe
+        {
+            get
+            {
+                try { return destroyed; } catch { return true; }
             }
         }
 
@@ -244,7 +252,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void TriggerRemoteDiveAttackStart()
         {
-            if (destroyed || _level == null)
+            if (IsDestroyedSafe || _level == null)
                 return;
 
             if (IsReplayTooSoon(ref _lastRemoteDiveStartTicks, RemoteDiveReplayMinSeconds))
@@ -256,7 +264,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void TriggerRemoteDiveAttackLand(double high)
         {
-            if (destroyed || _level == null)
+            if (IsDestroyedSafe || _level == null)
                 return;
 
             if (IsReplayTooSoon(ref _lastRemoteDiveLandTicks, RemoteDiveReplayMinSeconds))
@@ -341,7 +349,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void TriggerRemoteLanding(double dy, bool hardLand)
         {
-            if (destroyed || _level == null)
+            if (IsDestroyedSafe || _level == null)
                 return;
 
             if (IsReplayTooSoon(ref _lastRemoteLandingTicks, 0.15))
@@ -423,7 +431,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void DrawMotionTrail(int? glowColor)
         {
-            if (destroyed || spr == null)
+            if (IsDestroyedSafe || spr == null)
                 return;
 
             var color = glowColor ?? 0xFFFFFF;
@@ -446,7 +454,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void PlayLocomotionFootstepSound()
         {
-            if (destroyed)
+            if (IsDestroyedSafe)
                 return;
 
             var localHero = ResolveLocalHero();
@@ -513,7 +521,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void PlayLocomotionClimbSound()
         {
-            if (destroyed)
+            if (IsDestroyedSafe)
                 return;
 
             if (IsReplayTooSoon(ref _lastClimbSfxTicks, 0.22))
@@ -559,7 +567,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void TriggerAttackVocalization(double chance = 0.35)
         {
-            if (destroyed)
+            if (IsDestroyedSafe)
                 return;
 
             if (Random.Shared.NextDouble() > chance)
@@ -595,6 +603,8 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void SetRemoteDiveSkillInfos(virtual_cooldown_duration_flags_forbiddenItem_props_requiredItem_skill_? skillInfos)
         {
+            if (IsDestroyedSafe)
+                return;
             remoteDiveSkillInfos = CloneDiveSkillInfos(skillInfos);
             DisposeRemoteDiveAttack();
         }
@@ -1416,7 +1426,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void SetPuppetVisible(bool visible)
         {
-            if (destroyed)
+            if (IsDestroyedSafe)
                 return;
             try { spr?.set_visible(visible); } catch { }
             try { head?.customHeadSpr?.set_visible(visible); } catch { }
@@ -1445,7 +1455,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public override void initGfx()
         {
-            if (destroyed || IsUnsafePersistedInstance())
+            if (IsDestroyedSafe || IsUnsafePersistedInstance())
                 return;
 
             base.initGfx();
@@ -1526,7 +1536,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public void ApplyRemoteSkin(string? skin)
         {
-            if (destroyed || IsUnsafePersistedInstance())
+            if (IsDestroyedSafe || IsUnsafePersistedInstance())
                 return;
 
             var cleaned = NormalizeBodySkinId(skin);
@@ -1579,14 +1589,15 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public override void onActivate(Hero by, bool longPress)
         {
-            if (destroyed || by == null || by.destroyed)
+            if (IsDestroyedSafe || by == null)
                 return;
+            try { if (by.destroyed) return; } catch { return; }
             base.onActivate(by, longPress);
         }
 
         public override void fixedUpdate()
         {
-            if (destroyed)
+            if (IsDestroyedSafe)
                 return;
             EnsureRuntimeDependencies();
             base.fixedUpdate();
@@ -1595,7 +1606,7 @@ namespace DeadCellsMultiplayerMod.Ghost.GhostBase
 
         public override void postUpdate()
         {
-            if (destroyed)
+            if (IsDestroyedSafe)
                 return;
             base.postUpdate();
             scarf?.postUpdate();

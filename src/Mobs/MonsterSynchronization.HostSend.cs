@@ -602,6 +602,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             var skillId = self?.id?.ToString() ?? string.Empty;
             if (ownerMob == null || string.IsNullOrWhiteSpace(skillId))
                 return true;
+            try { if (ownerMob.destroyed) return true; } catch { return true; }
 
             Entity? explicitTarget = null;
             try { var t = ownerMob.aTarget; if (t != null && !t.destroyed) explicitTarget = t; } catch { }
@@ -625,6 +626,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
             if (ownerMob == null || string.IsNullOrWhiteSpace(skillId))
                 return;
+            try { if (ownerMob.destroyed) return; } catch { return; }
 
             if (IsClient(net))
             {
@@ -664,6 +666,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             var skillId = self?.id?.ToString() ?? string.Empty;
             if (ownerMob == null || string.IsNullOrWhiteSpace(skillId))
                 return true;
+            try { if (ownerMob.destroyed) return true; } catch { return true; }
 
             Entity? explicitTarget = null;
             try { var t = ownerMob.aTarget; if (t != null && !t.destroyed) explicitTarget = t; } catch { }

@@ -11,7 +11,7 @@ public readonly struct InterDoorEvent
 
     public InterDoorEvent(int userId, double x, double y, string action, bool broken, string levelId = "")
     {
-        UserId = userId;
+        UserId = System.Math.Max(0, userId);
         X = double.IsFinite(x) ? x : 0.0;
         Y = double.IsFinite(y) ? y : 0.0;
         Action = action ?? string.Empty;
@@ -30,10 +30,10 @@ public readonly struct InterElevatorEvent
 
     public InterElevatorEvent(int userId, double x, double y, long sequence, string levelId = "")
     {
-        UserId = userId;
+        UserId = System.Math.Max(0, userId);
         X = double.IsFinite(x) ? x : 0.0;
         Y = double.IsFinite(y) ? y : 0.0;
-        Sequence = sequence;
+        Sequence = System.Math.Max(0L, sequence);
         LevelId = levelId ?? string.Empty;
     }
 }
@@ -59,10 +59,10 @@ public readonly struct InterElevatorStateEvent
         bool moving,
         string levelId = "")
     {
-        UserId = userId;
+        UserId = System.Math.Max(0, userId);
         AnchorX = double.IsFinite(anchorX) ? anchorX : 0.0;
         AnchorY = double.IsFinite(anchorY) ? anchorY : 0.0;
-        Sequence = sequence;
+        Sequence = System.Math.Max(0L, sequence);
         PlatformX = double.IsFinite(platformX) ? platformX : 0.0;
         PlatformY = double.IsFinite(platformY) ? platformY : 0.0;
         Moving = moving;
@@ -80,10 +80,10 @@ public readonly struct InterPressurePlateEvent
 
     public InterPressurePlateEvent(int userId, double x, double y, long sequence, string levelId = "")
     {
-        UserId = userId;
+        UserId = System.Math.Max(0, userId);
         X = double.IsFinite(x) ? x : 0.0;
         Y = double.IsFinite(y) ? y : 0.0;
-        Sequence = sequence;
+        Sequence = System.Math.Max(0L, sequence);
         LevelId = levelId ?? string.Empty;
     }
 }
@@ -139,7 +139,7 @@ public readonly struct BossHeroTeleportEvent
 
     public BossHeroTeleportEvent(int userId, double x, double y, int dir)
     {
-        UserId = userId;
+        UserId = System.Math.Max(0, userId);
         X = double.IsFinite(x) ? x : 0.0;
         Y = double.IsFinite(y) ? y : 0.0;
         Dir = dir;
@@ -201,7 +201,7 @@ public readonly struct InterEliteShrineEvent
 
     public InterEliteShrineEvent(int userId, double x, double y, string levelId = "")
     {
-        UserId = userId;
+        UserId = System.Math.Max(0, userId);
         X = double.IsFinite(x) ? x : 0.0;
         Y = double.IsFinite(y) ? y : 0.0;
         LevelId = levelId ?? string.Empty;

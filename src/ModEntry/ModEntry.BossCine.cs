@@ -1044,9 +1044,11 @@ namespace DeadCellsMultiplayerMod
                 var cine = game?.curCine;
                 if (cine != null && !cine.destroyed)
                 {
-                    if (IsBossOwnedCinematic(cine) || BossDeathCineTypeNames.Contains(cine.GetType().Name ?? string.Empty))
+                    if (cine is not DeadBase && cine is not RemoteDownedCorpse &&
+                        cine is not HeroDeath && cine is not HeroDeathBase && cine is not HeroDeathContinue &&
+                        cine is not HeroDeathRespawn && cine is not HeroDeathDLCP)
                     {
-                        Instance?.Logger.Information("[BossCine] Aborting active boss cinematic ({Type}) for scene transition: {Reason}", cine.GetType().Name, reason);
+                        Instance?.Logger.Information("[BossCine] Aborting active cinematic ({Type}) for scene transition: {Reason}", cine.GetType().Name, reason);
                         try { if (game != null) game.curCine = null; } catch { }
                         try { cine.destroy(); } catch { }
                         try { cine.disposeImmediately(); } catch { }
@@ -1118,8 +1120,9 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__KillKingCinem__constructor__(Hook__KillKingCinem.orig___constructor__ orig, KillKingCinem e, HlAction tween)
         {
+            var curLevel = dc.pr.Game.Class.ME?.curLevel;
             if (ShouldSuppressRemoteBossDeathCineConstruction() ||
-                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
+                e == null || curLevel == null || curLevel.destroyed || curLevel.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1130,8 +1133,9 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__KillQueenCinem__constructor__(Hook__KillQueenCinem.orig___constructor__ orig, KillQueenCinem e)
         {
+            var curLevel = dc.pr.Game.Class.ME?.curLevel;
             if (ShouldSuppressRemoteBossDeathCineConstruction() ||
-                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
+                e == null || curLevel == null || curLevel.destroyed || curLevel.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1154,8 +1158,9 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__KillDookuBeastCinem__constructor__(Hook__KillDookuBeastCinem.orig___constructor__ orig, KillDookuBeastCinem e)
         {
+            var curLevel = dc.pr.Game.Class.ME?.curLevel;
             if (ShouldSuppressRemoteBossDeathCineConstruction() ||
-                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
+                e == null || curLevel == null || curLevel.destroyed || curLevel.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1206,8 +1211,9 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__SmashCinem__constructor__(Hook__SmashCinem.orig___constructor__ orig, SmashCinem e, bool hasKingSkin, HlAction endCb)
         {
+            var curLevel = dc.pr.Game.Class.ME?.curLevel;
             if (ShouldSuppressRemoteBossDeathCineConstruction() ||
-                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
+                e == null || curLevel == null || curLevel.destroyed || curLevel.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1218,8 +1224,9 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__EndCollectorPostSmash__constructor__(Hook__EndCollectorPostSmash.orig___constructor__ orig, EndCollectorPostSmash e)
         {
+            var curLevel = dc.pr.Game.Class.ME?.curLevel;
             if (ShouldSuppressRemoteBossDeathCineConstruction() ||
-                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
+                e == null || curLevel == null || curLevel.destroyed || curLevel.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;
@@ -1230,8 +1237,9 @@ namespace DeadCellsMultiplayerMod
 
         private void Hook__EndCollectorPostSmashKS__constructor__(Hook__EndCollectorPostSmashKS.orig___constructor__ orig, EndCollectorPostSmashKS e)
         {
+            var curLevel = dc.pr.Game.Class.ME?.curLevel;
             if (ShouldSuppressRemoteBossDeathCineConstruction() ||
-                e == null || dc.pr.Game.Class.ME?.curLevel?.viewport == null)
+                e == null || curLevel == null || curLevel.destroyed || curLevel.viewport == null)
             {
                 SuppressRemoteBossDeathCineState(e);
                 return;

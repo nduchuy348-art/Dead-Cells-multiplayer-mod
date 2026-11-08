@@ -274,6 +274,9 @@ namespace DeadCellsMultiplayerMod
             if (me != null && ReferenceEquals(self, me) && _localFakeDead)
                 return;
 
+            ResetReviveHold();
+            ClearReviveHints();
+
             orig(self);
         }
 
@@ -314,10 +317,11 @@ namespace DeadCellsMultiplayerMod
             try
             {
                 var net = _net;
-                if (_netRole == NetRole.None || net == null || me == null)
+                if (_netRole == NetRole.None || net == null || !net.IsAlive || !net.IsConnected || me == null)
                 {
                     if (_localFakeDead || _remoteDowned.Count > 0)
                         ResetFakeDeathState(unlockLocalHero: true, sendNetworkUpState: false);
+                    ResetReviveHold();
                     ClearReviveHints();
                     return;
                 }
@@ -468,6 +472,9 @@ namespace DeadCellsMultiplayerMod
 
         private void ConsumeReviveRequests(NetNode net)
         {
+            if (net == null || !net.IsAlive || !net.IsConnected)
+                return;
+
             if (!_localFakeDead)
             {
                 if (net.TryConsumePlayerReviveRequests(out var ignoredRequests))
@@ -481,13 +488,16 @@ namespace DeadCellsMultiplayerMod
             try
             {
                 var localId = net.id;
+                _scratchRemoteActiveIds.Clear();
+                net.CopyRemoteUserIdsTo(_scratchRemoteActiveIds, includePrimary: true);
+
                 for (int i = 0; i < requests.Count; i++)
                 {
                     var req = requests[i];
                     if (req.TargetId != localId)
                         continue;
 
-                    if (req.ReviverId <= 0 || IsRemotePlayerDowned(req.ReviverId))
+                    if (req.ReviverId <= 0 || IsRemotePlayerDowned(req.ReviverId) || !_scratchRemoteActiveIds.Contains(req.ReviverId))
                         continue;
 
                     if (_localDeadCine == null)
@@ -533,9 +543,9 @@ namespace DeadCellsMultiplayerMod
                    ReviveRemotePositionValidationPx * ReviveRemotePositionValidationPx;
         }
 
-        private void PruneRemoteDownedStates(NetNode net)
+        private void PruneRemoteDownedStates(NetNode? net)
         {
-            if (_remoteDowned.Count == 0)
+            if (_remoteDowned.Count == 0 || net == null)
                 return;
 
             _scratchRemoteActiveIds.Clear();
@@ -543,14 +553,8 @@ namespace DeadCellsMultiplayerMod
             if (localId > 0)
                 _scratchRemoteActiveIds.Add(localId);
 
-            net.CopyRemoteUserIdsTo(_scratchRemoteActiveIds);
-
-            for (int i = 0; i < clientIds.Length; i++)
-            {
-                var id = clientIds[i];
-                if (id > 0)
-                    _scratchRemoteActiveIds.Add(id);
-            }
+            if (net.IsAlive && net.IsConnected)
+                net.CopyRemoteUserIdsTo(_scratchRemoteActiveIds, includePrimary: true);
 
             var now = Stopwatch.GetTimestamp();
             var staleAfterTicks = (long)(Stopwatch.Frequency * RemoteDownedStateStaleSeconds);
@@ -968,7 +972,7 @@ namespace DeadCellsMultiplayerMod
 
         private void ProcessReviveHold(NetNode net)
         {
-            if (me == null || _remoteDowned.Count == 0)
+            if (net == null || !net.IsAlive || !net.IsConnected || me == null || _remoteDowned.Count == 0)
             {
                 ResetReviveHold();
                 ClearReviveHints();
@@ -1322,6 +1326,19 @@ namespace DeadCellsMultiplayerMod
                 _allDownedRestartQueued = true;
                 MultiplayerUI.PushSystemMessage(Localize("Host disconnected. Run ended."));
                 ResetFakeDeathState(unlockLocalHero: true, sendNetworkUpState: false);
+            }
+            else
+            {
+                // Client watchdog: if host is connected but fails to restart run after 15s, recover
+                var waitElapsed = _allDownedRestartAtTicks != 0 && now > _allDownedRestartAtTicks
+                    ? (double)(now - _allDownedRestartAtTicks) / Stopwatch.Frequency
+                    : 0.0;
+                if (waitElapsed >= 15.0)
+                {
+                    _allDownedRestartQueued = true;
+                    MultiplayerUI.PushSystemMessage(Localize("Restart timeout reached. Recovering hero."));
+                    ResetFakeDeathState(unlockLocalHero: true, sendNetworkUpState: false);
+                }
             }
         }
 

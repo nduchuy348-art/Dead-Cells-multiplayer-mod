@@ -1656,6 +1656,7 @@ namespace DeadCellsMultiplayerMod
 
                     var client = clients[index];
                     if (client == null) continue;
+                    try { if (client.destroyed) continue; } catch { continue; }
 
                     if (attack.Slot >= 2)
                     {
@@ -1665,11 +1666,11 @@ namespace DeadCellsMultiplayerMod
                             try
                             {
                                 var anim = isBomb ? "throwBomb" : "throw";
-                                client.spr._animManager.play(anim.AsHaxeString(), null, null).stopOnLastFrame(Ref<bool>.Null);
+                                client.spr._animManager.play(anim.AsHaxeString(), null, null)?.stopOnLastFrame(Ref<bool>.Null);
                             }
                             catch
                             {
-                                try { client.spr._animManager.play("throw".AsHaxeString(), null, null).stopOnLastFrame(Ref<bool>.Null); } catch { }
+                                try { client.spr._animManager.play("throw".AsHaxeString(), null, null)?.stopOnLastFrame(Ref<bool>.Null); } catch { }
                             }
                         }
 
@@ -1982,7 +1983,9 @@ namespace DeadCellsMultiplayerMod
 
         private void PlayGhostAnim(GhostKing client, string anim, int? queueAnim, bool? g, string? prevAnim = null)
         {
-            if (client?.spr?._animManager == null) return;
+            if (client == null) return;
+            try { if (client.destroyed) return; } catch { return; }
+            if (client.spr?._animManager == null) return;
             if (string.IsNullOrWhiteSpace(anim)) return;
             if (DeadCellsMultiplayerMod.Ghost.KingWeaponSupport.IsUnsafeRemoteGhostAnimation(anim)) return;
             var shieldActive = client.kingWeaponsManager != null && client.kingWeaponsManager.IsShieldActive;

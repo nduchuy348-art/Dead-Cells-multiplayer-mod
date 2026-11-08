@@ -1,5 +1,6 @@
 using System;
 using DeadCellsMultiplayerMod.Ghost;
+using DeadCellsMultiplayerMod.Interaction;
 using DeadCellsMultiplayerMod.Mobs.MobsSynchronization;
 using Xunit;
 
@@ -733,6 +734,468 @@ public sealed class CoopBugfixRegressionTests
     {
         var result = DeadCellsMultiplayerMod.MUser.ResolveSlotFromSources(null, envSlot, -1, null);
         Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void RemoteSnapshot_SanitizesNonFiniteCoordinates()
+    {
+        var snapshot = new NetNode.RemoteSnapshot(
+            id: 2,
+            x: double.NaN,
+            y: double.PositiveInfinity,
+            dir: 1,
+            levelId: "PrisonersQuarters",
+            roomLevelId: null,
+            roomId: null,
+            hasRoom: false,
+            anim: null,
+            animQueue: null,
+            animG: null,
+            hasAnim: false,
+            username: "Player1",
+            headAnim: null,
+            hasHeadAnim: false);
+
+        Assert.Equal(0.0, snapshot.X);
+        Assert.Equal(0.0, snapshot.Y);
+        Assert.False(double.IsNaN(snapshot.X));
+        Assert.False(double.IsInfinity(snapshot.Y));
+    }
+
+    [Fact]
+    public void MobStateSnapshot_SanitizesNonFiniteAndNegativeValues()
+    {
+        var mob = new NetNode.MobStateSnapshot(
+            index: -5,
+            x: double.NegativeInfinity,
+            y: double.NaN,
+            dir: 1,
+            life: -10,
+            maxLife: -50,
+            animPayload: null!,
+            type: null!,
+            statePayload: null!,
+            generation: -2,
+            time: double.NaN,
+            dx: double.PositiveInfinity,
+            dy: double.NegativeInfinity);
+
+        Assert.Equal(0, mob.Index);
+        Assert.Equal(0.0, mob.X);
+        Assert.Equal(0.0, mob.Y);
+        Assert.Equal(0, mob.Life);
+        Assert.Equal(0, mob.MaxLife);
+        Assert.Equal(string.Empty, mob.AnimPayload);
+        Assert.Equal(string.Empty, mob.Type);
+        Assert.Equal(string.Empty, mob.StatePayload);
+        Assert.Equal(0.0, mob.Time);
+        Assert.Equal(0.0, mob.Dx);
+        Assert.Equal(0.0, mob.Dy);
+    }
+
+    [Fact]
+    public void MobMoveSnapshot_SanitizesNonFiniteCoordinatesAndVelocities()
+    {
+        var move = new NetNode.MobMoveSnapshot(
+            index: -1,
+            x: double.NaN,
+            y: double.PositiveInfinity,
+            dir: 1,
+            animPayload: null!,
+            generation: -3,
+            time: double.NaN,
+            dx: double.NegativeInfinity,
+            dy: double.NaN);
+
+        Assert.Equal(0, move.Index);
+        Assert.Equal(0.0, move.X);
+        Assert.Equal(0.0, move.Y);
+        Assert.Equal(0.0, move.Time);
+        Assert.Equal(0.0, move.Dx);
+        Assert.Equal(0.0, move.Dy);
+        Assert.Equal(-3, move.Generation);
+        Assert.Equal(string.Empty, move.AnimPayload);
+    }
+
+    [Fact]
+    public void MobHitAndDie_SanitizesCoordinatesAndCounts()
+    {
+        var hit = new NetNode.MobHit(
+            userId: -1,
+            mobIndex: -2,
+            hp: -100,
+            x: double.NaN,
+            y: double.NegativeInfinity,
+            type: null!,
+            generation: -1,
+            damageHint: double.NaN);
+
+        Assert.Equal(-1, hit.UserId);
+        Assert.Equal(0, hit.MobIndex);
+        Assert.Equal(0, hit.Hp);
+        Assert.Equal(0.0, hit.X);
+        Assert.Equal(0.0, hit.Y);
+        Assert.Equal(-1, hit.Generation);
+        Assert.Equal(string.Empty, hit.Type);
+        Assert.Equal(0.0, hit.DamageHint);
+
+        var die = new NetNode.MobDie(
+            userId: -5,
+            mobIndex: -10,
+            x: double.PositiveInfinity,
+            y: double.NaN,
+            generation: -2,
+            type: null!);
+
+        Assert.Equal(-5, die.UserId);
+        Assert.Equal(0, die.MobIndex);
+        Assert.Equal(0.0, die.X);
+        Assert.Equal(0.0, die.Y);
+        Assert.Equal(-2, die.Generation);
+        Assert.Equal(string.Empty, die.Type);
+    }
+
+    [Fact]
+    public void MobAttack_SanitizesNonFiniteCoordinates()
+    {
+        var attack = new NetNode.MobAttack(
+            index: -1,
+            skillId: null!,
+            requiresTargetInArea: true,
+            data: null,
+            x: double.NaN,
+            y: double.PositiveInfinity,
+            targetUserId: -1,
+            dir: 1,
+            blockSeconds: double.NaN,
+            forcedDirSeconds: double.NegativeInfinity,
+            type: null!,
+            generation: -4);
+
+        Assert.Equal(0, attack.Index);
+        Assert.Equal(string.Empty, attack.SkillId);
+        Assert.Equal(0.0, attack.X);
+        Assert.Equal(0.0, attack.Y);
+        Assert.Equal(-1, attack.TargetUserId);
+        Assert.Equal(0.0, attack.BlockSeconds);
+        Assert.Equal(0.0, attack.ForcedDirSeconds);
+        Assert.Equal(string.Empty, attack.Type);
+        Assert.Equal(-4, attack.Generation);
+    }
+
+    [Fact]
+    public void PlayerDownState_SanitizesHeadCoordinates()
+    {
+        var down = new NetNode.PlayerDownState(
+            userId: -1,
+            isDowned: true,
+            x: double.NaN,
+            y: double.NegativeInfinity,
+            levelId: null!,
+            hasHeadPosition: true,
+            headX: double.PositiveInfinity,
+            headY: double.NaN,
+            hasHeadAnim: true,
+            headAnim: null!);
+
+        Assert.Equal(-1, down.UserId);
+        Assert.Equal(0.0, down.X);
+        Assert.Equal(0.0, down.Y);
+        Assert.Equal(string.Empty, down.LevelId);
+        Assert.Equal(0.0, down.HeadX);
+        Assert.Equal(0.0, down.HeadY);
+        Assert.Equal(string.Empty, down.HeadAnim);
+    }
+
+    [Fact]
+    public void RemoteAffectEvent_ClampsDurationAndSanitizesNonFinite()
+    {
+        var affect = new NetNode.RemoteAffectEvent(
+            userId: -2,
+            affectId: -5,
+            sec: double.NaN,
+            isRemove: false);
+
+        Assert.Equal(-2, affect.UserId);
+        Assert.Equal(-5, affect.AffectId);
+        Assert.Equal(0.0, affect.Sec);
+
+        var affectNeg = new NetNode.RemoteAffectEvent(1, 2, -10.5, false);
+        Assert.Equal(0.0, affectNeg.Sec);
+
+        var affectInf = new NetNode.RemoteAffectEvent(1, 2, double.PositiveInfinity, false);
+        Assert.Equal(0.0, affectInf.Sec);
+    }
+
+    [Fact]
+    public void InterSyncTypes_SanitizesCoordinatesAndNullStrings()
+    {
+        var door = new InterDoorEvent(-1, double.NaN, double.PositiveInfinity, null!, true, null!);
+        Assert.Equal(0, door.UserId);
+        Assert.Equal(0.0, door.X);
+        Assert.Equal(0.0, door.Y);
+        Assert.Equal(string.Empty, door.Action);
+        Assert.Equal(string.Empty, door.LevelId);
+
+        var elev = new InterElevatorEvent(-1, double.NegativeInfinity, double.NaN, -5, null!);
+        Assert.Equal(0, elev.UserId);
+        Assert.Equal(0.0, elev.X);
+        Assert.Equal(0.0, elev.Y);
+        Assert.Equal(0L, elev.Sequence);
+        Assert.Equal(string.Empty, elev.LevelId);
+
+        var elevState = new InterElevatorStateEvent(
+            userId: -1,
+            anchorX: double.NaN,
+            anchorY: double.PositiveInfinity,
+            sequence: -10,
+            platformX: double.NegativeInfinity,
+            platformY: double.NaN,
+            moving: true,
+            levelId: null!);
+        Assert.Equal(0, elevState.UserId);
+        Assert.Equal(0.0, elevState.AnchorX);
+        Assert.Equal(0.0, elevState.AnchorY);
+        Assert.Equal(0L, elevState.Sequence);
+        Assert.Equal(0.0, elevState.PlatformX);
+        Assert.Equal(0.0, elevState.PlatformY);
+        Assert.Equal(string.Empty, elevState.LevelId);
+
+        var chest = new InterTreasureChestEvent(double.NaN, double.NegativeInfinity, null!);
+        Assert.Equal(0.0, chest.X);
+        Assert.Equal(0.0, chest.Y);
+        Assert.Equal(string.Empty, chest.LevelId);
+
+        var teleport = new InterTeleportEvent(double.PositiveInfinity, double.NaN, null!);
+        Assert.Equal(0.0, teleport.X);
+        Assert.Equal(0.0, teleport.Y);
+        Assert.Equal(string.Empty, teleport.LevelId);
+
+        var bossHeroTele = new BossHeroTeleportEvent(-1, double.NaN, double.PositiveInfinity, 1);
+        Assert.Equal(0, bossHeroTele.UserId);
+        Assert.Equal(0.0, bossHeroTele.X);
+        Assert.Equal(0.0, bossHeroTele.Y);
+
+        var bossRuneCells = new InterBossRuneUpdateCellsEvent(double.NaN, double.NegativeInfinity, true, null!);
+        Assert.Equal(0.0, bossRuneCells.X);
+        Assert.Equal(0.0, bossRuneCells.Y);
+        Assert.Equal(string.Empty, bossRuneCells.LevelId);
+    }
+
+    [Fact]
+    public void MobWireBinary_TryBuildAndParse_HandlesCorruptPayloadsSafely()
+    {
+        // Null or empty payload
+        var dest = new List<NetNode.MobStateSnapshot>();
+        Assert.False(MobWireBinary.TryParseMobStatesBinary(null!, dest));
+        Assert.False(MobWireBinary.TryParseMobStatesBinary(Array.Empty<byte>(), dest));
+        Assert.False(MobWireBinary.TryParseMobStatesBase64(null!, dest));
+        Assert.False(MobWireBinary.TryParseMobStatesBase64(string.Empty, dest));
+        Assert.False(MobWireBinary.TryParseMobStatesBase64("   ", dest));
+        Assert.False(MobWireBinary.TryParseMobStatesBase64("NotValidBase64!!!", dest));
+
+        // Truncated header (< 3 bytes)
+        Assert.False(MobWireBinary.TryParseMobStatesBinary(new byte[] { 1 }, dest));
+        Assert.False(MobWireBinary.TryParseMobStatesBinary(new byte[] { 1, 0 }, dest));
+
+        // Wrong version
+        Assert.False(MobWireBinary.TryParseMobStatesBinary(new byte[] { 99, 1, 0 }, dest));
+
+        // Oversized state count > 8192
+        var oversizedCountHeader = new byte[] { 1, 0xFF, 0x7F }; // count = 32767 > 8192
+        Assert.False(MobWireBinary.TryParseMobStatesBinary(oversizedCountHeader, dest));
+
+        // Negative state count (bit 15 set in short)
+        var negativeCountHeader = new byte[] { 1, 0x00, 0x80 }; // count = -32768
+        Assert.False(MobWireBinary.TryParseMobStatesBinary(negativeCountHeader, dest));
+    }
+
+    [Fact]
+    public void MobWireBinary_TryBuildAndParse_RoundtripsAndSanitizesNonFiniteCoordinates()
+    {
+        var inputStates = new List<NetNode.MobStateSnapshot>
+        {
+            new NetNode.MobStateSnapshot(
+                index: 10,
+                x: double.NaN, // Non-finite coordinate
+                y: 250.5,
+                dir: -1,
+                life: 100,
+                maxLife: 200,
+                animPayload: "walk",
+                type: "Zombie",
+                statePayload: "PrisonersQuarters",
+                generation: 1,
+                time: 0.5,
+                dx: double.PositiveInfinity,
+                dy: -1.5)
+        };
+
+        Assert.True(MobWireBinary.TryBuildMobStatesBinary(inputStates, out var bytes));
+        Assert.NotNull(bytes);
+
+        var outputStates = new List<NetNode.MobStateSnapshot>();
+        Assert.True(MobWireBinary.TryParseMobStatesBinary(bytes, outputStates));
+        Assert.Single(outputStates);
+
+        var parsed = outputStates[0];
+        Assert.Equal(10, parsed.Index);
+        Assert.Equal(0.0, parsed.X); // NaN sanitized to 0.0
+        Assert.Equal(250.5, parsed.Y);
+        Assert.Equal(-1, parsed.Dir);
+        Assert.Equal(100, parsed.Life);
+        Assert.Equal(200, parsed.MaxLife);
+        Assert.Equal("walk", parsed.AnimPayload);
+        Assert.Equal("Zombie", parsed.Type);
+        Assert.Equal("PrisonersQuarters", parsed.StatePayload);
+        Assert.Equal(1, parsed.Generation);
+        Assert.Equal(0.0, parsed.Dx); // PositiveInfinity sanitized to 0.0
+        Assert.Equal(-1.5, parsed.Dy);
+    }
+
+    [Fact]
+    public void MobWireBinary_TryParseMobStatesBinary_DetectsTruncatedRecordData()
+    {
+        var inputStates = new List<NetNode.MobStateSnapshot>
+        {
+            new NetNode.MobStateSnapshot(1, 10.0, 20.0, 1, 50, 50, "idle", "Zombie", "Level1", 1, 0.0, 0.0, 0.0)
+        };
+
+        Assert.True(MobWireBinary.TryBuildMobStatesBinary(inputStates, out var bytes));
+        Assert.NotNull(bytes);
+
+        // Truncate half of the byte buffer
+        var truncated = new byte[bytes.Length / 2];
+        Array.Copy(bytes, truncated, truncated.Length);
+
+        var dest = new List<NetNode.MobStateSnapshot>();
+        Assert.False(MobWireBinary.TryParseMobStatesBinary(truncated, dest));
+        Assert.Empty(dest);
+    }
+
+    [Fact]
+    public void MobWireCodec_BuildMobEventsLine_SanitizesNonFiniteDoubles()
+    {
+        var updates = new List<NetNode.MobEventUpdate>
+        {
+            new NetNode.MobEventUpdate(
+                index: 1,
+                x: double.NaN,
+                y: double.PositiveInfinity,
+                dir: 1,
+                events: new List<string> { "hit|10|25" },
+                type: "Zombie",
+                generation: 2)
+        };
+
+        var line = MobWireCodec.BuildMobEventsLine(updates);
+        Assert.StartsWith("MOBEVENT|", line);
+        Assert.DoesNotContain("NaN", line);
+        Assert.DoesNotContain("Infinity", line);
+    }
+
+    [Theory]
+    // Host alone -> 1
+    [InlineData(true, 1, false, new int[] { 1 }, new int[] { }, new int[] { 1 }, 1)]
+    // Host + 1 client (alive, fresh) -> 2
+    [InlineData(true, 1, false, new int[] { 1, 2 }, new int[] { }, new int[] { 1, 2 }, 2)]
+    // Host + 1 client (downed) -> 1
+    [InlineData(true, 1, false, new int[] { 1, 2 }, new int[] { 2 }, new int[] { 1, 2 }, 1)]
+    // Host + 1 client (stale/disconnected) -> 1
+    [InlineData(true, 1, false, new int[] { 1, 2 }, new int[] { }, new int[] { 1 }, 1)]
+    // Host downed + 1 client (alive, fresh) -> 1
+    [InlineData(true, 1, true, new int[] { 1, 2 }, new int[] { }, new int[] { 1, 2 }, 1)]
+    // Host downed + 1 client (downed) -> 1 (min 1)
+    [InlineData(true, 1, true, new int[] { 1, 2 }, new int[] { 2 }, new int[] { 1, 2 }, 1)]
+    // Host + 2 clients (1 alive, 1 stale) -> 2
+    [InlineData(true, 1, false, new int[] { 1, 2, 3 }, new int[] { }, new int[] { 1, 2 }, 2)]
+    // Host + 2 clients (1 alive, 1 downed) -> 2
+    [InlineData(true, 1, false, new int[] { 1, 2, 3 }, new int[] { 3 }, new int[] { 1, 2, 3 }, 2)]
+    // Host + 2 clients (both stale) -> 1
+    [InlineData(true, 1, false, new int[] { 1, 2, 3 }, new int[] { }, new int[] { 1 }, 1)]
+    // Client alone (host disconnected) -> 1
+    [InlineData(false, 2, false, new int[] { 2 }, new int[] { }, new int[] { 2 }, 1)]
+    // Client + Host alive -> 2
+    [InlineData(false, 2, false, new int[] { 1, 2 }, new int[] { }, new int[] { 1, 2 }, 2)]
+    // Client + Host downed -> 1
+    [InlineData(false, 2, false, new int[] { 1, 2 }, new int[] { 1 }, new int[] { 1, 2 }, 1)]
+    // Client downed + Host alive -> 1
+    [InlineData(false, 2, true, new int[] { 1, 2 }, new int[] { }, new int[] { 1, 2 }, 1)]
+    public void CombatSyncHelpers_ComputeExpectedExitPlayerCount_HandlesDownedAndStalePeers(
+        bool isHost,
+        int localId,
+        bool isLocalDowned,
+        int[] activePeerIds,
+        int[] downedPeerIds,
+        int[] freshPeerIds,
+        int expected)
+    {
+        var downedSet = new HashSet<int>(downedPeerIds);
+        var freshSet = new HashSet<int>(freshPeerIds);
+
+        var result = CombatSyncHelpers.ComputeExpectedExitPlayerCount(
+            isHost,
+            localId,
+            isLocalDowned,
+            activePeerIds,
+            peerId => downedSet.Contains(peerId),
+            peerId => freshSet.Contains(peerId));
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ProtocolTypes_SanitizesNegativeIdsAndNonFiniteFloats()
+    {
+        var draw = new NetNode.MobDraw(-5, -10, true, true, -1);
+        Assert.Equal(0, draw.UserId);
+        Assert.Equal(0, draw.MobIndex);
+
+        var ready = new NetNode.ExitReadyState(-2, -5, -8, true, true, false, true, null);
+        Assert.Equal(0, ready.UserId);
+        Assert.Equal(0, ready.DoorCx);
+        Assert.Equal(0, ready.DoorCy);
+        Assert.Equal(string.Empty, ready.LevelId);
+
+        var down = new NetNode.PlayerDownState(
+            userId: -1,
+            isDowned: true,
+            x: double.NaN,
+            y: double.PositiveInfinity,
+            levelId: null!,
+            hasHeadPosition: true,
+            headX: double.NegativeInfinity,
+            headY: double.NaN,
+            hasHeadAnim: true,
+            headAnim: null);
+        Assert.Equal(-1, down.UserId);
+        Assert.Equal(0.0, down.X);
+        Assert.Equal(0.0, down.Y);
+        Assert.Equal(0.0, down.HeadX);
+        Assert.Equal(0.0, down.HeadY);
+        Assert.Equal(string.Empty, down.LevelId);
+        Assert.Equal(string.Empty, down.HeadAnim);
+
+        var anchor = new NetNode.HostSpawnAnchor(-10, -20, null);
+        Assert.Equal(0, anchor.Cx);
+        Assert.Equal(0, anchor.Cy);
+        Assert.Equal(string.Empty, anchor.LevelId);
+
+        var commit = new NetNode.ExitTransitionCommit(-100, -1, -2, null, null);
+        Assert.Equal(0L, commit.Sequence);
+        Assert.Equal(0, commit.DoorCx);
+        Assert.Equal(0, commit.DoorCy);
+        Assert.Equal(string.Empty, commit.FromLevelId);
+        Assert.Equal(string.Empty, commit.DestinationLevelId);
+
+        var revive = new NetNode.PlayerReviveRequest(-1, -2);
+        Assert.Equal(0, revive.ReviverId);
+        Assert.Equal(0, revive.TargetId);
+
+        var affect = new NetNode.RemoteAffectEvent(-5, -10, double.NaN, false);
+        Assert.Equal(-5, affect.UserId);
+        Assert.Equal(-10, affect.AffectId);
+        Assert.Equal(0.0, affect.Sec);
     }
 }
 
