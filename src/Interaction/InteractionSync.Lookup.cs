@@ -69,10 +69,16 @@ public partial class InteractionSync
 
     private static T? GetTriggerAt<T>(object? triggers, int i) where T : class
     {
-        if (triggers is ArrayObj ao)
-            return ao.getDyn(i) as T;
-        if (triggers is ArrayDyn ad)
-            return ad.getDyn(i) as T;
+        try
+        {
+            if (triggers is ArrayObj ao)
+                return ao.getDyn(i) as T;
+            if (triggers is ArrayDyn ad)
+                return ad.getDyn(i) as T;
+        }
+        catch
+        {
+        }
         return null;
     }
 
@@ -107,13 +113,27 @@ public partial class InteractionSync
         }
     }
 
+    /// <summary>
+    /// Explicitly clears all cached interaction entities and resets the cached level reference.
+    /// Ensures that no stale entity or trigger references linger across biome transitions or level unloads.
+    /// </summary>
+    public static void ClearInteractionLevelCache()
+    {
+        CachedInteractionLevelData.Clear();
+        _cachedInteractionLevel = null;
+        _cachedInteractionEntityCount = -1;
+        _cachedInteractionTriggerCount = -1;
+    }
+
     private static LevelInteractionCache GetInteractionCache(Level level)
     {
-        var entityCount = level.entities?.length ?? 0;
-        var triggerCount = GetTriggerArrayLength(TryGetLevelTriggers(level));
-        if (!ReferenceEquals(_cachedInteractionLevel, level) ||
-            entityCount != _cachedInteractionEntityCount ||
-            triggerCount != _cachedInteractionTriggerCount)
+        if (level == null)
+        {
+            ClearInteractionLevelCache();
+            return CachedInteractionLevelData;
+        }
+
+        if (!ReferenceEquals(_cachedInteractionLevel, level))
         {
             RebuildInteractionCache(level);
         }
@@ -123,85 +143,112 @@ public partial class InteractionSync
 
     private static void RebuildInteractionCache(Level? level)
     {
-        CachedInteractionLevelData.Clear();
-        _cachedInteractionLevel = level;
-        _cachedInteractionEntityCount = -1;
-        _cachedInteractionTriggerCount = -1;
+        ClearInteractionLevelCache();
 
         if (level == null)
             return;
 
-        var entities = level.entities;
-        _cachedInteractionEntityCount = entities?.length ?? 0;
-        if (entities != null)
+        try
         {
-            for (var i = 0; i < entities.length; i++)
+            var entities = level.entities;
+            _cachedInteractionEntityCount = entities?.length ?? 0;
+            if (entities != null)
             {
-                switch (entities.getDyn(i))
+                var length = entities.length;
+                for (var i = 0; i < length; i++)
                 {
-                    case Door door:
-                        CachedInteractionLevelData.Doors.Add(door);
-                        break;
+                    object? dyn;
+                    try
+                    {
+                        dyn = entities.getDyn(i);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    switch (dyn)
+                    {
+                        case Door door:
+                            CachedInteractionLevelData.Doors.Add(door);
+                            break;
+                        case Elevator elevator:
+                            CachedInteractionLevelData.Elevators.Add(elevator);
+                            break;
+                        case VineLadder vineLadder:
+                            CachedInteractionLevelData.VineLadders.Add(vineLadder);
+                            break;
+                        case Teleport teleport:
+                            CachedInteractionLevelData.Teleports.Add(teleport);
+                            break;
+                        case Portal portal:
+                            CachedInteractionLevelData.Portals.Add(portal);
+                            break;
+                        case PressurePlate pressurePlate:
+                            CachedInteractionLevelData.PressurePlates.Add(pressurePlate);
+                            break;
+                        case dc.en.inter.button.Button button:
+                            CachedInteractionLevelData.Buttons.Add(button);
+                            break;
+                        case TreasureChest treasureChest:
+                            CachedInteractionLevelData.TreasureChests.Add(treasureChest);
+                            break;
+                        case SwitchBossRune switchBossRune:
+                            CachedInteractionLevelData.SwitchBossRunes.Add(switchBossRune);
+                            break;
+                        case ShopBooth shopBooth:
+                            CachedInteractionLevelData.ShopBooths.Add(shopBooth);
+                            break;
+                        case ItemAltar itemAltar:
+                            CachedInteractionLevelData.ItemAltars.Add(itemAltar);
+                            break;
+                        case ShopReroll shopReroll:
+                            CachedInteractionLevelData.ShopRerolls.Add(shopReroll);
+                            break;
+                        case ItemDrop itemDrop:
+                            CachedInteractionLevelData.ItemDrops.Add(itemDrop);
+                            break;
+                    }
+                }
+            }
+
+            var triggers = TryGetLevelTriggers(level);
+            var triggerCount = GetTriggerArrayLength(triggers);
+            _cachedInteractionTriggerCount = triggerCount;
+            for (var i = 0; i < triggerCount; i++)
+            {
+                Entity? trigger;
+                try
+                {
+                    trigger = GetTriggerAt<Entity>(triggers, i);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                switch (trigger)
+                {
                     case Elevator elevator:
-                        CachedInteractionLevelData.Elevators.Add(elevator);
-                        break;
-                    case VineLadder vineLadder:
-                        CachedInteractionLevelData.VineLadders.Add(vineLadder);
+                        CachedInteractionLevelData.TriggerElevators.Add(elevator);
                         break;
                     case Teleport teleport:
-                        CachedInteractionLevelData.Teleports.Add(teleport);
+                        CachedInteractionLevelData.TriggerTeleports.Add(teleport);
                         break;
                     case Portal portal:
-                        CachedInteractionLevelData.Portals.Add(portal);
-                        break;
-                    case PressurePlate pressurePlate:
-                        CachedInteractionLevelData.PressurePlates.Add(pressurePlate);
+                        CachedInteractionLevelData.TriggerPortals.Add(portal);
                         break;
                     case dc.en.inter.button.Button button:
-                        CachedInteractionLevelData.Buttons.Add(button);
-                        break;
-                    case TreasureChest treasureChest:
-                        CachedInteractionLevelData.TreasureChests.Add(treasureChest);
-                        break;
-                    case SwitchBossRune switchBossRune:
-                        CachedInteractionLevelData.SwitchBossRunes.Add(switchBossRune);
-                        break;
-                    case ShopBooth shopBooth:
-                        CachedInteractionLevelData.ShopBooths.Add(shopBooth);
-                        break;
-                    case ItemAltar itemAltar:
-                        CachedInteractionLevelData.ItemAltars.Add(itemAltar);
-                        break;
-                    case ShopReroll shopReroll:
-                        CachedInteractionLevelData.ShopRerolls.Add(shopReroll);
-                        break;
-                    case ItemDrop itemDrop:
-                        CachedInteractionLevelData.ItemDrops.Add(itemDrop);
+                        CachedInteractionLevelData.TriggerButtons.Add(button);
                         break;
                 }
             }
-        }
 
-        var triggers = TryGetLevelTriggers(level);
-        var triggerCount = GetTriggerArrayLength(triggers);
-        _cachedInteractionTriggerCount = triggerCount;
-        for (var i = 0; i < triggerCount; i++)
+            _cachedInteractionLevel = level;
+        }
+        catch
         {
-            switch (GetTriggerAt<Entity>(triggers, i))
-            {
-                case Elevator elevator:
-                    CachedInteractionLevelData.TriggerElevators.Add(elevator);
-                    break;
-                case Teleport teleport:
-                    CachedInteractionLevelData.TriggerTeleports.Add(teleport);
-                    break;
-                case Portal portal:
-                    CachedInteractionLevelData.TriggerPortals.Add(portal);
-                    break;
-                case dc.en.inter.button.Button button:
-                    CachedInteractionLevelData.TriggerButtons.Add(button);
-                    break;
-            }
+            ClearInteractionLevelCache();
         }
     }
 

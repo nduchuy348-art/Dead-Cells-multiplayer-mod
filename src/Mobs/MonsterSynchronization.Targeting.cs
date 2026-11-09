@@ -361,15 +361,64 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
         // encoding instead: one dictionary hit per frame per mob, allocation only when something
         // actually changed. Speeds vary continuously during wind-ups, so cap the cache and clear
         // wholesale like parsedAnimPayloadCache does.
-        private static readonly Dictionary<string, string> s_animPayloadEncodeCache = new(StringComparer.Ordinal);
+        internal readonly struct AnimPayloadKey : IEquatable<AnimPayloadKey>
+        {
+            public readonly string Group;
+            public readonly bool Reverse;
+            public readonly double Speed;
+
+            public AnimPayloadKey(string? group, bool reverse, double speed)
+            {
+                Group = group ?? string.Empty;
+                Reverse = reverse;
+                Speed = speed == 0.0 ? 0.0 : speed;
+            }
+
+            public bool Equals(AnimPayloadKey other)
+            {
+                if (Reverse != other.Reverse)
+                    return false;
+
+                var s1 = Speed == 0.0 ? 0.0 : Speed;
+                var s2 = other.Speed == 0.0 ? 0.0 : other.Speed;
+                if (!s1.Equals(s2))
+                    return false;
+
+                return string.Equals(Group ?? string.Empty, other.Group ?? string.Empty, StringComparison.Ordinal);
+            }
+
+            public override bool Equals(object? obj)
+            {
+                return obj is AnimPayloadKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                var hash = new HashCode();
+                hash.Add(Group ?? string.Empty, StringComparer.Ordinal);
+                hash.Add(Reverse);
+                hash.Add(Speed == 0.0 ? 0.0 : Speed);
+                return hash.ToHashCode();
+            }
+
+            public static bool operator ==(AnimPayloadKey left, AnimPayloadKey right) => left.Equals(right);
+            public static bool operator !=(AnimPayloadKey left, AnimPayloadKey right) => !left.Equals(right);
+
+            public override string ToString() => $"{(Group ?? string.Empty)}~{(Reverse ? 1 : 0)}~{(Speed == 0.0 ? 0.0 : Speed).ToString(CultureInfo.InvariantCulture)}";
+        }
+
+        internal static readonly Dictionary<AnimPayloadKey, string> s_animPayloadEncodeCache = new();
         private const int AnimPayloadEncodeCacheLimit = 1024;
 
-        private static string GetCachedAnimPayload(string group, bool reverse, double speed)
+        internal static string GetCachedAnimPayload(string group, bool reverse, double speed)
         {
+            if (string.IsNullOrWhiteSpace(group))
+                return string.Empty;
+
             // Quantize speed so micro-differences during a wind-up don't blow the cache; the client
             // clamps to [0.01, MaxClientAnimPayloadSpeed] anyway and anim speed is cosmetic.
             var quantizedSpeed = System.Math.Round(speed, 3);
-            var key = string.Create(CultureInfo.InvariantCulture, $"{group}~{(reverse ? 1 : 0)}~{quantizedSpeed:R}");
+            var key = new AnimPayloadKey(group, reverse, quantizedSpeed);
 
             lock (Sync)
             {
@@ -387,12 +436,13 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 encodedGroup = group;
             }
 
-            var payload = ReferenceEquals(encodedGroup, group) || string.Equals(encodedGroup, group, StringComparison.Ordinal)
-                ? key
-                : string.Create(CultureInfo.InvariantCulture, $"{encodedGroup}~{(reverse ? 1 : 0)}~{quantizedSpeed:R}");
+            var payload = string.Create(CultureInfo.InvariantCulture, $"{encodedGroup}~{(reverse ? 1 : 0)}~{quantizedSpeed:R}");
 
             lock (Sync)
             {
+                if (s_animPayloadEncodeCache.TryGetValue(key, out var cached))
+                    return cached;
+
                 if (s_animPayloadEncodeCache.Count >= AnimPayloadEncodeCacheLimit)
                     s_animPayloadEncodeCache.Clear();
                 s_animPayloadEncodeCache[key] = payload;

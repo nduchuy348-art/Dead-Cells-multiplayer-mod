@@ -917,6 +917,13 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
         private static bool TryGetCurrentLevelIdentityToken(out int identityToken)
         {
+            var token = System.Threading.Volatile.Read(ref s_levelIdentityToken);
+            if (token > 0 && System.Threading.Volatile.Read(ref s_levelIdentityReady) && System.Threading.Volatile.Read(ref currentLevel) != null)
+            {
+                identityToken = token;
+                return true;
+            }
+
             lock (Sync)
             {
                 return TryGetCurrentLevelIdentityTokenLocked(out identityToken);
@@ -1179,6 +1186,75 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             }
         }
 
+        internal static bool TryGetMobSyncIdLocked(Mob mob, out int syncId)
+        {
+            syncId = -1;
+            if (mob == null)
+                return false;
+
+            if (MobToId.TryGetValue(mob, out syncId))
+                return true;
+
+            if (s_mobSyncAliases.TryGetValue(mob, out var alias) &&
+                alias.Generation == s_levelIdentityGeneration &&
+                IdToMob.TryGetValue(alias.SyncId, out var aliasedCanonical) &&
+                aliasedCanonical != null &&
+                !aliasedCanonical.destroyed &&
+                aliasedCanonical._level != null)
+            {
+                syncId = alias.SyncId;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static readonly ConditionalWeakTable<Mob, StrongBox<int>> s_trackedMobGeneration = new();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void EnsureMobTrackedFast(Mob mob)
+        {
+            var gen = System.Threading.Volatile.Read(ref s_levelIdentityGeneration);
+            if (gen > 0 &&
+                s_trackedMobGeneration.TryGetValue(mob, out var stamp) &&
+                stamp.Value == gen)
+            {
+                return;
+            }
+
+            EnsureMobTracked(mob);
+
+            if (gen > 0)
+            {
+                lock (Sync)
+                {
+                    if (FindTrackedMobIndexLocked(mob) >= 0)
+                    {
+                        s_trackedMobGeneration.GetOrCreateValue(mob).Value = gen;
+                    }
+                }
+            }
+        }
+
+        private static void TryApplyHostClientVisibilityInterestFast(Mob mob)
+        {
+            if (mob == null)
+                return;
+
+            bool isVisible;
+            lock (Sync)
+            {
+                isVisible = TryGetMobSyncIdLocked(mob, out var syncId) &&
+                            syncId > 0 &&
+                            hostClientInterestUsersBySyncId.TryGetValue(syncId, out var users) &&
+                            users != null &&
+                            users.Count > 0;
+            }
+
+            if (isVisible)
+                PromoteMobToSyncVisibleState(mob);
+        }
+
         private void Hook_Mob_preUpdate(Hook_Mob.orig_preUpdate orig, Mob self)
         {
             var net = LobbySession.NetRef;
@@ -1187,10 +1263,13 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
             
             if (!isHost && !isClient)
             {
-                lock (Sync)
+                if (trackedMobs.Count > 0 || currentLevel != null)
                 {
-                    if (trackedMobs.Count > 0 || currentLevel != null)
-                        ResetMobTrackingLocked("pre_update_net_unavailable");
+                    lock (Sync)
+                    {
+                        if (trackedMobs.Count > 0 || currentLevel != null)
+                            ResetMobTrackingLocked("pre_update_net_unavailable");
+                    }
                 }
                 orig(self);
                 return;
@@ -1198,7 +1277,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
 
             var isSyncMob = IsSyncMob(self);
             if (isSyncMob)
-                EnsureMobTracked(self);
+                EnsureMobTrackedFast(self);
 
             if (isClient && isSyncMob)
                 UpdateClientMobAiAuthority(self);
@@ -1207,7 +1286,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                 TryMaintainHostBossSurvivorTarget(self);
 
             if (isHost && isSyncMob)
-                TryApplyHostClientVisibilityInterest(self);
+                TryApplyHostClientVisibilityInterestFast(self);
 
             orig(self);
 
@@ -1839,6 +1918,7 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     snapshot = new List<Mob>(trackedMobs);
                 }
 
+                var dirtyMobs = new List<Mob>(snapshot.Count);
                 for (var i = 0; i < snapshot.Count; i++)
                 {
                     var mob = snapshot[i];
@@ -1849,10 +1929,24 @@ namespace DeadCellsMultiplayerMod.Mobs.MobsSynchronization
                     {
                         BossHpScaling.ResetMobScaling(mob);
                         BossHpScaling.ScaleForMultiplayer(mob);
-                        QueueHostMobDirty(mob, HostMobDirtyFlags.State | HostMobDirtyFlags.ForceState);
+                        dirtyMobs.Add(mob);
                     }
                     catch
                     {
+                    }
+                }
+
+                if (dirtyMobs.Count > 0)
+                {
+                    lock (Sync)
+                    {
+                        for (var i = 0; i < dirtyMobs.Count; i++)
+                        {
+                            if (TryGetMobSyncIdLocked(dirtyMobs[i], out var syncId) && syncId > 0)
+                            {
+                                EnqueueHostMobDirtyLocked(syncId, HostMobDirtyFlags.State | HostMobDirtyFlags.ForceState);
+                            }
+                        }
                     }
                 }
             }

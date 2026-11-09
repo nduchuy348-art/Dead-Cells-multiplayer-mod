@@ -152,6 +152,12 @@ public class LevelExitSync :
     private int _cachedDownedSignature;
     private bool _hasCachedDownedSignature;
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(int cx, int cy), string> _doorKeyCache = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<global::System.Type, bool> _supportedExitTypeCache = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<global::System.Type, string> _exitDestinationByTypeCache = new();
+    private static long _lastBossFightCheckTicks;
+    private static bool _lastBossFightResult;
+
     private const double NearestExitCacheReuseDistancePx = 18.0;
     private const double NearestExitCacheReuseDistanceSq = NearestExitCacheReuseDistancePx * NearestExitCacheReuseDistancePx;
 
@@ -455,16 +461,19 @@ public class LevelExitSync :
             return;
         }
 
-        var targetDoorKey = BuildDoorKey(target.cx, target.cy);
+        var wasReadyHere = _localPressed &&
+                           _localDoorCx == target.cx &&
+                           _localDoorCy == target.cy &&
+                           _localInsideCircle;
+        var targetDoorKey = (_localDoorCx == target.cx && _localDoorCy == target.cy && !string.IsNullOrEmpty(_localDoorKey))
+            ? _localDoorKey
+            : BuildDoorKey(target.cx, target.cy);
         _localDoorKey = targetDoorKey;
         _localDoorCx = target.cx;
         _localDoorCy = target.cy;
         _localDoorOutOfGame = SafeRead(() => target.isOutOfGame, false);
         _localDoorOnScreen = SafeRead(() => target.isOnScreen, false);
         _localInsideCircle = true;
-        var wasReadyHere = _localPressed &&
-                           string.Equals(_localDoorKey, targetDoorKey, StringComparison.Ordinal) &&
-                           _localInsideCircle;
         _localPressed = true;
 
         UpdateLocalPlayerState(net!, forceSend: true);
@@ -985,31 +994,38 @@ public class LevelExitSync :
         if (target is BossRushDoor)
             return "BossRushZone";
 
-        var typeName = target.GetType().Name;
-        if (typeName.Contains("RichterCastle", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ExitToRichter", StringComparison.OrdinalIgnoreCase))
-            return "RichterCastle";
-        if (typeName.Contains("ExitToQueen", StringComparison.OrdinalIgnoreCase) || typeName.Contains("LighthouseExit", StringComparison.OrdinalIgnoreCase))
-            return "QueenArena";
-        if (typeName.Contains("ExitToDeath", StringComparison.OrdinalIgnoreCase))
-            return "DeathArena";
-        if (typeName.Contains("ExitToDooku", StringComparison.OrdinalIgnoreCase))
-            return "DookuArena";
-        if (typeName.Contains("FisherBarque", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ExitToShipwreck", StringComparison.OrdinalIgnoreCase))
-            return "Shipwreck";
-        if (typeName.Contains("ExitToCastlevania", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ExitToPurple", StringComparison.OrdinalIgnoreCase))
-            return "PurpleGarden";
-        if (typeName.Contains("ExitToGreenhouse", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ArboretumExit", StringComparison.OrdinalIgnoreCase))
-            return "Greenhouse";
-        if (typeName.Contains("ExitToSwamp", StringComparison.OrdinalIgnoreCase))
-            return "Swamp";
-        if (typeName.Contains("ExitToTumulus", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ShrinesExit", StringComparison.OrdinalIgnoreCase))
-            return "Tumulus";
-        if (typeName.Contains("ExitToCliff", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ShoresExit", StringComparison.OrdinalIgnoreCase))
-            return "Cliff";
-        if (typeName.Contains("ExitToCavern", StringComparison.OrdinalIgnoreCase))
-            return "Cavern";
-        if (typeName.Contains("ExitToGiant", StringComparison.OrdinalIgnoreCase))
-            return "Giant";
+        var cachedDest = _exitDestinationByTypeCache.GetOrAdd(target.GetType(), static type =>
+        {
+            var typeName = type.Name;
+            if (typeName.Contains("RichterCastle", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ExitToRichter", StringComparison.OrdinalIgnoreCase))
+                return "RichterCastle";
+            if (typeName.Contains("ExitToQueen", StringComparison.OrdinalIgnoreCase) || typeName.Contains("LighthouseExit", StringComparison.OrdinalIgnoreCase))
+                return "QueenArena";
+            if (typeName.Contains("ExitToDeath", StringComparison.OrdinalIgnoreCase))
+                return "DeathArena";
+            if (typeName.Contains("ExitToDooku", StringComparison.OrdinalIgnoreCase))
+                return "DookuArena";
+            if (typeName.Contains("FisherBarque", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ExitToShipwreck", StringComparison.OrdinalIgnoreCase))
+                return "Shipwreck";
+            if (typeName.Contains("ExitToCastlevania", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ExitToPurple", StringComparison.OrdinalIgnoreCase))
+                return "PurpleGarden";
+            if (typeName.Contains("ExitToGreenhouse", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ArboretumExit", StringComparison.OrdinalIgnoreCase))
+                return "Greenhouse";
+            if (typeName.Contains("ExitToSwamp", StringComparison.OrdinalIgnoreCase))
+                return "Swamp";
+            if (typeName.Contains("ExitToTumulus", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ShrinesExit", StringComparison.OrdinalIgnoreCase))
+                return "Tumulus";
+            if (typeName.Contains("ExitToCliff", StringComparison.OrdinalIgnoreCase) || typeName.Contains("ShoresExit", StringComparison.OrdinalIgnoreCase))
+                return "Cliff";
+            if (typeName.Contains("ExitToCavern", StringComparison.OrdinalIgnoreCase))
+                return "Cavern";
+            if (typeName.Contains("ExitToGiant", StringComparison.OrdinalIgnoreCase))
+                return "Giant";
+            return string.Empty;
+        });
+
+        if (!string.IsNullOrEmpty(cachedDest))
+            return cachedDest;
 
         var dynDest = SafeRead(() => (target as dynamic)?.destLevel?.ToString() ?? (target as dynamic)?.destMap?.id?.ToString() ?? string.Empty, string.Empty);
         if (!string.IsNullOrWhiteSpace(dynDest))
@@ -1522,7 +1538,6 @@ public class LevelExitSync :
                 var trackedState = GetOrCreatePlayerState(state.UserId);
                 anyChanged |= ApplyPlayerState(
                     trackedState,
-                    BuildDoorKey(state.DoorCx, state.DoorCy),
                     state.DoorCx,
                     state.DoorCy,
                     state.Pressed,
@@ -1811,7 +1826,13 @@ public class LevelExitSync :
 
     private static string BuildDoorKey(int cx, int cy)
     {
-        return string.Create(CultureInfo.InvariantCulture, $"{cx}:{cy}");
+        if (_doorKeyCache.TryGetValue((cx, cy), out var cached))
+            return cached;
+
+        var key = string.Create(CultureInfo.InvariantCulture, $"{cx}:{cy}");
+        if (_doorKeyCache.Count < 512)
+            _doorKeyCache.TryAdd((cx, cy), key);
+        return key;
     }
 
     internal static bool IsDoorProximityMatch(string doorKey1, string doorKey2, int threshold = 6)
@@ -1840,7 +1861,10 @@ public class LevelExitSync :
 
         if (!TryParseDoorKey(key, out var cx, out var cy))
             return null;
-        return FindExitTargetByCoordinates(level, cx, cy);
+        var target = FindExitTargetByCoordinates(level, cx, cy);
+        if (target != null)
+            _exitTargetsByDoorKey[key] = target;
+        return target;
     }
 
     private Entity? FindExitTargetByCoordinates(Level? level, int cx, int cy)
@@ -1849,16 +1873,9 @@ public class LevelExitSync :
             return null;
 
         EnsureExitTargetCandidates(level);
-        var key = BuildDoorKey(cx, cy);
-        if (_exitTargetsByDoorKey.TryGetValue(key, out var direct))
-        {
-            if (IsTrackedExitTargetCandidate(level, direct))
-                return direct;
-
-            _exitTargetsByDoorKey.Remove(key);
-        }
 
         var removedCandidates = 0;
+        Entity? found = null;
         for (int i = _exitTargetCandidates.Count - 1; i >= 0; i--)
         {
             var entity = _exitTargetCandidates[i];
@@ -1870,19 +1887,18 @@ public class LevelExitSync :
                 continue;
             }
 
-            if (entity!.cx == cx && entity.cy == cy)
+            if (found == null && entity!.cx == cx && entity.cy == cy)
             {
-                _exitTargetsByDoorKey[key] = entity;
-                if (removedCandidates > 0)
-                    HandleRemovedExitTargetCandidates();
-                return entity;
+                found = entity;
+                if (removedCandidates == 0)
+                    return found;
             }
         }
 
         if (removedCandidates > 0)
             HandleRemovedExitTargetCandidates();
 
-        return null;
+        return found;
     }
 
     private Entity? FindExitTargetByDestination(Level? level, string destinationLevelId)
@@ -1910,15 +1926,29 @@ public class LevelExitSync :
 
     private static bool IsSupportedExitTarget(Entity? entity)
     {
-        if (entity is Exit || entity is Portal || entity is BossRushDoor)
+        if (entity is Exit
+            or Portal
+            or BossRushDoor
+            or Teleport
+            or ExitToDeathTrigger
+            or ExitToQueenTrigger
+            or ExitToRichterCastle
+            or ExitToDookuTrigger)
+        {
             return true;
+        }
+
         if (entity == null)
             return false;
-        var name = entity.GetType().Name;
-        return name.Contains("Exit", StringComparison.OrdinalIgnoreCase) ||
-               name.Contains("Portal", StringComparison.OrdinalIgnoreCase) ||
-               name.Contains("Barque", StringComparison.OrdinalIgnoreCase) ||
-               name.Contains("Richter", StringComparison.OrdinalIgnoreCase);
+
+        return _supportedExitTypeCache.GetOrAdd(entity.GetType(), static type =>
+        {
+            var name = type.Name;
+            return name.Contains("Exit", StringComparison.OrdinalIgnoreCase) ||
+                   name.Contains("Portal", StringComparison.OrdinalIgnoreCase) ||
+                   name.Contains("Barque", StringComparison.OrdinalIgnoreCase) ||
+                   name.Contains("Richter", StringComparison.OrdinalIgnoreCase);
+        });
     }
 
     private static bool IsAvailableExitTarget(Entity? entity)
@@ -1940,33 +1970,51 @@ public class LevelExitSync :
 
     private static bool IsInBossFight()
     {
+        var now = Environment.TickCount64;
+        if (now - _lastBossFightCheckTicks < 500)
+            return _lastBossFightResult;
+
+        _lastBossFightCheckTicks = now;
         try
         {
             var hero = ModEntry.me;
             if (hero == null || hero._level == null)
+            {
+                _lastBossFightResult = false;
                 return false;
-            
+            }
+
             var level = hero._level;
             var boss = level.boss;
             if (boss != null && !boss.destroyed && boss.life > 0)
+            {
+                _lastBossFightResult = true;
                 return true;
-            
+            }
+
             // The old level-id fallback kept this true for the whole boss level — including
             // after the kill — which permanently disabled the client's exit door and made the
             // activate hook fall through to an uncoordinated native transition (one player
             // forwards, one stuck). Use the live tracked boss registry instead: it goes false
             // the moment the encounter actually ends and also covers Boss Rush duo clones.
-            return DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.HasLivingTrackedBoss();
+            _lastBossFightResult = DeadCellsMultiplayerMod.Mobs.MobsSynchronization.MobsSynchronization.HasLivingTrackedBoss();
+            return _lastBossFightResult;
         }
         catch
         {
+            _lastBossFightResult = false;
         }
         return false;
     }
 
     private DoorVisual EnsureDoorVisual(Entity target)
     {
-        var key = BuildDoorKey(target.cx, target.cy);
+        var targetCx = target.cx;
+        var targetCy = target.cy;
+        var key = (targetCx == _localDoorCx && targetCy == _localDoorCy && !string.IsNullOrEmpty(_localDoorKey))
+            ? _localDoorKey
+            : BuildDoorKey(targetCx, targetCy);
+
         if (_doorVisuals.TryGetValue(key, out var existing))
         {
             existing.Door = target;
@@ -2473,6 +2521,8 @@ public class LevelExitSync :
         // commit from the previous level pass the "newer than last applied" test.
         _downedExitFollowDoorKey = string.Empty;
         _downedExitFollowStartedTicks = 0;
+        _lastBossFightCheckTicks = 0;
+        _lastBossFightResult = false;
         _readyStateCacheDirty = true;
         _watchedDoorCacheDirty = true;
         _doorVisualRefreshDirty = true;
@@ -2666,14 +2716,16 @@ public class LevelExitSync :
 
     private bool ApplyNearestExitSelection(Entity? nearestTarget, bool insideCircle)
     {
-        var newDoorKey = nearestTarget != null ? BuildDoorKey(nearestTarget.cx, nearestTarget.cy) : string.Empty;
         var newDoorCx = nearestTarget?.cx ?? 0;
         var newDoorCy = nearestTarget?.cy ?? 0;
         var newDoorOutOfGame = nearestTarget == null || SafeRead(() => nearestTarget.isOutOfGame, false);
         var newDoorOnScreen = nearestTarget != null && SafeRead(() => nearestTarget.isOnScreen, false);
         var newInsideCircle = nearestTarget != null && insideCircle;
 
-        if (string.Equals(_localDoorKey, newDoorKey, StringComparison.Ordinal) &&
+        var hasTarget = nearestTarget != null;
+        var hadTarget = !string.IsNullOrEmpty(_localDoorKey);
+
+        if (hasTarget == hadTarget &&
             _localDoorCx == newDoorCx &&
             _localDoorCy == newDoorCy &&
             _localDoorOutOfGame == newDoorOutOfGame &&
@@ -2683,6 +2735,7 @@ public class LevelExitSync :
             return false;
         }
 
+        var newDoorKey = hasTarget ? BuildDoorKey(newDoorCx, newDoorCy) : string.Empty;
         _localDoorKey = newDoorKey;
         _localDoorCx = newDoorCx;
         _localDoorCy = newDoorCy;
@@ -2694,7 +2747,7 @@ public class LevelExitSync :
 
     private static bool ApplyPlayerState(
         PlayerExitState trackedState,
-        string doorKey,
+        string? doorKey,
         int doorCx,
         int doorCy,
         bool pressed,
@@ -2705,16 +2758,25 @@ public class LevelExitSync :
         if (trackedState == null)
             return false;
 
+        var coordsChanged = trackedState.DoorCx != doorCx || trackedState.DoorCy != doorCy;
         var changed =
-            !string.Equals(trackedState.DoorKey, doorKey, StringComparison.Ordinal) ||
-            trackedState.DoorCx != doorCx ||
-            trackedState.DoorCy != doorCy ||
+            coordsChanged ||
             trackedState.Pressed != pressed ||
             trackedState.InsideCircle != insideCircle ||
             trackedState.IsOutOfGame != isOutOfGame ||
-            trackedState.IsOnScreen != isOnScreen;
+            trackedState.IsOnScreen != isOnScreen ||
+            string.IsNullOrEmpty(trackedState.DoorKey);
 
-        trackedState.DoorKey = doorKey;
+        if (coordsChanged || string.IsNullOrEmpty(trackedState.DoorKey))
+        {
+            if (!string.IsNullOrEmpty(doorKey) && !coordsChanged)
+                trackedState.DoorKey = doorKey;
+            else if (doorCx == 0 && doorCy == 0)
+                trackedState.DoorKey = string.Empty;
+            else
+                trackedState.DoorKey = doorKey ?? BuildDoorKey(doorCx, doorCy);
+        }
+
         trackedState.DoorCx = doorCx;
         trackedState.DoorCy = doorCy;
         trackedState.Pressed = pressed;
@@ -2722,6 +2784,18 @@ public class LevelExitSync :
         trackedState.IsOutOfGame = isOutOfGame;
         trackedState.IsOnScreen = isOnScreen;
         return changed;
+    }
+
+    private static bool ApplyPlayerState(
+        PlayerExitState trackedState,
+        int doorCx,
+        int doorCy,
+        bool pressed,
+        bool insideCircle,
+        bool isOutOfGame,
+        bool isOnScreen)
+    {
+        return ApplyPlayerState(trackedState, null, doorCx, doorCy, pressed, insideCircle, isOutOfGame, isOnScreen);
     }
 
     private PlayerExitState GetOrCreatePlayerState(int userId)

@@ -167,6 +167,7 @@ public partial class InteractionSync :
         Hook_PurpleElevatorButton.canBeActivated += Hook_PurpleElevatorButton_canBeActivated;
         Hook_PurpleElevatorButton.onFocus += Hook_PurpleElevatorButton_onFocus;
         Hook_PurpleElevatorButton.onActivate += Hook_PurpleElevatorButton_onActivate;
+        Hook_Level.onDispose += Hook_Level_onDispose;
         InitializeCollectorForgeHooks();
         InitializeShopHooks();
     }
@@ -381,13 +382,32 @@ public partial class InteractionSync :
         _lastElevatorRestingBroadcastTickMs = 0;
         _pressurePlateLastAppliedSequence.Clear();
         _buttonActivationState.Clear();
-        CachedInteractionLevelData.Clear();
-        _cachedInteractionLevel = null;
-        _cachedInteractionEntityCount = -1;
-        _cachedInteractionTriggerCount = -1;
+        ClearInteractionLevelCache();
         ShopReservations.ClearAll();
         CollectorLedger.ResetLocks();
         ClearPersistentInteractionStateForLevel();
+    }
+
+    private void Hook_Level_onDispose(Hook_Level.orig_onDispose orig, Level self)
+    {
+        try
+        {
+            if (ReferenceEquals(_cachedInteractionLevel, self) || _cachedInteractionLevel == null)
+            {
+                ClearInteractionLevelCache();
+            }
+
+            if (ReferenceEquals(_interactionRuntimeLevel, self))
+            {
+                _interactionRuntimeLevel = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "[InteractionSync] Failed to clear interaction level cache on Level.onDispose.");
+        }
+
+        orig(self);
     }
 
     /// <summary>
@@ -396,6 +416,7 @@ public partial class InteractionSync :
     /// </summary>
     public static void ResetForRunRestart()
     {
+        ClearInteractionLevelCache();
         CollectorLedger.ResetLocks();
         ShopReservations.ClearAll();
 
